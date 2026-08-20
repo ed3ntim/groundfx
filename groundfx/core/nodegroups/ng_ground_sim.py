@@ -34,6 +34,7 @@ IN_GEOMETRY = "Geometry"
 IN_MATERIAL_HEIGHT = "Material Height"
 IN_COLLIDER_COLLECTION = "Colliders"
 IN_COLLIDER_OFFSET = "Collider Offset"
+IN_CONTACT_AA = "Contact AA"
 IN_REPOSE = "Angle Of Repose"
 IN_COHESION = "Cohesion"
 IN_FLOW = "Flow Rate"
@@ -73,6 +74,9 @@ def build(name: str = NG_GROUND_SIM) -> bpy.types.GeometryNodeTree:
     b.input(IN_COLLIDER_OFFSET, "NodeSocketFloat", default=0.0,
             min=-0.5, max=0.5, subtype="DISTANCE",
             description="Penetration tolerance added to the collider surface")
+    b.input(IN_CONTACT_AA, "NodeSocketFloat", default=0.0, min=0.0, max=1.0,
+            description="Hero mode: sub-cell supersampling of the contact edge "
+                        "(0 = one ray/vertex, 1 = anti-aliased silhouette)")
     b.input(IN_REPOSE, "NodeSocketFloat", default=math.radians(34.0),
             min=0.0, max=math.radians(85.0), subtype="ANGLE",
             description="Angle of repose: the steepest stable slope")
@@ -141,11 +145,6 @@ def build(name: str = NG_GROUND_SIM) -> bpy.types.GeometryNodeTree:
     pos2 = b.add("GeometryNodeInputPosition")
     sep2 = b.add("ShaderNodeSeparateXYZ")
     b.link(pos2, "Position", sep2, "Vector")
-    src = b.add("ShaderNodeCombineXYZ")
-    b.link(sep2, "X", src, "X")
-    b.link(sep2, "Y", src, "Y")
-    b.link(src_z, "Value", src, "Z")
-
     # Union of every collider in the collection. Collection Info returns the
     # members as instances in the domain's local space (RELATIVE); Realize
     # Instances turns them into real geometry so the ray can hit any of them.
@@ -157,34 +156,80 @@ def build(name: str = NG_GROUND_SIM) -> bpy.types.GeometryNodeTree:
     realize = b.add("GeometryNodeRealizeInstances")
     b.link(coll_info, "Instances", realize, "Geometry")
 
-    ray = b.add("GeometryNodeRaycast", data_type="FLOAT",
-                inputs={"Ray Length": 2.0 * _RAY_LENGTH,
-                        "Ray Direction": (0.0, 0.0, 1.0)})
-    b.link(realize, "Geometry", ray, "Target Geometry")
-    b.link(src, "Vector", ray, "Source Position")
+    # --- supersampled contact carve (E4-S4, hero silhouettes) --------------
+    # One ray per vertex hard-quantises the imprint edge to the grid, which
+    # facets a product's silhouette at close-up scale. We instead cast a
+    # quincunx of five rays spread up to half a cell and average the resulting
+    # surface, so a cell that the collider only partly covers carves partly:
+    # the edge takes sub-cell coverage values and follows the real contour.
+    # Contact AA scales the spread; at 0 all five samples collapse onto the
+    # vertex, so the result is identical to the original single-ray carve.
+    half = b.add("ShaderNodeMath", operation="MULTIPLY", inputs={1: 0.5},
+                 label="0.5 * cell * AA")
+    cell_aa = b.add("ShaderNodeMath", operation="MULTIPLY", label="cell * AA")
+    b.link(gin, IN_CELL_SIZE, cell_aa, 0)
+    b.link(gin, IN_CONTACT_AA, cell_aa, 1)
+    b.link(cell_aa, "Value", half, 0)
 
-    hit_sep = b.add("ShaderNodeSeparateXYZ")
-    b.link(ray, "Hit Position", hit_sep, "Vector")
-    # Apply collider offset: raise the effective underside by the tolerance.
-    hit_z = b.add("ShaderNodeMath", operation="ADD", label="hit_z + offset")
-    b.link(hit_sep, "Z", hit_z, 0)
-    b.link(gin, IN_COLLIDER_OFFSET, hit_z, 1)
+    def _sample(oxm, oym):
+        """One up-ray at vertex XY offset by (oxm,oym)*half; return its surface."""
+        if oxm == 0 and oym == 0:
+            sx, sxk, sy, syk = sep2, "X", sep2, "Y"
+        else:
+            ox = b.add("ShaderNodeMath", operation="MULTIPLY", inputs={1: oxm})
+            b.link(half, "Value", ox, 0)
+            oy = b.add("ShaderNodeMath", operation="MULTIPLY", inputs={1: oym})
+            b.link(half, "Value", oy, 0)
+            sx = b.add("ShaderNodeMath", operation="ADD")
+            b.link(sep2, "X", sx, 0)
+            b.link(ox, "Value", sx, 1)
+            sy = b.add("ShaderNodeMath", operation="ADD")
+            b.link(sep2, "Y", sy, 0)
+            b.link(oy, "Value", sy, 1)
+            sxk, syk = "Value", "Value"
+        srcv = b.add("ShaderNodeCombineXYZ")
+        b.link(sx, sxk, srcv, "X")
+        b.link(sy, syk, srcv, "Y")
+        b.link(src_z, "Value", srcv, "Z")
+        ray = b.add("GeometryNodeRaycast", data_type="FLOAT",
+                    inputs={"Ray Length": 2.0 * _RAY_LENGTH,
+                            "Ray Direction": (0.0, 0.0, 1.0)})
+        b.link(realize, "Geometry", ray, "Target Geometry")
+        b.link(srcv, "Vector", ray, "Source Position")
+        hsep = b.add("ShaderNodeSeparateXYZ")
+        b.link(ray, "Hit Position", hsep, "Vector")
+        hz = b.add("ShaderNodeMath", operation="ADD", label="hit_z + offset")
+        b.link(hsep, "Z", hz, 0)
+        b.link(gin, IN_COLLIDER_OFFSET, hz, 1)
+        cand = b.add("GeometryNodeSwitch", input_type="FLOAT")
+        b.link(ray, "Is Hit", cand, "Switch")
+        b.link(surface_old, "Value", cand, "False")
+        b.link(hz, "Value", cand, "True")
+        low = b.add("ShaderNodeMath", operation="MINIMUM")
+        b.link(cand, "Output", low, 0)
+        b.link(surface_old, "Value", low, 1)
+        ns = b.add("ShaderNodeMath", operation="MAXIMUM", label="max(_, base)")
+        b.link(low, "Value", ns, 0)
+        b.link(read_base, "Attribute", ns, 1)
+        return ns
 
-    # candidate = is_hit ? hit_z : surface_old
-    candidate = b.add("GeometryNodeSwitch", input_type="FLOAT",
-                      label="hit_z if hit")
-    b.link(ray, "Is Hit", candidate, "Switch")
-    b.link(surface_old, "Value", candidate, "False")
-    b.link(hit_z, "Value", candidate, "True")
-
-    # new_surface = clamp(min(candidate, surface_old), >= base)
-    lower = b.add("ShaderNodeMath", operation="MINIMUM", label="min(cand, surf)")
-    b.link(candidate, "Output", lower, 0)
-    b.link(surface_old, "Value", lower, 1)
-    new_surface = b.add("ShaderNodeMath", operation="MAXIMUM",
-                        label="max(_, base)")
-    b.link(lower, "Value", new_surface, 0)
-    b.link(read_base, "Attribute", new_surface, 1)
+    samples = [_sample(0, 0), _sample(1, 1), _sample(1, -1),
+               _sample(-1, 1), _sample(-1, -1)]
+    sum_a = b.add("ShaderNodeMath", operation="ADD")
+    b.link(samples[0], "Value", sum_a, 0)
+    b.link(samples[1], "Value", sum_a, 1)
+    sum_b = b.add("ShaderNodeMath", operation="ADD")
+    b.link(samples[2], "Value", sum_b, 0)
+    b.link(samples[3], "Value", sum_b, 1)
+    sum_ab = b.add("ShaderNodeMath", operation="ADD")
+    b.link(sum_a, "Value", sum_ab, 0)
+    b.link(sum_b, "Value", sum_ab, 1)
+    sum_all = b.add("ShaderNodeMath", operation="ADD", label="sum 5 samples")
+    b.link(sum_ab, "Value", sum_all, 0)
+    b.link(samples[4], "Value", sum_all, 1)
+    new_surface = b.add("ShaderNodeMath", operation="DIVIDE", inputs={1: 5.0},
+                        label="new_surface = avg")
+    b.link(sum_all, "Value", new_surface, 0)
 
     # new_h = new_surface - base ; carve = surface_old - new_surface
     new_h = b.add("ShaderNodeMath", operation="SUBTRACT", label="new_h")

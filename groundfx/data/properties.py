@@ -48,6 +48,14 @@ def _push_collider_collection(self, context):
                               self.collider_collection)
 
 
+def _push_hero_contact(self, context):
+    obj = self.id_data
+    md = _domain_modifier(obj)
+    if md:
+        modifier_io.set_input(md, gsim.IN_CONTACT_AA,
+                              1.0 if self.hero_contact else 0.0)
+
+
 class GroundFXObjectSettings(bpy.types.PropertyGroup):
     is_domain: bpy.props.BoolProperty(
         name="Is GroundFX Domain", default=False)
@@ -91,6 +99,11 @@ class GroundFXObjectSettings(bpy.types.PropertyGroup):
     collider_active: bpy.props.IntProperty(
         name="Active Collider", default=0,
         description="Selected row in the collider list")
+
+    hero_contact: bpy.props.BoolProperty(
+        name="Hero Contact", default=False, update=_push_hero_contact,
+        description="Supersample the contact edge for a silhouette-accurate "
+                    "imprint (product/hero shots). Costs more per frame")
 
 
 classes = (

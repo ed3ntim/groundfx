@@ -13,7 +13,7 @@ import bpy
 
 from ..core.constants import (
     OP_PREFIX, PROP_IS_COLLIDER, COLLIDER_COLLECTION_SUFFIX, MODIFIER_NAME,
-    PROXY_NONE, PROXY_MODES, PROXY_MODE_LABELS, PROXY_TYPE_INT,
+    PROXY_NONE, PROXY_MODES, PROXY_MODE_LABELS, PROXY_TYPE_INT, HERO_POLY_WARN,
 )
 from ..core import modifier_io
 from ..core.ng_library import ensure_node_group
@@ -118,11 +118,15 @@ class GFX_OT_mark_collider(bpy.types.Operator):
             return {"CANCELLED"}
 
         added = 0
+        heavy = []
         for o in targets:
             o[PROP_IS_COLLIDER] = True
             o.groundfx.is_collider = True
             o.groundfx.collider_proxy = self.proxy
             if self.proxy == PROXY_NONE:
+                # Hero (original geometry) is silhouette-true but can be pricey.
+                if o.type == "MESH" and len(o.data.polygons) > HERO_POLY_WARN:
+                    heavy.append(o.name)
                 # A previously created proxy is now stale -> drop it.
                 stale = _find_proxy(coll, o)
                 if stale is not None:
@@ -138,7 +142,12 @@ class GFX_OT_mark_collider(bpy.types.Operator):
         domain.update_tag()
         log.info("marked %d collider(s) on %s (proxy=%s)",
                  added, domain.name, self.proxy)
-        self.report({"INFO"}, f"Marked {added} collider(s)")
+        if heavy:
+            self.report({"WARNING"},
+                        f"{len(heavy)} hero collider(s) over "
+                        f"{HERO_POLY_WARN:,} faces — consider a proxy")
+        else:
+            self.report({"INFO"}, f"Marked {added} collider(s)")
         return {"FINISHED"}
 
 

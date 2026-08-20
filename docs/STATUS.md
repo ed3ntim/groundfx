@@ -2,7 +2,7 @@
 
 **Letzte Aktualisierung:** 2026-08-20
 **Aktueller Meilenstein:** M2 (Physik) — in Arbeit
-**Tests:** 47/47 grün (Blender 5.2.0 LTS, headless)
+**Tests:** 49/49 grün (Blender 5.2.0 LTS, headless)
 
 > Diese Datei ist der Wiedereinstiegspunkt. Wer den Kontext geleert hat, liest
 > `STATUS.md` → `PLAN.md` → `BACKLOG.md` → `API_NOTES.md` und ist wieder im Bild.
@@ -30,7 +30,12 @@ sind nicht bindend, nur optionale Hilfe fürs spätere Preset-Fine-Tuning.
 | **E2** | Add Sand/Snow/Mud, Domain-Objekt (2×2 m), Properties, Quality-Profile, Element-Kennwerte, UI-Panels mit Live-Info | Ein Klick erzeugt fertiges Setup |
 | **M1** | Minimaler Carve: bewegter Collider hinterlässt messbare Spur | Carve-Test grün |
 
-## In Arbeit — M2 (Physik)
+## In Arbeit — M2 (Physik) — Collider-Kern (E4) fertig
+
+> Offen in M2 und bewusst nach hinten geschoben: **E3-S1** Emitter/„Rain" (Material aus der Luft
+> auffüllen), **E3-S4** gfx_comp/wet/flow/age, **E3-S5** Substeps. Laut User-Priorität geht es nach
+> E4 zunächst mit **M3** weiter; diese E3-Reste werden bei Bedarf nachgezogen.
+
 
 - **E3-S2 Böschungswinkel-Relaxation** ✅ fertig (Toppling-Solver, ±1,5° kalibriert)
 - E3-S3 Aufhäufen / Bugwelle / Berm ✅ fertig (isotroper Berm; Richtung folgt in E4-S3)
@@ -46,7 +51,12 @@ sind nicht bindend, nur optionale Hilfe fürs spätere Preset-Fine-Tuning.
   dem Original inkl. Deformation via `Object Info`; Mark-Operator legt Proxy an, Original bleibt aus
   der Raycast-Menge. Benchmark-Test: Zielflächen 6 statt Tausende. Decimate-Proxy + BBox-Vorfilter
   (E4-T5/T7) offen.
-- E4-S4 Silhouette (Hero) — offen; E4-T11 (Substep-Lückenfüllung) hängt an E3-S5
+- **E4-S4 Hero-Collider / Silhouette** ✅ fertig — Original-Modus (silhouettentreu) + Poly-Warnung;
+  Supersampled Contact-Carve (5er-Quincunx, `Contact AA`, Domain-Toggle „Hero Contact"): löst die
+  Abdruckkante sub-zellulär auf (Test: 0 → 88 Kanten-Zwischenzellen). AA=0 bit-identisch zum
+  Einzelstrahl. Decimate-Proxy (E4-T13) aufgeschoben.
+- **E4 damit abgeschlossen** (bis auf aufgeschobene Optimierungen E4-T5 Decimate / E4-T7 BBox-Vorfilter
+  / E4-T11 Substeps→E3-S5). Nächster Schritt: M3 (E5 Presets, E7 Bake/Settle&Freeze, E8 Shader, …).
 
 ## Danach
 

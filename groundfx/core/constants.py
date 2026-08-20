@@ -16,7 +16,8 @@ ADDON_NAME = "GroundFX"
 # node graph changes shape, so ensure_node_group() knows to rebuild.
 # v4 (E4-S1): single Collider object socket -> Collider Collection socket.
 # v5 (E4-S3): carve_prev + bow-wave (directional deposit) input.
-NODEGROUP_VERSION = 5
+# v6 (E4-S4): supersampled contact carve (Contact AA) for hero silhouettes.
+NODEGROUP_VERSION = 6
 
 # --- UI ---------------------------------------------------------------------
 PANEL_CATEGORY = "GroundFX"     # N-panel tab label
@@ -72,6 +73,9 @@ PROXY_MODE_LABELS = {
     PROXY_HULL: "Convex Hull",
 }
 PROXY_TYPE_INT = {PROXY_BBOX: 0, PROXY_HULL: 1}  # -> node-group menu int
+# Above this face count, a hero (Original) collider is flagged as heavy and the
+# user is nudged toward a proxy (E4-T14, "wenn Poly-Zahl vertretbar").
+HERO_POLY_WARN = 200_000
 
 # --- Object custom-property keys -------------------------------------------
 PROP_IS_DOMAIN = "gfx_is_domain"       # marks a GroundFX domain object

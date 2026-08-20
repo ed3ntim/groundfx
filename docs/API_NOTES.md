@@ -50,6 +50,14 @@ Clamp [−1,1] (kein Normalisieren nahe 0 → kein 0/0-Blow-up). Advektions-Korr
 `s += 0.25·bow_wave·(vx·(P_−x−P_+x) + vy·(P_−y−P_+y))`, danach `max(s,0)`. Verifiziert: bw=0
 symmetrisch, bw=0.7 vorne höher.
 
+**Silhouettentreuer Contact-Carve (E4-S4):** Ein Strahl pro Vertex quantisiert die Abdruckkante
+hart auf die Zellgröße → Facettierung bei Nahaufnahmen. Lösung: **Supersampling** der Kontaktzone
+— 5er-Quincunx (Zentrum + 4 Ecken) mit Strahlen, die bis zu einer halben Zelle streuen, danach die
+resultierende Fläche mitteln → Sub-Zell-Deckung, Kante folgt der Kontur. Spread über `Contact AA`
+(0…1) skaliert; bei 0 kollabieren alle 5 Samples auf den Vertex → **bit-identisch** zum Einzelstrahl,
+also keine Mehrkosten im Normalfall. Verifiziert: gedrehter flach-unterseitiger Cube, 0 → 88
+partielle Kantenzellen bei gleicher Abdrucktiefe. Kein Repeat-Zone-Overhead (entrollt).
+
 **Field-Re-Evaluation (wichtiger GN-Fallstrick, E3-S3):** Named-Attribute-Felder
 (`InputNamedAttribute`) werden gegen **die Geometrie neu ausgewertet, durch die sie fließen** —
 nicht einmalig eingefroren. Wenn man `gfx_h` speichert und danach ein Wert, der `gfx_h` liest

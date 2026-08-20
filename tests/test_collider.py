@@ -11,8 +11,10 @@ import bpy
 
 import harness
 
+import math
+
 from groundfx.core.constants import (
-    ATTR_HEIGHT, MODIFIER_NAME, ELEM_SAND, PROP_IS_COLLIDER,
+    ATTR_HEIGHT, ATTR_CARVE, MODIFIER_NAME, ELEM_SAND, PROP_IS_COLLIDER,
 )
 
 
@@ -203,6 +205,64 @@ def test_proxy_reduces_cost_and_still_carves():
     for o in (src, proxy, obj):
         if o.name in bpy.data.objects:
             bpy.data.objects.remove(o, do_unlink=True)
+
+
+def _edge_partial_count(obj, deps):
+    """(#partial-carve cells, full-carve depth): partial = a cell carved between
+    20% and 80% of the full depth — i.e. it sits on an anti-aliased edge."""
+    ev = obj.evaluated_get(deps)
+    cattr = ev.data.attributes.get(ATTR_CARVE)
+    if cattr is None:
+        return 0, 0.0
+    vals = [d.value for d in cattr.data]
+    full = max(vals)
+    if full <= 1e-4:
+        return 0, 0.0
+    partial = sum(1 for c in vals if 0.2 * full < c < 0.8 * full)
+    return partial, full
+
+
+def _carve_edge_partials(hero):
+    """Press a 45deg-rotated flat-bottomed cube in; count edge partial cells."""
+    _reset()
+    from groundfx.ops.op_add import create_domain
+
+    scene = bpy.context.scene
+    scene.frame_start = 1
+    scene.frame_end = 10
+
+    obj = create_domain(bpy.context, ELEM_SAND)
+    obj.groundfx.hero_contact = hero  # drives Contact AA 0/1
+
+    # A cube rotated 45deg about Z: its silhouette edges cross the grid
+    # diagonally, so a flat underside gives a binary imprint without AA.
+    bpy.ops.mesh.primitive_cube_add(size=0.5, location=(0.0, 0.0, 2.0))
+    cube = bpy.context.active_object
+    cube.rotation_euler[2] = math.radians(45.0)
+    obj.groundfx.collider_collection.objects.link(cube)
+
+    scene.frame_set(1)
+    cube.location = (0.0, 0.0, 0.28)  # underside ~0.03, a partial trench
+    scene.frame_set(2)
+    deps = bpy.context.evaluated_depsgraph_get()
+    partial, full = _edge_partial_count(obj, deps)
+
+    for o in (cube, obj):
+        bpy.data.objects.remove(o, do_unlink=True)
+    return partial, full
+
+
+def test_hero_contact_antialiases_silhouette():
+    """E4-S4/T16: hero contact resolves the imprint edge below cell size."""
+    off_partial, off_full = _carve_edge_partials(hero=False)
+    on_partial, on_full = _carve_edge_partials(hero=True)
+
+    harness.check("both imprints carve", off_full > 0.01 and on_full > 0.01,
+                  f"full off {off_full:.3f} on {on_full:.3f}")
+    # Without AA the diagonal edge is binary (near-zero partial cells); with AA
+    # a band of sub-cell-coverage cells appears along the silhouette.
+    harness.check("hero contact adds edge gradient", on_partial > off_partial + 8,
+                  f"partial cells off {off_partial} vs on {on_partial}")
 
 
 def test_mark_and_unmark_operators():

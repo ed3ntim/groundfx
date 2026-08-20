@@ -170,10 +170,14 @@ nur Einweg-Kollision · UI und Code Englisch, Doku Deutsch · Nahaufnahme-Maßst
 im Nahaufnahme-Maßstab der echten Objektkontur folgt (kein sichtbares Facettieren durch einen zu
 groben Proxy).
 
-- [ ] E4-T13 Silhouettentreuer Proxy-Modus (leichtes Decimate mit Erhalt der Außenkanten, kein Convex Hull)
-- [ ] E4-T14 „Hero Collider"-Flag: nutzt Originalgeometrie direkt, wenn Poly-Zahl vertretbar
-- [ ] E4-T15 Kontaktzone adaptiv feiner sampeln als der Rest der Domain (nur wo das Objekt eintaucht)
-- [ ] E4-T16 Test: Abdruckkante gegen die projizierte Objektsilhouette vergleichen
+- [ ] E4-T13 Silhouettentreuer Decimate-Proxy (Außenkanten erhalten) — aufgeschoben (kein GN-Decimate;
+  der Hero-Modus mit Originalgeometrie deckt Silhouettentreue bereits ab)
+- [x] E4-T14 „Hero Collider" — Original-Modus nutzt die Geometrie direkt (silhouettentreu);
+  Poly-Warnung beim Markieren über `HERO_POLY_WARN` (Vorschlag Proxy)
+- [x] E4-T15 Kontaktzone feiner sampeln — Supersampled Contact-Carve (5er-Quincunx, `Contact AA`);
+  domain-Toggle „Hero Contact". AA=0 bit-identisch zum Einzelstrahl (keine Mehrkosten im Normalfall)
+- [x] E4-T16 Test: gedrehter flach-unterseitiger Cube — ohne AA binäre Kante (0 partielle Zellen),
+  mit AA anti-aliaste Silhouette (88 Kanten-Zwischenzellen), Abdrucktiefe innen gleich
 
 ### E4-S3 — Als User will ich, dass schnelle Objekte durchgehende Spuren erzeugen. `M`
 
