@@ -330,6 +330,12 @@ direkt auf die Physik.
 Performance-Regel: Micro-Detail primär als **Bump/Normal**, echtes Displacement nur in Cycles
 und nur ab Quality = High.
 
+**Engine-Priorität (entschieden): Cycles zuerst.** Die Shader werden für Cycles-Endqualität
+gebaut — echtes Adaptive Displacement, SSS bei Schnee, physikalisch korrekte Roughness — weil der
+Produktfoto-Use-Case (Hero-Shot) das Ziel ist. EEVEE Next bleibt voll lauffähig als schnelle
+Vorschau (Bump statt Displacement, SSS-Approximation), bekommt aber keinen eigenen Feinschliff.
+Jeder Shader wird trotzdem in **beiden** Engines auf „sieht nicht kaputt aus" geprüft.
+
 ---
 
 ## 7. UI/UX-Konzept

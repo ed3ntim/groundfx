@@ -17,6 +17,9 @@ Antwort führt zu einer anderen Architektur, nicht nur zu anderen Defaults.
 | **F10 Zusatzfeatures** | Reifenprofil in der Spur · Material klebt am Objekt · Fallender Schnee | Als E13, E14, E15 im Backlog, alle P1 für Release 1.0. Winderosion, Decals und Heightmap-Export bleiben P2/P3 |
 | **F12 Name** | **GroundFX** | Paket `groundfx`, Operatoren `groundfx.*`, Attribute `gfx_*`, Panel-Kategorie „GroundFX" |
 | **F12 Git** | Ja, Repository initialisieren | `git init` samt `.gitignore` (Cache, `__pycache__`, Build-ZIPs, Referenzvideos) und Erstcommit der Planungsdokumente |
+| **F6 Versionsspanne** | Nur Blender 5.2+ | Keine Kompatibilitäts-Altlasten; jede API gegen genau 5.2 verifiziert. `compat.BLENDER_MIN = (5,2,0)` |
+| **F7 Render-Engine** | Cycles priorisiert | Shader zielen auf Cycles-Endqualität (echtes Displacement, SSS, korrekte Roughness). EEVEE bleibt lauffähig als schnelle Vorschau, ohne eigenen Feinschliff. Stützt Use-Case 2 (Produktfoto) |
+| **F9 Verteilung** | Später evtl. Verkauf | Von Anfang an sauber (UI/Code Englisch steht bereits), aber Politur/Doku/Beispiele/i18n erst bei konkreter Verkaufsentscheidung. Kein Mehraufwand pro Feature jetzt |
 
 ---
 
@@ -85,7 +88,7 @@ Du installierst Blender gerade. Ich brauche danach:
 Damit kann ich jeden Schritt headless selbst verifizieren, statt blind zu liefern — das hebt die
 Qualität deutlich.
 
-### F6 — Versionsspanne
+### F6 — Versionsspanne ✅ *entschieden: nur 5.2+*
 
 Nur Blender 5.2+, oder soll auch 4.5 LTS unterstützt werden? Letzteres ist machbar
 (Simulation Zones und Blur Attribute gibt es seit 4.0), kostet aber laufend Kompatibilitätsarbeit
@@ -93,7 +96,7 @@ in jedem Feature.
 
 **Empfehlung:** ausschließlich 5.2+, sauber und ohne Altlasten.
 
-### F7 — Render-Engine-Priorität
+### F7 — Render-Engine-Priorität ✅ *entschieden: Cycles priorisiert*
 
 EEVEE Next (Echtzeit, Games/Previz) oder Cycles (Final Frames)? Das entscheidet, wie viel
 Aufwand in Displacement, SSS und Sparkle fließt.
@@ -114,7 +117,7 @@ Das legt die Default-Domaingröße, die Preset-Kennwerte und die Priorität von 
 
 **Annahme, falls keine Antwort kommt:** Charakter/Fahrzeug, 8 m Domain, Quality Medium.
 
-### F9 — Zielgruppe und Verteilung
+### F9 — Zielgruppe und Verteilung ✅ *entschieden: später evtl. Verkauf*
 
 Nur für dich, oder als Produkt (Blender Extensions Platform, Blender Market, Gumroad)?
 Das beeinflusst Lizenzwahl, Umfang der Doku, i18n, Beispieldateien und den Polish-Aufwand.
