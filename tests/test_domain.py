@@ -66,7 +66,7 @@ def test_minimal_carve():
     # A 0.4 m cube collider; its underside sits 0.2 m below its origin.
     bpy.ops.mesh.primitive_cube_add(size=0.4)
     cube = bpy.context.active_object
-    modifier_io.set_input(md, gsim.IN_COLLIDER, cube)
+    obj.groundfx.collider_collection.objects.link(cube)
 
     # Baseline: place the collider high ABOVE the material *before* stepping
     # frame 1, so the simulation initialises to a clean 0.08 m layer. (The sim
@@ -120,7 +120,7 @@ def test_piling_forms_berm():
 
     bpy.ops.mesh.primitive_cube_add(size=0.4)
     cube = bpy.context.active_object
-    modifier_io.set_input(md, gsim.IN_COLLIDER, cube)
+    obj.groundfx.collider_collection.objects.link(cube)
 
     cube.location = (0.0, 0.0, 2.0)
     scene.frame_set(1)

@@ -32,7 +32,7 @@ from ..constants import (
 # Group input socket names (also used by the property/socket mapping).
 IN_GEOMETRY = "Geometry"
 IN_MATERIAL_HEIGHT = "Material Height"
-IN_COLLIDER = "Collider"
+IN_COLLIDER_COLLECTION = "Colliders"
 IN_COLLIDER_OFFSET = "Collider Offset"
 IN_REPOSE = "Angle Of Repose"
 IN_COHESION = "Cohesion"
@@ -66,8 +66,9 @@ def build(name: str = NG_GROUND_SIM) -> bpy.types.GeometryNodeTree:
             default=DEFAULT_MATERIAL_HEIGHT, min=0.0, max=5.0,
             subtype="DISTANCE",
             description="Resting thickness of the material layer")
-    b.input(IN_COLLIDER, "NodeSocketObject",
-            description="Object that carves the material (E4 adds collections)")
+    b.input(IN_COLLIDER_COLLECTION, "NodeSocketCollection",
+            description="Collection of objects that carve the material; the "
+                        "ray targets the union of everything inside it")
     b.input(IN_COLLIDER_OFFSET, "NodeSocketFloat", default=0.0,
             min=-0.5, max=0.5, subtype="DISTANCE",
             description="Penetration tolerance added to the collider surface")
@@ -141,13 +142,21 @@ def build(name: str = NG_GROUND_SIM) -> bpy.types.GeometryNodeTree:
     b.link(sep2, "Y", src, "Y")
     b.link(src_z, "Value", src, "Z")
 
-    obj_info = b.add("GeometryNodeObjectInfo", transform_space="RELATIVE")
-    b.link(gin, IN_COLLIDER, obj_info, "Object")
+    # Union of every collider in the collection. Collection Info returns the
+    # members as instances in the domain's local space (RELATIVE); Realize
+    # Instances turns them into real geometry so the ray can hit any of them.
+    # This is what lifts the M1 single-collider limit to arbitrary many (E4).
+    coll_info = b.add("GeometryNodeCollectionInfo", transform_space="RELATIVE",
+                      inputs={"Separate Children": False,
+                              "Reset Children": False})
+    b.link(gin, IN_COLLIDER_COLLECTION, coll_info, "Collection")
+    realize = b.add("GeometryNodeRealizeInstances")
+    b.link(coll_info, "Instances", realize, "Geometry")
 
     ray = b.add("GeometryNodeRaycast", data_type="FLOAT",
                 inputs={"Ray Length": 2.0 * _RAY_LENGTH,
                         "Ray Direction": (0.0, 0.0, 1.0)})
-    b.link(obj_info, "Geometry", ray, "Target Geometry")
+    b.link(realize, "Geometry", ray, "Target Geometry")
     b.link(src, "Vector", ray, "Source Position")
 
     hit_sep = b.add("ShaderNodeSeparateXYZ")

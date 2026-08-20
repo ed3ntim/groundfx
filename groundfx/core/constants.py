@@ -14,11 +14,15 @@ ADDON_NAME = "GroundFX"
 
 # Node-group / node-tree data-block version. Bumped whenever the generated
 # node graph changes shape, so ensure_node_group() knows to rebuild.
-NODEGROUP_VERSION = 3
+# v4 (E4-S1): single Collider object socket -> Collider Collection socket.
+NODEGROUP_VERSION = 4
 
 # --- UI ---------------------------------------------------------------------
 PANEL_CATEGORY = "GroundFX"     # N-panel tab label
 COLLECTION_NAME = "GroundFX"    # collection that holds domain objects
+# Per-domain collider collection: "<domain name> Colliders", nested under the
+# GroundFX collection. Raycast targets the union of everything inside it (E4).
+COLLIDER_COLLECTION_SUFFIX = " Colliders"
 
 # --- Elements ---------------------------------------------------------------
 ELEM_SAND = "SAND"

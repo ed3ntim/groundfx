@@ -143,11 +143,13 @@ nur Einweg-Kollision · UI und Code Englisch, Doku Deutsch · Nahaufnahme-Maßst
 > Ist Kernbestandteil dieser Story (Collider-Collection) und landet damit in **v1**, nicht
 > erst v2. Der aktuelle M1-Solver unterstützt nur einen Collider; E4 hebt das auf beliebig viele.
 
-- [ ] E4-T1 Operator „Als Collider markieren / entfernen" (Multi-Select)
-- [ ] E4-T2 Collider-Collection pro Domain, automatisch angelegt
-- [ ] E4-T3 UIList mit Status, Proxy-Typ, Offset pro Collider
-- [ ] E4-T4 Unterstützung für Instanzen und animierte Objekte
-- [ ] E4-T17 Raycast gegen die vereinigte Collider-Collection (Object Info → Realize/Join, oder Collection Info) statt gegen ein Einzelobjekt
+- [x] E4-T1 Operator „Als Collider markieren / entfernen" (Multi-Select) — `ops/op_collider.py`
+- [x] E4-T2 Collider-Collection pro Domain, automatisch angelegt („<Domain> Colliders" unter GroundFX)
+- [~] E4-T3 UIList mit Collidern (Status/Proxy-Typ/Offset pro Collider folgt mit E4-S2/S3)
+- [x] E4-T4 Instanzen und animierte Objekte — Collection Info (RELATIVE) wertet den Depsgraph
+  aus, Realize Instances löst Instanzen auf → beides trifft automatisch
+- [x] E4-T17 Raycast gegen die vereinigte Collider-Collection (Collection Info → Realize
+  Instances → Raycast Target) statt gegen ein Einzelobjekt. API in `dev/probe_collection_raycast.py` verifiziert.
 
 ### E4-S2 — Als User will ich, dass auch High-Poly-Charaktere performant bleiben. `L`
 

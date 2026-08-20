@@ -23,7 +23,8 @@ from ..data import elements as emod
 from ..utils import log
 
 
-def _get_collection(context) -> bpy.types.Collection:
+def get_groundfx_collection(context) -> bpy.types.Collection:
+    """Return the top-level GroundFX collection, creating it if absent."""
     coll = bpy.data.collections.get(COLLECTION_NAME)
     if coll is None:
         coll = bpy.data.collections.new(COLLECTION_NAME)
@@ -73,7 +74,7 @@ def create_domain(context, element: str,
     obj = bpy.data.objects.new(name, mesh)
     obj.location = context.scene.cursor.location
 
-    _get_collection(context).objects.link(obj)
+    get_groundfx_collection(context).objects.link(obj)
 
     # Node group + modifier.
     tree = ensure_node_group(gsim.NG_GROUND_SIM, gsim.build)
@@ -101,6 +102,13 @@ def create_domain(context, element: str,
     modifier_io.set_input(md, gsim.IN_GRID_N, prof.resolution + 1, tag=False)
     modifier_io.set_input(md, gsim.IN_DISPLACE_RATIO, 0.7, tag=False)
     modifier_io.set_input(md, gsim.IN_DEPOSIT_ITERS, 6, tag=True)
+
+    # Auto-create the (empty) collider collection and wire it, so the user can
+    # start marking colliders straight away (E4-T2). Lazy import avoids a
+    # module-load cycle with op_collider.
+    from .op_collider import ensure_collider_collection
+    ensure_collider_collection(context, obj)
+
     log.info("created %s domain (%d^2, %.2f m, cell %.3f m)",
              element, prof.resolution, size, size / prof.resolution)
     return obj

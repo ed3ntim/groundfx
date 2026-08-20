@@ -2,7 +2,7 @@
 
 **Letzte Aktualisierung:** 2026-08-20
 **Aktueller Meilenstein:** M2 (Physik) — in Arbeit
-**Tests:** 32/32 grün (Blender 5.2.0 LTS, headless)
+**Tests:** 40/40 grün (Blender 5.2.0 LTS, headless)
 
 > Diese Datei ist der Wiedereinstiegspunkt. Wer den Kontext geleert hat, liest
 > `STATUS.md` → `PLAN.md` → `BACKLOG.md` → `API_NOTES.md` und ist wieder im Bild.
@@ -33,8 +33,12 @@ sind nicht bindend, nur optionale Hilfe fürs spätere Preset-Fine-Tuning.
 ## In Arbeit — M2 (Physik)
 
 - **E3-S2 Böschungswinkel-Relaxation** ✅ fertig (Toppling-Solver, ±1,5° kalibriert)
-- E3-S3 Aufhäufen / Bugwelle / Berm ✅ fertig (isotroper Berm; Richtung folgt in E4)
-- E4 Collider-System (Mark-Operator, Proxy, **Multi-Collider** [User-Wunsch, v1], Geschwindigkeit)
+- E3-S3 Aufhäufen / Bugwelle / Berm ✅ fertig (isotroper Berm; Richtung folgt in E4-S3)
+- **E4-S1 Multi-Collider** ✅ fertig — Solver raycastet gegen die vereinigte Collider-Collection
+  (Collection Info → Realize → Raycast); beliebig viele Objekte carven gleichzeitig. Pro Domain
+  eine Auto-Collection „<Domain> Colliders"; Mark/Unmark-Operatoren + UIList. Test: zwei Cubes
+  carven simultan.
+- E4-S2 Proxy (High-Poly) · E4-S3 Geschwindigkeit/gerichtete Bugwelle · E4-S4 Silhouette (Hero) — offen
 
 ## Danach
 
@@ -83,9 +87,10 @@ groundfx/
     properties.py        GroundFXObjectSettings (obj.groundfx) + Callbacks
     quality.py           4 Qualitätsprofile + Zellgröße + Ampel
     elements.py          Physik-Kennwerte je Element
-  ui/panels.py           N-Panel: Add-Buttons + Domain-Panel
+  ui/panels.py           N-Panel: Add-Buttons + Domain-Panel + Collider-UIList
   ops/op_add.py          Add-Operator (numpy-Grid, headless-fest)
-tests/                   harness + test_smoke/test_builder/test_domain
+  ops/op_collider.py     Mark/Unmark-Collider, Auto-Collider-Collection (E4-S1)
+tests/                   harness + test_smoke/test_builder/test_domain/test_collider
 dev/                     build.py, verify_install.py, run_tests.ps1, probe_*.py
 docs/                    PLAN, BACKLOG, OPEN_QUESTIONS, API_NOTES, STATUS
 ```

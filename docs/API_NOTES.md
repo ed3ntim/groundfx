@@ -11,6 +11,8 @@ Gegen **Blender 5.2.0 LTS / Python 3.13.13** headless geprüft am 2026-08-20
 | Repeat Zone | Analog: `GeometryNodeRepeatInput`/`...Output`, `pair_with_output`, `rep_out.repeat_items.new(TYPE, name)`. |
 | Blur Attribute | `GeometryNodeBlurAttribute`, Input-Sockets: `Value`, `Iterations`, `Weight`. |
 | Raycast | `GeometryNodeRaycast` vorhanden. |
+| Collection Info | `GeometryNodeCollectionInfo` — Inputs `Collection`, `Separate Children`, `Reset Children`; Output **`Instances`**; Property `transform_space` (`ORIGINAL`/`RELATIVE`). Für Raycast gegen die Vereinigung: `RELATIVE` → `GeometryNodeRealizeInstances` → `Raycast.Target Geometry`. Verifiziert `dev/probe_collection_raycast.py` (E4-T17): ein Grid trifft die Unterseiten mehrerer Cubes in der Collection. |
+| Collection-Socket | Interface-Typ `NodeSocketCollection`. Modifier-Input wird wie Object-Sockets über `modifier.properties.inputs.<Socket_N>.value = collection` gesetzt (gekapselt in `modifier_io.set_input`). |
 | Sample Index | `GeometryNodeSampleIndex` vorhanden (für `conserve_mass`). |
 | Named Attribute | `GeometryNodeStoreNamedAttribute` / `GeometryNodeInputNamedAttribute`. |
 | Capture Attribute | `GeometryNodeCaptureAttribute`, nutzt `capture_items` (mehrere Werte je Node). |

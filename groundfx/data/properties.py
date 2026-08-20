@@ -39,16 +39,20 @@ def _push_material_height(self, context):
         modifier_io.set_input(md, gsim.IN_MATERIAL_HEIGHT, self.material_height)
 
 
-def _push_collider(self, context):
+def _push_collider_collection(self, context):
     obj = self.id_data
     md = _domain_modifier(obj)
     if md:
-        modifier_io.set_input(md, gsim.IN_COLLIDER, self.collider)
+        modifier_io.set_input(md, gsim.IN_COLLIDER_COLLECTION,
+                              self.collider_collection)
 
 
 class GroundFXObjectSettings(bpy.types.PropertyGroup):
     is_domain: bpy.props.BoolProperty(
         name="Is GroundFX Domain", default=False)
+
+    is_collider: bpy.props.BoolProperty(
+        name="Is GroundFX Collider", default=False)
 
     element: bpy.props.EnumProperty(
         name="Element", items=_element_items,
@@ -68,9 +72,14 @@ class GroundFXObjectSettings(bpy.types.PropertyGroup):
         min=0.0, max=5.0, subtype="DISTANCE", update=_push_material_height,
         description="Resting thickness of the material layer")
 
-    collider: bpy.props.PointerProperty(
-        name="Collider", type=bpy.types.Object, update=_push_collider,
-        description="Object that carves the material (E4 adds collections)")
+    collider_collection: bpy.props.PointerProperty(
+        name="Colliders", type=bpy.types.Collection,
+        update=_push_collider_collection,
+        description="Collection of objects that carve this material")
+
+    collider_active: bpy.props.IntProperty(
+        name="Active Collider", default=0,
+        description="Selected row in the collider list")
 
 
 classes = (

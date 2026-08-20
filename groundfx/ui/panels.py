@@ -72,10 +72,57 @@ class GFX_PT_domain(bpy.types.Panel):
         col = layout.column()
         col.prop(st, "domain_size")
         col.prop(st, "material_height")
-        col.prop(st, "collider")
+
+
+class GFX_UL_colliders(bpy.types.UIList):
+    """Rows of the active domain's collider collection."""
+
+    def draw_item(self, context, layout, data, item, icon,
+                  active_data, active_prop, index):
+        # ``item`` is a CollectionObject wrapper; item.name is the object name.
+        obj = getattr(item, "object", None) or item
+        layout.label(text=obj.name, icon="OBJECT_DATA")
+
+
+class GFX_PT_colliders(bpy.types.Panel):
+    """Collider list + mark/unmark tools for the active domain."""
+
+    bl_label = "Colliders"
+    bl_idname = "GFX_PT_colliders"
+    bl_space_type = "VIEW_3D"
+    bl_region_type = "UI"
+    bl_category = PANEL_CATEGORY
+    bl_parent_id = "GFX_PT_domain"
+
+    @classmethod
+    def poll(cls, context):
+        obj = context.active_object
+        return obj is not None and getattr(obj.groundfx, "is_domain", False)
+
+    def draw(self, context):
+        layout = self.layout
+        st = context.active_object.groundfx
+        coll = st.collider_collection
+
+        row = layout.row()
+        if coll is not None:
+            row.template_list(
+                "GFX_UL_colliders", "", coll, "objects", st, "collider_active",
+                rows=3)
+            side = row.column(align=True)
+            side.operator(f"{OP_PREFIX}.unmark_collider", text="", icon="X")
+            n = len(coll.objects)
+            layout.label(text=f"{n} collider{'' if n == 1 else 's'}",
+                         icon="OBJECT_DATA")
+        else:
+            layout.label(text="No collider collection", icon="ERROR")
+
+        layout.operator(f"{OP_PREFIX}.mark_collider", icon="ADD")
 
 
 classes = (
     GFX_PT_main,
     GFX_PT_domain,
+    GFX_UL_colliders,
+    GFX_PT_colliders,
 )
