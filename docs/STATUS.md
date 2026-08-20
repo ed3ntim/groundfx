@@ -2,7 +2,7 @@
 
 **Letzte Aktualisierung:** 2026-08-20
 **Aktueller Meilenstein:** M2 (Physik) — in Arbeit
-**Tests:** 40/40 grün (Blender 5.2.0 LTS, headless)
+**Tests:** 42/42 grün (Blender 5.2.0 LTS, headless)
 
 > Diese Datei ist der Wiedereinstiegspunkt. Wer den Kontext geleert hat, liest
 > `STATUS.md` → `PLAN.md` → `BACKLOG.md` → `API_NOTES.md` und ist wieder im Bild.
@@ -38,7 +38,11 @@ sind nicht bindend, nur optionale Hilfe fürs spätere Preset-Fine-Tuning.
   (Collection Info → Realize → Raycast); beliebig viele Objekte carven gleichzeitig. Pro Domain
   eine Auto-Collection „<Domain> Colliders"; Mark/Unmark-Operatoren + UIList. Test: zwei Cubes
   carven simultan.
-- E4-S2 Proxy (High-Poly) · E4-S3 Geschwindigkeit/gerichtete Bugwelle · E4-S4 Silhouette (Hero) — offen
+- **E4-S3 Geschwindigkeit / gerichtete Bugwelle** ✅ fertig — `gfx_carve_prev`; Bewegungsrichtung
+  aus der Schwerpunkt-Verschiebung des Fußabdrucks (robust null bei Stillstand); Pile wird per
+  Advektion nach vorne verlagert (`bow_wave`-Input pro Element). Test: vorne > hinten; bw=0
+  symmetrisch. Schließt E3-T13 (Bugwelle) mit ab.
+- E4-S2 Proxy (High-Poly) · E4-S4 Silhouette (Hero) — offen; E4-T11 (Substep-Lückenfüllung) hängt an E3-S5
 
 ## Danach
 

@@ -115,7 +115,7 @@ nur Einweg-Kollision · UI und Code Englisch, Doku Deutsch · Nahaufnahme-Maßst
 
 - [x] E3-T11 `ng_deposit`: Pile-Puffer, Transport zum Rand (isotrop; Richtung folgt in E4)
 - [x] E3-T12 `displacement_ratio` als Group-Input (Aufhäufen vs. Verdichten)
-- [~] E3-T13 Berm entsteht (isotrop); gerichtete Bugwelle braucht Collider-Geschwindigkeit → E4
+- [x] E3-T13 Gerichtete Bugwelle — in E4-S3 umgesetzt (Pile-Advektion in Collider-Bewegungsrichtung)
 - [x] E3-T14 Ablage nur außerhalb des Colliders (free-Maske carve<eps)
 
 ### E3-S4 — Als User will ich Verdichtung und Feuchtigkeit als sichtbare Effekte. `M`
@@ -173,10 +173,13 @@ groben Proxy).
 
 ### E4-S3 — Als User will ich, dass schnelle Objekte durchgehende Spuren erzeugen. `M`
 
-- [ ] E4-T9 Geschwindigkeit aus `carve - carve_prev` ableiten
-- [ ] E4-T10 Richtungsabhängige Verdrängung (nach vorn und zur Seite, nicht rückwärts)
-- [ ] E4-T11 Lückenfüllung bei schneller Bewegung über Substeps
-- [ ] E4-T12 Einstellbarer Collider-Offset (Penetrationstoleranz)
+- [x] E4-T9 Geschwindigkeit ableiten — `gfx_carve_prev` gespeichert; Bewegungsrichtung aus der
+  Schwerpunkt-Verschiebung des Fußabdrucks (centroid(carve) − centroid(carve_prev)), robust null
+  bei stehendem Collider (Attribute Statistic + Selection)
+- [x] E4-T10 Richtungsabhängige Verdrängung — Pile-Advektion in Bewegungsrichtung (`bow_wave`-Input,
+  pro Element gesetzt: Sand 0.7 / Snow 0.6 / Mud 0.45). Test: vorne > hinten, bw=0 symmetrisch
+- [ ] E4-T11 Lückenfüllung bei schneller Bewegung über Substeps → hängt an E3-S5 (Substep-Infra)
+- [x] E4-T12 Einstellbarer Collider-Offset (Penetrationstoleranz) — `IN_COLLIDER_OFFSET` (seit M1)
 
 ---
 

@@ -15,7 +15,8 @@ ADDON_NAME = "GroundFX"
 # Node-group / node-tree data-block version. Bumped whenever the generated
 # node graph changes shape, so ensure_node_group() knows to rebuild.
 # v4 (E4-S1): single Collider object socket -> Collider Collection socket.
-NODEGROUP_VERSION = 4
+# v5 (E4-S3): carve_prev + bow-wave (directional deposit) input.
+NODEGROUP_VERSION = 5
 
 # --- UI ---------------------------------------------------------------------
 PANEL_CATEGORY = "GroundFX"     # N-panel tab label

@@ -95,6 +95,61 @@ def test_two_colliders_carve_simultaneously():
         bpy.data.objects.remove(o, do_unlink=True)
 
 
+def _max_height_band(obj, deps, x0, x1, ymax=0.2):
+    """Max material height among grid points with x in [x0,x1], |y| <= ymax."""
+    ev = obj.evaluated_get(deps)
+    me = ev.data
+    hattr = me.attributes.get(ATTR_HEIGHT)
+    if hattr is None:
+        return None
+    best = None
+    for v, h in zip(me.vertices, hattr.data):
+        x, y, _ = v.co
+        if x0 <= x <= x1 and abs(y) <= ymax:
+            best = h.value if best is None else max(best, h.value)
+    return best
+
+
+def test_bow_wave_heaps_ahead_of_motion():
+    """E4-S3: a collider moving +x heaps more material ahead than behind."""
+    _reset()
+    from groundfx.ops.op_add import create_domain
+
+    scene = bpy.context.scene
+    scene.frame_start = 1
+    scene.frame_end = 40
+
+    obj = create_domain(bpy.context, ELEM_SAND)
+    coll = obj.groundfx.collider_collection
+
+    cube = _add_cube(0.4, (-0.4, 0.0, 2.0))
+    coll.objects.link(cube)
+
+    # Frame 1: cube high above -> clean layer.
+    scene.frame_set(1)
+
+    # Drive the cube steadily from x=-0.4 to x=+0.4, pressed into the material.
+    steps = 16
+    for i in range(steps):
+        x = -0.4 + 0.8 * (i / (steps - 1))
+        cube.location = (x, 0.0, 0.20)
+        scene.frame_set(2 + i)
+        deps = bpy.context.evaluated_depsgraph_get()
+
+    # Compare the berm ahead of the final position (+x) with the one behind the
+    # start (-x). With a bow wave the leading berm is clearly taller.
+    ahead = _max_height_band(obj, deps, 0.62, 0.90)
+    behind = _max_height_band(obj, deps, -0.90, -0.62)
+    harness.check("berm bands read", ahead is not None and behind is not None)
+    if ahead is not None and behind is not None:
+        harness.check(
+            "bow wave heaps ahead, not behind", ahead > behind + 0.002,
+            f"ahead {ahead:.4f} vs behind {behind:.4f}")
+
+    for o in (cube, obj):
+        bpy.data.objects.remove(o, do_unlink=True)
+
+
 def test_mark_and_unmark_operators():
     """The mark op fills the collection; unmark removes the active row."""
     _reset()

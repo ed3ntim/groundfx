@@ -14,6 +14,7 @@ Gegen **Blender 5.2.0 LTS / Python 3.13.13** headless geprüft am 2026-08-20
 | Collection Info | `GeometryNodeCollectionInfo` — Inputs `Collection`, `Separate Children`, `Reset Children`; Output **`Instances`**; Property `transform_space` (`ORIGINAL`/`RELATIVE`). Für Raycast gegen die Vereinigung: `RELATIVE` → `GeometryNodeRealizeInstances` → `Raycast.Target Geometry`. Verifiziert `dev/probe_collection_raycast.py` (E4-T17): ein Grid trifft die Unterseiten mehrerer Cubes in der Collection. |
 | Collection-Socket | Interface-Typ `NodeSocketCollection`. Modifier-Input wird wie Object-Sockets über `modifier.properties.inputs.<Socket_N>.value = collection` gesetzt (gekapselt in `modifier_io.set_input`). |
 | Sample Index | `GeometryNodeSampleIndex` vorhanden (für `conserve_mass`). |
+| Attribute Statistic | `GeometryNodeAttributeStatistic` (data_type FLOAT, domain POINT). Inputs `Geometry`, **`Selection`** (Bool-Feld), `Attribute`; Outputs `Mean`/`Median`/`Sum`/`Min`/`Max`/`Range`/`Std`/`Variance`. Mit Selection = Maske → gewichtete Reduktion über eine Teilmenge (E4-S3: Fußabdruck-Schwerpunkt via `Mean` von X/Y über `carve>0`). |
 | Named Attribute | `GeometryNodeStoreNamedAttribute` / `GeometryNodeInputNamedAttribute`. |
 | Capture Attribute | `GeometryNodeCaptureAttribute`, nutzt `capture_items` (mehrere Werte je Node). |
 | Grid-Primitive | **`GeometryNodeMeshGrid`** — nicht `GeometryNodeInputMeshGrid` (existiert nicht!). |
@@ -38,6 +39,16 @@ massenerhaltend außer bei Clamp auf h≥0.
   in Oszillation überschießen.
 - Messmethode im Test: steilen Materialkegel 600× relaxieren, Flanke (15–85 % der Spitzenhöhe)
   linear fitten, `atan(|slope|)` = gemessener Winkel. Höherer Winkel → höherer Kegel (Physik ok).
+
+**Gerichtete Bugwelle / Collider-Geschwindigkeit (E4-S3):** Die Bewegungsrichtung eines Colliders
+NICHT aus dem Gradienten von `dcarve = carve − carve_prev` ableiten — der zeigt bei jedem
+Fußabdruck (auch einem stehenden, nur tiefer eindrückenden) radial nach innen und würgt die
+Rim-Diffusion ab (Berm verschwindet). Stattdessen die **Schwerpunkt-Verschiebung** des Fußabdrucks
+nehmen: `v = centroid(carve>0) − centroid(carve_prev>0)` über `Attribute Statistic (Mean, Selection)`.
+Das ist ein einziger Translationsvektor, exakt null bei Stillstand. Skalierung `v/cell_size`,
+Clamp [−1,1] (kein Normalisieren nahe 0 → kein 0/0-Blow-up). Advektions-Korrektur der Pile-Inflow:
+`s += 0.25·bow_wave·(vx·(P_−x−P_+x) + vy·(P_−y−P_+y))`, danach `max(s,0)`. Verifiziert: bw=0
+symmetrisch, bw=0.7 vorne höher.
 
 **Field-Re-Evaluation (wichtiger GN-Fallstrick, E3-S3):** Named-Attribute-Felder
 (`InputNamedAttribute`) werden gegen **die Geometrie neu ausgewertet, durch die sie fließen** —

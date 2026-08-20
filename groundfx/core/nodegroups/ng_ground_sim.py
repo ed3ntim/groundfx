@@ -25,8 +25,8 @@ from ..ng_zones import make_simulation_zone
 from . import ng_relax
 from . import ng_deposit
 from ..constants import (
-    NG_GROUND_SIM, ATTR_HEIGHT, ATTR_BASE, ATTR_CARVE, ATTR_PILE, ATTR_COMP,
-    DEFAULT_MATERIAL_HEIGHT,
+    NG_GROUND_SIM, ATTR_HEIGHT, ATTR_BASE, ATTR_CARVE, ATTR_CARVE_PREV,
+    ATTR_PILE, ATTR_COMP, DEFAULT_MATERIAL_HEIGHT,
 )
 
 # Group input socket names (also used by the property/socket mapping).
@@ -42,6 +42,7 @@ IN_CELL_SIZE = "Cell Size"
 IN_GRID_N = "Grid N"
 IN_DISPLACE_RATIO = "Displacement Ratio"
 IN_DEPOSIT_ITERS = "Deposit Iterations"
+IN_BOW_WAVE = "Bow Wave"
 OUT_GEOMETRY = "Geometry"
 
 _RAY_LENGTH = 10.0  # metres; ample for the close-up domain scale
@@ -90,6 +91,9 @@ def build(name: str = NG_GROUND_SIM) -> bpy.types.GeometryNodeTree:
             description="Share of carved material that heaps up (rest compacts)")
     b.input(IN_DEPOSIT_ITERS, "NodeSocketInt", default=6, min=0, max=64,
             description="Iterations spreading displaced material to the rim")
+    b.input(IN_BOW_WAVE, "NodeSocketFloat", default=0.6, min=0.0, max=1.0,
+            description="How strongly displaced material heaps up ahead of a "
+                        "moving collider (0 = isotropic rim, 1 = full bow wave)")
     b.output(OUT_GEOMETRY, "NodeSocketGeometry")
 
     gin, gout = b.group_io()
@@ -217,7 +221,15 @@ def build(name: str = NG_GROUND_SIM) -> bpy.types.GeometryNodeTree:
     # comp (which read the *old* gfx_h via surface_old) must be stored before
     # gfx_h is overwritten, or they would re-read the already-carved height and
     # collapse to zero.
-    store_carve = _store_float(b, sim_geo, "Geometry", ATTR_CARVE, carve, "Value")
+    # carve_prev := last frame's carve, captured BEFORE gfx_carve is
+    # overwritten (E4-T9). The deposit step diffs the two to read off the
+    # collider's motion direction for the bow wave.
+    prev_carve = b.add("GeometryNodeInputNamedAttribute", data_type="FLOAT",
+                       inputs={"Name": ATTR_CARVE})
+    store_carve_prev = _store_float(b, sim_geo, "Geometry", ATTR_CARVE_PREV,
+                                    prev_carve, "Attribute")
+    store_carve = _store_float(b, store_carve_prev, "Geometry", ATTR_CARVE,
+                               carve, "Value")
     store_pile = _store_float(b, store_carve, "Geometry", ATTR_PILE,
                               acc_pile, "Value")
     store_comp = _store_float(b, store_pile, "Geometry", ATTR_COMP,
@@ -230,6 +242,8 @@ def build(name: str = NG_GROUND_SIM) -> bpy.types.GeometryNodeTree:
         refs={
             "iterations": (gin, IN_DEPOSIT_ITERS),
             "grid_n": (gin, IN_GRID_N),
+            "cell_size": (gin, IN_CELL_SIZE),
+            "bow_wave": (gin, IN_BOW_WAVE),
         },
     )
 

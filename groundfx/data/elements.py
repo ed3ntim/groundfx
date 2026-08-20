@@ -18,10 +18,10 @@ from ..core.constants import ELEM_SAND, ELEM_SNOW, ELEM_MUD
 
 class ElementDefaults:
     __slots__ = ("key", "label", "repose_deg", "cohesion", "flow_rate",
-                 "density", "wetness", "compaction", "recovery")
+                 "density", "wetness", "compaction", "recovery", "bow_wave")
 
     def __init__(self, key, label, repose_deg, cohesion, flow_rate, density,
-                 wetness, compaction, recovery):
+                 wetness, compaction, recovery, bow_wave):
         self.key = key
         self.label = label
         self.repose_deg = repose_deg      # angle of repose, degrees
@@ -31,6 +31,7 @@ class ElementDefaults:
         self.wetness = wetness            # 0..1 baseline moisture
         self.compaction = compaction      # how readily it packs 0..1
         self.recovery = recovery          # how fast compaction relaxes 0..1
+        self.bow_wave = bow_wave          # directional heaping ahead 0..1
 
     @property
     def repose_rad(self) -> float:
@@ -40,13 +41,16 @@ class ElementDefaults:
 DEFAULTS = {
     ELEM_SAND: ElementDefaults(
         ELEM_SAND, "Sand", repose_deg=34.0, cohesion=0.02, flow_rate=0.8,
-        density=1600.0, wetness=0.0, compaction=0.3, recovery=0.1),
+        density=1600.0, wetness=0.0, compaction=0.3, recovery=0.1,
+        bow_wave=0.7),
     ELEM_SNOW: ElementDefaults(
         ELEM_SNOW, "Snow", repose_deg=40.0, cohesion=0.10, flow_rate=0.5,
-        density=80.0, wetness=0.1, compaction=0.6, recovery=0.02),
+        density=80.0, wetness=0.1, compaction=0.6, recovery=0.02,
+        bow_wave=0.6),
     ELEM_MUD: ElementDefaults(
         ELEM_MUD, "Mud", repose_deg=18.0, cohesion=0.45, flow_rate=0.3,
-        density=1750.0, wetness=0.6, compaction=0.2, recovery=0.05),
+        density=1750.0, wetness=0.6, compaction=0.2, recovery=0.05,
+        bow_wave=0.45),
 }
 
 
