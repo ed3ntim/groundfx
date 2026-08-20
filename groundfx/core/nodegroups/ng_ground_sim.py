@@ -18,8 +18,11 @@ from __future__ import annotations
 
 import bpy
 
+import math
+
 from ..ng_builder import NodeTreeBuilder, new_geometry_group
 from ..ng_zones import make_simulation_zone
+from . import ng_relax
 from ..constants import (
     NG_GROUND_SIM, ATTR_HEIGHT, ATTR_BASE, ATTR_CARVE,
     DEFAULT_MATERIAL_HEIGHT,
@@ -30,6 +33,12 @@ IN_GEOMETRY = "Geometry"
 IN_MATERIAL_HEIGHT = "Material Height"
 IN_COLLIDER = "Collider"
 IN_COLLIDER_OFFSET = "Collider Offset"
+IN_REPOSE = "Angle Of Repose"
+IN_COHESION = "Cohesion"
+IN_FLOW = "Flow Rate"
+IN_RELAX_ITERS = "Relax Iterations"
+IN_CELL_SIZE = "Cell Size"
+IN_GRID_N = "Grid N"
 OUT_GEOMETRY = "Geometry"
 
 _RAY_LENGTH = 10.0  # metres; ample for the close-up domain scale
@@ -59,6 +68,20 @@ def build(name: str = NG_GROUND_SIM) -> bpy.types.GeometryNodeTree:
     b.input(IN_COLLIDER_OFFSET, "NodeSocketFloat", default=0.0,
             min=-0.5, max=0.5, subtype="DISTANCE",
             description="Penetration tolerance added to the collider surface")
+    b.input(IN_REPOSE, "NodeSocketFloat", default=math.radians(34.0),
+            min=0.0, max=math.radians(85.0), subtype="ANGLE",
+            description="Angle of repose: the steepest stable slope")
+    b.input(IN_COHESION, "NodeSocketFloat", default=0.02, min=0.0, max=1.0,
+            description="Extra slope the material holds before flowing (yield)")
+    b.input(IN_FLOW, "NodeSocketFloat", default=0.8, min=0.0, max=1.0,
+            description="How fast excess material flows downhill")
+    b.input(IN_RELAX_ITERS, "NodeSocketInt", default=4, min=0, max=64,
+            description="Relaxation iterations per frame (quality-driven)")
+    b.input(IN_CELL_SIZE, "NodeSocketFloat", default=0.0156, min=1e-5, max=10.0,
+            subtype="DISTANCE",
+            description="Grid cell size = domain size / resolution")
+    b.input(IN_GRID_N, "NodeSocketInt", default=129, min=2, max=8192,
+            description="Vertices per side = resolution + 1")
     b.output(OUT_GEOMETRY, "NodeSocketGeometry")
 
     gin, gout = b.group_io()
@@ -150,13 +173,35 @@ def build(name: str = NG_GROUND_SIM) -> bpy.types.GeometryNodeTree:
     store_h = _store_float(b, sim_geo, "Geometry", ATTR_HEIGHT, new_h, "Value")
     store_carve = _store_float(b, store_h, "Geometry", ATTR_CARVE, carve, "Value")
 
-    # Displace points to the new surface: pos.z = new_surface.
+    # --- relaxation: material flows to its angle of repose -----------------
+    relax_node, relax_key = ng_relax.add_relaxation(
+        b, store_carve, "Geometry",
+        refs={
+            "repose": (gin, IN_REPOSE),
+            "cohesion": (gin, IN_COHESION),
+            "flow": (gin, IN_FLOW),
+            "iterations": (gin, IN_RELAX_ITERS),
+            "cell_size": (gin, IN_CELL_SIZE),
+            "grid_n": (gin, IN_GRID_N),
+        },
+    )
+
+    # Displace points to the relaxed surface: pos.z = base + h.
+    final_base = b.add("GeometryNodeInputNamedAttribute", data_type="FLOAT",
+                       inputs={"Name": ATTR_BASE})
+    final_h = b.add("GeometryNodeInputNamedAttribute", data_type="FLOAT",
+                    inputs={"Name": ATTR_HEIGHT})
+    final_surface = b.add("ShaderNodeMath", operation="ADD",
+                          label="final surface")
+    b.link(final_base, "Attribute", final_surface, 0)
+    b.link(final_h, "Attribute", final_surface, 1)
+
     new_pos = b.add("ShaderNodeCombineXYZ")
     b.link(sep2, "X", new_pos, "X")
     b.link(sep2, "Y", new_pos, "Y")
-    b.link(new_surface, "Value", new_pos, "Z")
+    b.link(final_surface, "Value", new_pos, "Z")
     set_pos = b.add("GeometryNodeSetPosition")
-    b.link(store_carve, "Geometry", set_pos, "Geometry")
+    b.link(relax_node, relax_key, set_pos, "Geometry")
     b.link(new_pos, "Vector", set_pos, "Position")
 
     b.link(set_pos, "Geometry", zone.output, "Geometry")

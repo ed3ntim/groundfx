@@ -101,12 +101,15 @@ nur Einweg-Kollision · UI und Code Englisch, Doku Deutsch · Nahaufnahme-Maßst
 
 **Akzeptanz:** Eine Materialsäule kollabiert zu einem Kegel, dessen gemessener Flankenwinkel innerhalb ±3° des eingestellten Böschungswinkels liegt. Automatisierter Test.
 
-- [ ] E3-T5 `ng_relax`: Repeat Zone mit slope-limitierter Relaxation
-- [ ] E3-T6 Kohäsions-Schwelle (Bingham-Fließkriterium)
-- [ ] E3-T7 Fließrate/Viskosität als Dämpfung + Iterationszahl
-- [ ] E3-T8 `conserve_mass`-Modus über symmetrischen Nachbaraustausch (High/Ultra)
-- [ ] E3-T9 Stabilität: Clamping gegen Oszillation bei hohen Fließraten
-- [ ] E3-T10 Test: Böschungswinkel-Messung; Test: Massebilanz über 100 Frames (< 2 % Abweichung)
+- [x] E3-T5 `ng_relax`: Repeat Zone mit slope-limitierter Relaxation (Toppling, nicht Blur)
+- [x] E3-T6 Kohäsions-Schwelle (Bingham-Fließkriterium) — als `cohesion` in der Schwelle T
+- [x] E3-T7 Fließrate/Viskosität als Dämpfung + Iterationszahl
+- [~] E3-T8 `conserve_mass`-Modus über symmetrischen Nachbaraustausch — Grundfluss ist bereits
+  symmetrisch/massenerhaltend; exakter Modus mit h≥0-Ausgleich später (High/Ultra)
+- [x] E3-T9 Stabilität: Clamping gegen Oszillation (`_STABILITY=0.25`)
+- [x] E3-T10 Test: Böschungswinkel-Messung (Kegel-Kollaps, ±1,5° erreicht bei ±3° Toleranz).
+  Massebilanz-Test noch offen → E3-T10b
+- [ ] E3-T10b Test: Massebilanz über 100 Frames (< 2 % Abweichung)
 
 ### E3-S3 — Als User will ich, dass verdrängtes Material realistisch aufgehäuft wird. `L`
 
@@ -136,10 +139,15 @@ nur Einweg-Kollision · UI und Code Englisch, Doku Deutsch · Nahaufnahme-Maßst
 
 **Akzeptanz:** Markierte Objekte hinterlassen sofort Spuren, ohne dass etwas am Node-Setup angefasst werden muss.
 
+> **Explizit vom User gewünscht (2026-08-20):** mehrere Objekte gleichzeitig kollidieren.
+> Ist Kernbestandteil dieser Story (Collider-Collection) und landet damit in **v1**, nicht
+> erst v2. Der aktuelle M1-Solver unterstützt nur einen Collider; E4 hebt das auf beliebig viele.
+
 - [ ] E4-T1 Operator „Als Collider markieren / entfernen" (Multi-Select)
 - [ ] E4-T2 Collider-Collection pro Domain, automatisch angelegt
 - [ ] E4-T3 UIList mit Status, Proxy-Typ, Offset pro Collider
 - [ ] E4-T4 Unterstützung für Instanzen und animierte Objekte
+- [ ] E4-T17 Raycast gegen die vereinigte Collider-Collection (Object Info → Realize/Join, oder Collection Info) statt gegen ein Einzelobjekt
 
 ### E4-S2 — Als User will ich, dass auch High-Poly-Charaktere performant bleiben. `L`
 
@@ -402,6 +410,25 @@ Relaxation ein.
 - [ ] E15-T4 Windversatz und Flockengröße als Parameter
 - [ ] E15-T5 Günstiger Modus ohne sichtbare Flocken (nur Höhenzuwachs) für schnelles Vorheizen
 - [ ] E15-T6 Spuren schneien über die Zeit wieder zu (Kopplung an `gfx_age`)
+
+---
+
+## E16 · Weitere Elemente (Lava, Schleim, …) `P3` — v3-Wunsch des Users (2026-08-20)
+
+**Architektur unterstützt das bereits:** Elemente sind datengetrieben (`data/elements.py`,
+`data/presets/*.json`, Shader-Builder). Neue Elemente = neue Datensätze + Shader, kein
+Solver-Umbau. Lava und Schleim brauchen zusätzlich temperatur-/zeitabhängige Viskosität und
+Emission — deshalb eigener Epic statt bloßes Preset.
+
+### E16-S1 — Lava `L`
+- [ ] E16-T1 Viskosität als Funktion der „Temperatur" (kühlt über `gfx_age` ab → erstarrt)
+- [ ] E16-T2 Emissiver Shader mit Kruste (kühle Bereiche dunkel, heiße glühend)
+- [ ] E16-T3 Sehr niedriger Böschungswinkel heiß → hoch beim Erstarren
+
+### E16-S2 — Schleim / zähe Flüssigkeiten `M`
+- [ ] E16-T4 Hohe Kohäsion + hohe Viskosität, langsames Zurückfließen
+- [ ] E16-T5 Transluzenter Shader (SSS, Glanz), Fäden/Strähnen optional
+- [ ] E16-T6 Generisches „Custom Fluid"-Preset mit frei einstellbaren Kennwerten
 
 ---
 

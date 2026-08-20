@@ -19,6 +19,7 @@ from ..core.constants import (
 from ..core.ng_library import ensure_node_group
 from ..core.nodegroups import ng_ground_sim as gsim
 from ..data import quality as qmod
+from ..data import elements as emod
 from ..utils import log
 
 
@@ -89,9 +90,17 @@ def create_domain(context, element: str,
     obj[PROP_IS_DOMAIN] = True
     obj[PROP_ELEMENT] = element
 
-    # Seed modifier inputs.
-    modifier_io.set_input(md, gsim.IN_MATERIAL_HEIGHT, st.material_height)
-    log.info("created %s domain (%d^2, %.2f m)", element, prof.resolution, size)
+    # Seed modifier inputs from element physics + quality/grid geometry.
+    ed = emod.defaults(element)
+    modifier_io.set_input(md, gsim.IN_MATERIAL_HEIGHT, st.material_height, tag=False)
+    modifier_io.set_input(md, gsim.IN_REPOSE, ed.repose_rad, tag=False)
+    modifier_io.set_input(md, gsim.IN_COHESION, ed.cohesion, tag=False)
+    modifier_io.set_input(md, gsim.IN_FLOW, ed.flow_rate, tag=False)
+    modifier_io.set_input(md, gsim.IN_RELAX_ITERS, prof.relax_iterations, tag=False)
+    modifier_io.set_input(md, gsim.IN_CELL_SIZE, size / prof.resolution, tag=False)
+    modifier_io.set_input(md, gsim.IN_GRID_N, prof.resolution + 1, tag=True)
+    log.info("created %s domain (%d^2, %.2f m, cell %.3f m)",
+             element, prof.resolution, size, size / prof.resolution)
     return obj
 
 

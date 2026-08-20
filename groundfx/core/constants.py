@@ -14,7 +14,7 @@ ADDON_NAME = "GroundFX"
 
 # Node-group / node-tree data-block version. Bumped whenever the generated
 # node graph changes shape, so ensure_node_group() knows to rebuild.
-NODEGROUP_VERSION = 1
+NODEGROUP_VERSION = 2
 
 # --- UI ---------------------------------------------------------------------
 PANEL_CATEGORY = "GroundFX"     # N-panel tab label
@@ -50,6 +50,7 @@ ATTR_COMP = "gfx_comp"          # compaction 0..1 -> shader
 ATTR_WET = "gfx_wet"            # wetness 0..1 -> cohesion & shader
 ATTR_FLOW = "gfx_flow"          # last displacement direction (vector) -> shader
 ATTR_AGE = "gfx_age"            # frames since last disturbance
+ATTR_SURFACE = "gfx_surface"    # base + h, cached for neighbour sampling in relax
 
 # --- Object custom-property keys -------------------------------------------
 PROP_IS_DOMAIN = "gfx_is_domain"       # marks a GroundFX domain object
