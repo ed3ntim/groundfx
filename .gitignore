@@ -1,0 +1,29 @@
+# Blender
+*.blend1
+*.blend2
+*.blend@
+groundfx_cache/
+*_cache/
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# Build
+build/
+dist/
+*.zip
+
+# Referenzmaterial (gross, nicht versionieren)
+*.mp4
+*.mov
+*.mkv
+
+# OS / Editor
+Thumbs.db
+desktop.ini
+.DS_Store
+.vscode/
+.idea/
