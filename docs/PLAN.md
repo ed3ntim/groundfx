@@ -12,6 +12,30 @@ Ein Blender-Addon, das per Knopfdruck eine deformierbare Bodenschicht aus Sand, 
 Schlamm erzeugt, die auf bewegte Objekte in Echtzeit reagiert — Spuren, Aufhäufen,
 Verdrängung, Nachrieseln — mit Presets, Qualitätsstufen, Baking und fertigen Shadern.
 
+### 1.1 Zwei gleichrangige Haupt-Use-Cases
+
+1. **Dynamische Interaktion** (Referenzvideo): ein Objekt — z. B. eine Standard-Box — fährt durchs
+   Material und verschiebt es. Es zählt flüssiges Feedback und durchgehende Spuren. → Live/Bake,
+   Quality Low–Medium, EEVEE.
+2. **Produktfotografie / Hero-Shot**: ein Objekt (Waffe, kleines Produkt) fällt in Sand oder
+   Schnee, das Material setzt sich, dann wird ein **hochauflösendes Standbild** gerendert. Hier
+   zählt maximale Abdruck-Schärfe entlang der **exakten Objekt-Silhouette**, ein glaubwürdiger
+   aufgeworfener Rand (Berm) und ein sauberer Ruhezustand — nicht Echtzeit. → Bake auf einen
+   Ruheframe bzw. Freeze-to-Mesh, Quality High–Ultra, **Cycles mit Displacement**.
+
+Der zweite Use-Case verschiebt drei Prioritäten gegenüber der reinen Video-Vorlage:
+
+- **Collider-Proxys müssen die Silhouette erhalten** (kein grober Convex Hull für Hero-Objekte;
+  ein silhouettentreuer Modus wird Default für den Produktshot). → E4-S2 erweitert.
+- **Ruhezustand-Qualität**: das Material muss nach dem Eintauchen sichtbar zur Ruhe kommen, ohne
+  zu „kriechen". Ein „Settle & Freeze"-Ablauf gehört ins UI. → neue Story E7-S4.
+- **Cycles-Displacement und Micro-Detail** steigen von „nice-to-have" zu „für Use-Case 2
+  erforderlich". → E8 priorisiert den Cycles-Pfad mit.
+
+Praktisch heißt das: Der Solver ist derselbe, aber es gibt einen **„Photo"-Workflow-Schalter**,
+der Quality auf High/Ultra hebt, in Cycles rendert, Substeps für ein sauberes Eintauchen erhöht
+und nach dem Ruhezustand automatisch einfriert.
+
 ---
 
 ## 2. Grundsatzentscheidung: Simulationsmodell

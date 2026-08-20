@@ -27,3 +27,5 @@ desktop.ini
 .DS_Store
 .vscode/
 .idea/
+dist/
+groundfx/**/__pycache__/

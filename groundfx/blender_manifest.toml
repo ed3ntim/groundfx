@@ -1,0 +1,33 @@
+schema_version = "1.0.0"
+
+# --- Identity --------------------------------------------------------------
+id = "groundfx"
+version = "0.1.0"
+name = "GroundFX"
+tagline = "Deformable sand, snow and mud that reacts to your objects"
+maintainer = "GroundFX"
+type = "add-on"
+
+# --- Compatibility ---------------------------------------------------------
+# Simulation zones, Blur Attribute and the geometry-node Bake node are all
+# present from 4.x on, but GroundFX targets and is verified against 5.2 LTS.
+blender_version_min = "5.2.0"
+
+# --- Licensing -------------------------------------------------------------
+license = [
+  "SPDX:GPL-3.0-or-later",
+]
+
+# --- Tags shown in the extension browser -----------------------------------
+tags = [
+  "Geometry Nodes",
+  "Physics",
+  "Simulation",
+  "Render",
+]
+
+# --- Permissions -----------------------------------------------------------
+# 'files' is required because GroundFX writes simulation bake caches next to
+# the .blend file.
+[permissions]
+files = "Read and write simulation bake caches next to the .blend file"

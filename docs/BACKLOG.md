@@ -150,6 +150,17 @@ nur Einweg-Kollision · UI und Code Englisch, Doku Deutsch · Nahaufnahme-Maßst
 - [ ] E4-T7 Bounding-Box-Vorfilter im Node-Tree
 - [ ] E4-T8 Benchmark-Test: mit und ohne Proxy
 
+### E4-S4 — Als User will ich für Produktfotos einen exakten Abdruck der Objekt-Silhouette. `M` `P1`
+
+**Akzeptanz:** Eine Waffe/ein Produkt, in Sand gedrückt, hinterlässt einen Abdruck, dessen Kante
+im Nahaufnahme-Maßstab der echten Objektkontur folgt (kein sichtbares Facettieren durch einen zu
+groben Proxy).
+
+- [ ] E4-T13 Silhouettentreuer Proxy-Modus (leichtes Decimate mit Erhalt der Außenkanten, kein Convex Hull)
+- [ ] E4-T14 „Hero Collider"-Flag: nutzt Originalgeometrie direkt, wenn Poly-Zahl vertretbar
+- [ ] E4-T15 Kontaktzone adaptiv feiner sampeln als der Rest der Domain (nur wo das Objekt eintaucht)
+- [ ] E4-T16 Test: Abdruckkante gegen die projizierte Objektsilhouette vergleichen
+
 ### E4-S3 — Als User will ich, dass schnelle Objekte durchgehende Spuren erzeugen. `M`
 
 - [ ] E4-T9 Geschwindigkeit aus `carve - carve_prev` ableiten
@@ -237,6 +248,17 @@ wenn doch größere Szenen dazukommen.*
 
 - [ ] E7-T9 „Freeze to Mesh": aktueller Frame → neues Objekt mit Attributen
 - [ ] E7-T10 Materialübernahme und Attributerhalt (`gfx_comp`, `gfx_wet` bleiben nutzbar)
+
+### E7-S4 — Als Produktfotograf will ich einen „Settle & Freeze"-Workflow für Hero-Shots. `M` `P1`
+
+**Akzeptanz:** Ein Objekt fällt/wird in Sand gedrückt; das Addon simuliert bis zum Ruhezustand,
+erkennt den Stillstand und friert automatisch auf ein rendfertiges High-Res-Mesh ein.
+
+- [ ] E7-T11 „Photo"-Workflow-Schalter: setzt Quality High/Ultra, Cycles, erhöhte Substeps
+- [ ] E7-T12 Ruhezustand-Erkennung (Höhenänderung pro Frame unter Schwelle → „settled")
+- [ ] E7-T13 Auto-Freeze auf den Ruheframe, danach Solver deaktivierbar für schnelles Look-Dev
+- [ ] E7-T14 Anti-Kriechen: Relaxation stoppt sauber statt endlos minimal weiterzufließen
+- [ ] E7-T15 Turntable-tauglich: eingefrorenes Mesh ist rotierbar/kamerafahrt-fest
 
 ---
 
