@@ -37,6 +37,15 @@ massenerhaltend außer bei Clamp auf h≥0.
 - Messmethode im Test: steilen Materialkegel 600× relaxieren, Flanke (15–85 % der Spitzenhöhe)
   linear fitten, `atan(|slope|)` = gemessener Winkel. Höherer Winkel → höherer Kegel (Physik ok).
 
+**Field-Re-Evaluation (wichtiger GN-Fallstrick, E3-S3):** Named-Attribute-Felder
+(`InputNamedAttribute`) werden gegen **die Geometrie neu ausgewertet, durch die sie fließen** —
+nicht einmalig eingefroren. Wenn man `gfx_h` speichert und danach ein Wert, der `gfx_h` liest
+(z. B. `carve = surface_old - new_surface` mit `surface_old = base + read_h`), gegen die bereits
+überschriebene Geometrie ausgewertet wird, liest er das NEUE h → Ergebnis kollabiert auf 0.
+**Regel:** Ein Attribut, das gelesen UND geschrieben wird (`gfx_h`), immer **zuletzt** speichern —
+nachdem alle abgeleiteten Werte (carve/pile/comp) berechnet und gespeichert sind. Alternativ
+`Capture Attribute` zum Einfrieren. Reihenfolge in `ng_ground_sim`: carve → pile → comp → h.
+
 **Konsequenzen für den Code:**
 
 - Das Grid erzeugen wir als echtes Mesh am Domain-Objekt (`bpy.ops.mesh.primitive_grid_add`

@@ -98,7 +98,9 @@ def create_domain(context, element: str,
     modifier_io.set_input(md, gsim.IN_FLOW, ed.flow_rate, tag=False)
     modifier_io.set_input(md, gsim.IN_RELAX_ITERS, prof.relax_iterations, tag=False)
     modifier_io.set_input(md, gsim.IN_CELL_SIZE, size / prof.resolution, tag=False)
-    modifier_io.set_input(md, gsim.IN_GRID_N, prof.resolution + 1, tag=True)
+    modifier_io.set_input(md, gsim.IN_GRID_N, prof.resolution + 1, tag=False)
+    modifier_io.set_input(md, gsim.IN_DISPLACE_RATIO, 0.7, tag=False)
+    modifier_io.set_input(md, gsim.IN_DEPOSIT_ITERS, 6, tag=True)
     log.info("created %s domain (%d^2, %.2f m, cell %.3f m)",
              element, prof.resolution, size, size / prof.resolution)
     return obj

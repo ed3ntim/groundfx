@@ -2,7 +2,7 @@
 
 **Letzte Aktualisierung:** 2026-08-20
 **Aktueller Meilenstein:** M2 (Physik) — in Arbeit
-**Tests:** 30/30 grün (Blender 5.2.0 LTS, headless)
+**Tests:** 32/32 grün (Blender 5.2.0 LTS, headless)
 
 > Diese Datei ist der Wiedereinstiegspunkt. Wer den Kontext geleert hat, liest
 > `STATUS.md` → `PLAN.md` → `BACKLOG.md` → `API_NOTES.md` und ist wieder im Bild.
@@ -33,7 +33,7 @@ sind nicht bindend, nur optionale Hilfe fürs spätere Preset-Fine-Tuning.
 ## In Arbeit — M2 (Physik)
 
 - **E3-S2 Böschungswinkel-Relaxation** ✅ fertig (Toppling-Solver, ±1,5° kalibriert)
-- E3-S3 Aufhäufen / Bugwelle / Berm ← als Nächstes
+- E3-S3 Aufhäufen / Bugwelle / Berm ✅ fertig (isotroper Berm; Richtung folgt in E4)
 - E4 Collider-System (Mark-Operator, Proxy, **Multi-Collider** [User-Wunsch, v1], Geschwindigkeit)
 
 ## Danach
@@ -75,7 +75,9 @@ groundfx/
     ng_library.py        ensure_node_group (Versionsstempel, reuse/rebuild)
     modifier_io.py       Modifier-Inputs per Socket-NAME (5.2-API gekapselt!)
     nodegroups/
-      ng_ground_sim.py   Solver: Init + Carve (M1); Relax/Displace folgen (M2)
+      ng_ground_sim.py   Solver-Toplevel: Init → Carve → Deposit → Relax → SetPos
+      ng_relax.py        Böschungswinkel-Toppling (Repeat-Zone)
+      ng_deposit.py      Pile-Transport zum Rand / Berm (Repeat-Zone)
   data/
     prefs.py             AddonPreferences (Debug-Schalter)
     properties.py        GroundFXObjectSettings (obj.groundfx) + Callbacks
@@ -96,3 +98,6 @@ docs/                    PLAN, BACKLOG, OPEN_QUESTIONS, API_NOTES, STATUS
 - AddonPreferences-Registrierung prüft man über `cls.is_registered`.
 - Simulation caches pro Frame: Collider-Position VOR `frame_set` setzen, sonst
   sieht der gebakte Frame die alte Position.
+- **Field-Re-Evaluation:** `InputNamedAttribute` wird gegen die durchfließende
+  Geometrie neu ausgewertet. Ein Attribut, das gelesen UND geschrieben wird
+  (`gfx_h`), immer ZULETZT speichern (carve/pile/comp davor).

@@ -23,8 +23,9 @@ import math
 from ..ng_builder import NodeTreeBuilder, new_geometry_group
 from ..ng_zones import make_simulation_zone
 from . import ng_relax
+from . import ng_deposit
 from ..constants import (
-    NG_GROUND_SIM, ATTR_HEIGHT, ATTR_BASE, ATTR_CARVE,
+    NG_GROUND_SIM, ATTR_HEIGHT, ATTR_BASE, ATTR_CARVE, ATTR_PILE, ATTR_COMP,
     DEFAULT_MATERIAL_HEIGHT,
 )
 
@@ -39,6 +40,8 @@ IN_FLOW = "Flow Rate"
 IN_RELAX_ITERS = "Relax Iterations"
 IN_CELL_SIZE = "Cell Size"
 IN_GRID_N = "Grid N"
+IN_DISPLACE_RATIO = "Displacement Ratio"
+IN_DEPOSIT_ITERS = "Deposit Iterations"
 OUT_GEOMETRY = "Geometry"
 
 _RAY_LENGTH = 10.0  # metres; ample for the close-up domain scale
@@ -82,6 +85,10 @@ def build(name: str = NG_GROUND_SIM) -> bpy.types.GeometryNodeTree:
             description="Grid cell size = domain size / resolution")
     b.input(IN_GRID_N, "NodeSocketInt", default=129, min=2, max=8192,
             description="Vertices per side = resolution + 1")
+    b.input(IN_DISPLACE_RATIO, "NodeSocketFloat", default=0.7, min=0.0, max=1.0,
+            description="Share of carved material that heaps up (rest compacts)")
+    b.input(IN_DEPOSIT_ITERS, "NodeSocketInt", default=6, min=0, max=64,
+            description="Iterations spreading displaced material to the rim")
     b.output(OUT_GEOMETRY, "NodeSocketGeometry")
 
     gin, gout = b.group_io()
@@ -97,10 +104,15 @@ def build(name: str = NG_GROUND_SIM) -> bpy.types.GeometryNodeTree:
                    domain="POINT", inputs={"Name": ATTR_HEIGHT})
     b.link(init_base, "Geometry", init_h, "Geometry")
     b.link(gin, IN_MATERIAL_HEIGHT, init_h, "Value")
+    # pile and compaction start empty.
+    zero = b.add("ShaderNodeValue", label="0")
+    zero.outputs[0].default_value = 0.0
+    init_pile = _store_float(b, init_h, "Geometry", ATTR_PILE, zero, "Value")
+    init_comp = _store_float(b, init_pile, "Geometry", ATTR_COMP, zero, "Value")
 
     # -- simulation zone (geometry state carries the attributes) ------------
     zone = make_simulation_zone(b, state_items=[])
-    b.link(init_h, "Geometry", zone.input, "Geometry")
+    b.link(init_comp, "Geometry", zone.input, "Geometry")
 
     sim_geo = zone.input  # geometry available at the zone's input node output
 
@@ -169,13 +181,52 @@ def build(name: str = NG_GROUND_SIM) -> bpy.types.GeometryNodeTree:
     b.link(surface_old, "Value", carve, 0)
     b.link(new_surface, "Value", carve, 1)
 
-    # Store updated attributes back onto the geometry.
-    store_h = _store_float(b, sim_geo, "Geometry", ATTR_HEIGHT, new_h, "Value")
-    store_carve = _store_float(b, store_h, "Geometry", ATTR_CARVE, carve, "Value")
+    # Split carved material into displaced (heaps up) and compacted (packs down).
+    displaced = b.add("ShaderNodeMath", operation="MULTIPLY",
+                      label="carve * ratio")
+    b.link(carve, "Value", displaced, 0)
+    b.link(gin, IN_DISPLACE_RATIO, displaced, 1)
+    compacted = b.add("ShaderNodeMath", operation="SUBTRACT",
+                      label="carve - displaced")
+    b.link(carve, "Value", compacted, 0)
+    b.link(displaced, "Value", compacted, 1)
+
+    # Accumulate pile and compaction onto their previous-frame values.
+    prev_pile = b.add("GeometryNodeInputNamedAttribute", data_type="FLOAT",
+                      inputs={"Name": ATTR_PILE})
+    acc_pile = b.add("ShaderNodeMath", operation="ADD", label="pile + displaced")
+    b.link(prev_pile, "Attribute", acc_pile, 0)
+    b.link(displaced, "Value", acc_pile, 1)
+    prev_comp = b.add("GeometryNodeInputNamedAttribute", data_type="FLOAT",
+                      inputs={"Name": ATTR_COMP})
+    acc_comp = b.add("ShaderNodeMath", operation="ADD", label="comp + compacted")
+    b.link(prev_comp, "Attribute", acc_comp, 0)
+    b.link(compacted, "Value", acc_comp, 1)
+
+    # Store updated attributes. IMPORTANT: gfx_h is stored LAST. Named-attribute
+    # fields re-evaluate against the geometry they flow through, so carve/pile/
+    # comp (which read the *old* gfx_h via surface_old) must be stored before
+    # gfx_h is overwritten, or they would re-read the already-carved height and
+    # collapse to zero.
+    store_carve = _store_float(b, sim_geo, "Geometry", ATTR_CARVE, carve, "Value")
+    store_pile = _store_float(b, store_carve, "Geometry", ATTR_PILE,
+                              acc_pile, "Value")
+    store_comp = _store_float(b, store_pile, "Geometry", ATTR_COMP,
+                              acc_comp, "Value")
+    store_h = _store_float(b, store_comp, "Geometry", ATTR_HEIGHT, new_h, "Value")
+
+    # --- deposit: displaced material heaps up at the rim -------------------
+    deposit_node, deposit_key = ng_deposit.add_deposit(
+        b, store_h, "Geometry",
+        refs={
+            "iterations": (gin, IN_DEPOSIT_ITERS),
+            "grid_n": (gin, IN_GRID_N),
+        },
+    )
 
     # --- relaxation: material flows to its angle of repose -----------------
     relax_node, relax_key = ng_relax.add_relaxation(
-        b, store_carve, "Geometry",
+        b, deposit_node, deposit_key,
         refs={
             "repose": (gin, IN_REPOSE),
             "cohesion": (gin, IN_COHESION),

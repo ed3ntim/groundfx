@@ -113,10 +113,10 @@ nur Einweg-Kollision · UI und Code Englisch, Doku Deutsch · Nahaufnahme-Maßst
 
 ### E3-S3 — Als User will ich, dass verdrängtes Material realistisch aufgehäuft wird. `L`
 
-- [ ] E3-T11 `ng_displace`: Pile-Puffer, gerichtete Verteilung entlang des Carve-Gradienten
-- [ ] E3-T12 `displacement_ratio` — Anteil Aufhäufen gegenüber Verdichten
-- [ ] E3-T13 Berm-Bildung an den Spurrändern, Bugwelle vor dem Objekt
-- [ ] E3-T14 Ablage nur außerhalb des Colliders (Maskierung)
+- [x] E3-T11 `ng_deposit`: Pile-Puffer, Transport zum Rand (isotrop; Richtung folgt in E4)
+- [x] E3-T12 `displacement_ratio` als Group-Input (Aufhäufen vs. Verdichten)
+- [~] E3-T13 Berm entsteht (isotrop); gerichtete Bugwelle braucht Collider-Geschwindigkeit → E4
+- [x] E3-T14 Ablage nur außerhalb des Colliders (free-Maske carve<eps)
 
 ### E3-S4 — Als User will ich Verdichtung und Feuchtigkeit als sichtbare Effekte. `M`
 
@@ -410,6 +410,29 @@ Relaxation ein.
 - [ ] E15-T4 Windversatz und Flockengröße als Parameter
 - [ ] E15-T5 Günstiger Modus ohne sichtbare Flocken (nur Höhenzuwachs) für schnelles Vorheizen
 - [ ] E15-T6 Spuren schneien über die Zeit wieder zu (Kopplung an `gfx_age`)
+
+---
+
+## E17 · Vollständige Parametrisierung / „alles einstellbar" `P2` — User-Wunsch (2026-08-20)
+
+**Durchgehendes Designprinzip, nicht nur ein Epic:** Jeder verhaltens- oder look-steuernde Wert
+wird als Node-Group-Input gebaut (min/max/default/description), sodass später nur ein Panel-Regler
+drangehängt werden muss. Nicht v1-UI-blockierend, aber die Architektur zieht das von Anfang an mit.
+
+### E17-S1 — Hartcodierte Konstanten als Parameter freischalten `M`
+- [ ] E17-T1 `_STABILITY` (ng_relax) → Group-Input „Solver Stability" (Advanced)
+- [ ] E17-T2 `_SLOPE_CALIB` (ng_relax) → Group-Input „Repose Calibration" (Advanced)
+- [ ] E17-T3 `_RAY_LENGTH` (ng_ground_sim) → Group-Input „Collider Reach"
+- [ ] E17-T4 displacement_ratio / Pile-Parameter (E3-S3) als Inputs (schon so gebaut)
+- [ ] E17-T5 Spray-Parameter (E10) als Inputs
+
+### E17-S2 — Quality-Profil pro Objekt überschreibbar `M`
+- [ ] E17-T6 Auflösung/Iterationen/Substeps/LOD einzeln pro Domain editierbar (Custom-Quality)
+- [ ] E17-T7 „Custom"-Qualitätsstufe, die die Profil-Defaults als Startwerte übernimmt
+
+### E17-S3 — Advanced-Panel `S`
+- [ ] E17-T8 Panel-Sektion „Advanced" sammelt alle Feinregler, eingeklappt per Default
+- [ ] E17-T9 Reset-auf-Preset-Button je Sektion
 
 ---
 

@@ -14,7 +14,7 @@ ADDON_NAME = "GroundFX"
 
 # Node-group / node-tree data-block version. Bumped whenever the generated
 # node graph changes shape, so ensure_node_group() knows to rebuild.
-NODEGROUP_VERSION = 2
+NODEGROUP_VERSION = 3
 
 # --- UI ---------------------------------------------------------------------
 PANEL_CATEGORY = "GroundFX"     # N-panel tab label

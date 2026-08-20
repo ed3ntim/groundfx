@@ -282,6 +282,14 @@ Python-Code ist ohne Blender-Instanz reviewbar.
 
 ### 5.1a Konventionen
 
+**Parametrisierungs-Prinzip (durchgehend):** Jeder Wert, der Verhalten oder Look steuert, wird als
+Node-Group-Input mit min/max/default/description gebaut — nie als versteckte Python-Konstante.
+So genügt später ein Panel-Regler, um ihn freizuschalten. Ausnahmen (rein numerische
+Solver-Interna) sind explizit als spätere Parameter markiert (Epic E17). Der User will alles
+über das Addon einstellen können.
+
+
+
 - **Sprache:** UI-Beschriftungen, Property-Namen, Tooltips, Docstrings und Code-Kommentare
   durchgängig **Englisch** (Blender-Konvention, i18n-fähig). Projektdokumentation in `docs/`
   bleibt **Deutsch**.

@@ -102,3 +102,51 @@ def test_minimal_carve():
 
     bpy.data.objects.remove(cube, do_unlink=True)
     bpy.data.objects.remove(obj, do_unlink=True)
+
+
+def test_piling_forms_berm():
+    """E3-S3: carved material heaps into a berm above the original surface."""
+    _reset()
+    from groundfx.ops.op_add import create_domain
+    from groundfx.core import modifier_io
+    from groundfx.core.nodegroups import ng_ground_sim as gsim
+
+    scene = bpy.context.scene
+    scene.frame_start = 1
+    scene.frame_end = 20
+
+    obj = create_domain(bpy.context, ELEM_SAND)
+    md = obj.modifiers[MODIFIER_NAME]
+
+    bpy.ops.mesh.primitive_cube_add(size=0.4)
+    cube = bpy.context.active_object
+    modifier_io.set_input(md, gsim.IN_COLLIDER, cube)
+
+    cube.location = (0.0, 0.0, 2.0)
+    scene.frame_set(1)
+    deps = bpy.context.evaluated_depsgraph_get()
+    base = _read_height_stats(obj, deps)
+
+    # Press the cube into the material.
+    for f in range(2, 12):
+        cube.location = (0.0, 0.0, 0.20)
+        scene.frame_set(f)
+        deps = bpy.context.evaluated_depsgraph_get()
+    after = _read_height_stats(obj, deps)
+
+    if base and after:
+        # A berm rises above the original flat surface (~0.08 m).
+        harness.check(
+            "berm above original surface",
+            after[1] > base[1] + 0.003,
+            f"max height {base[1]:.4f} -> {after[1]:.4f} (expected rise)",
+        )
+        # And a trench below it.
+        harness.check(
+            "trench below berm",
+            after[0] < base[0] - 0.01,
+            f"min height {base[0]:.4f} -> {after[0]:.4f}",
+        )
+
+    bpy.data.objects.remove(cube, do_unlink=True)
+    bpy.data.objects.remove(obj, do_unlink=True)
