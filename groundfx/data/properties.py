@@ -13,6 +13,7 @@ from ..core import modifier_io
 from ..core.constants import (
     ELEMENTS, ELEMENT_LABELS, QUALITY_LEVELS, MODIFIER_NAME,
     DEFAULT_DOMAIN_SIZE, DEFAULT_MATERIAL_HEIGHT,
+    PROXY_MODES, PROXY_MODE_LABELS,
 )
 from ..core.nodegroups import ng_ground_sim as gsim
 from ..data import quality as qmod
@@ -53,6 +54,16 @@ class GroundFXObjectSettings(bpy.types.PropertyGroup):
 
     is_collider: bpy.props.BoolProperty(
         name="Is GroundFX Collider", default=False)
+
+    collider_proxy: bpy.props.EnumProperty(
+        name="Proxy", default=0,
+        items=[(m, PROXY_MODE_LABELS[m], PROXY_MODE_LABELS[m])
+               for m in PROXY_MODES],
+        description="How this collider is presented to the raycast")
+
+    proxy_source: bpy.props.PointerProperty(
+        name="Proxy Source", type=bpy.types.Object,
+        description="Set on a proxy object; points at the collider it stands in for")
 
     element: bpy.props.EnumProperty(
         name="Element", items=_element_items,

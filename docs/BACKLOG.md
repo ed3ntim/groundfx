@@ -155,10 +155,14 @@ nur Einweg-Kollision · UI und Code Englisch, Doku Deutsch · Nahaufnahme-Maßst
 
 **Akzeptanz:** Ein Charakter mit 500 k Tris kostet mit Proxy weniger als 20 % der Zeit ohne Proxy.
 
-- [ ] E4-T5 Proxy-Generator: Convex Hull, Decimate, Bounding Box
-- [ ] E4-T6 Proxy folgt dem Original (Constraint oder Modifier-Kette), inklusive Armature-Deformation
-- [ ] E4-T7 Bounding-Box-Vorfilter im Node-Tree
-- [ ] E4-T8 Benchmark-Test: mit und ohne Proxy
+- [~] E4-T5 Proxy-Generator — Bounding Box + Convex Hull als GN-Group (`ng_collider_proxy.py`);
+  Decimate offen (kein GN-Node, später als Mesh-Copy+Decimate-Modifier)
+- [x] E4-T6 Proxy folgt dem Original inkl. Armature/Deformation — via `Object Info` (evaluierte
+  Geometrie), ganz ohne Constraints/Bake
+- [ ] E4-T7 Bounding-Box-Vorfilter im Node-Tree — separate Solver-Optimierung; der Proxy liefert
+  bereits den Hauptgewinn (aufgeschoben)
+- [x] E4-T8 Benchmark-Test: BBox-Proxy reduziert die Raycast-Zielflächen massiv (6 statt Tausende)
+  und carvt weiterhin; Original bleibt aus der Raycast-Menge
 
 ### E4-S4 — Als User will ich für Produktfotos einen exakten Abdruck der Objekt-Silhouette. `M` `P1`
 

@@ -81,7 +81,14 @@ class GFX_UL_colliders(bpy.types.UIList):
                   active_data, active_prop, index):
         # ``item`` is a CollectionObject wrapper; item.name is the object name.
         obj = getattr(item, "object", None) or item
-        layout.label(text=obj.name, icon="OBJECT_DATA")
+        src = obj.groundfx.proxy_source
+        if src is not None:
+            from ..core.constants import PROXY_MODE_LABELS
+            label = PROXY_MODE_LABELS.get(src.groundfx.collider_proxy, "Proxy")
+            layout.label(text=src.name, icon="OBJECT_DATA")
+            layout.label(text=label, icon="MOD_MESHDEFORM")
+        else:
+            layout.label(text=obj.name, icon="OBJECT_DATA")
 
 
 class GFX_PT_colliders(bpy.types.Panel):
@@ -117,7 +124,8 @@ class GFX_PT_colliders(bpy.types.Panel):
         else:
             layout.label(text="No collider collection", icon="ERROR")
 
-        layout.operator(f"{OP_PREFIX}.mark_collider", icon="ADD")
+        layout.operator_menu_enum(f"{OP_PREFIX}.mark_collider", "proxy",
+                                  text="Mark as Collider", icon="ADD")
 
 
 classes = (

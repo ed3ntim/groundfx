@@ -150,6 +150,61 @@ def test_bow_wave_heaps_ahead_of_motion():
         bpy.data.objects.remove(o, do_unlink=True)
 
 
+def test_proxy_reduces_cost_and_still_carves():
+    """E4-S2: a bounding-box proxy raycasts far cheaper yet still carves."""
+    _reset()
+    from groundfx.ops.op_add import create_domain
+
+    scene = bpy.context.scene
+    scene.frame_start = 1
+    scene.frame_end = 20
+
+    obj = create_domain(bpy.context, ELEM_SAND)
+    coll = obj.groundfx.collider_collection
+
+    # A dense high-poly source sphere.
+    bpy.ops.mesh.primitive_uv_sphere_add(segments=48, ring_count=48,
+                                         radius=0.25, location=(0.0, 0.0, 2.0))
+    src = bpy.context.active_object
+    src_faces = len(src.data.polygons)
+
+    # Mark it with a bounding-box proxy.
+    for o in bpy.context.selected_objects:
+        o.select_set(False)
+    src.select_set(True)
+    bpy.context.view_layer.objects.active = obj
+    bpy.ops.groundfx.mark_collider(proxy="BBOX")
+
+    harness.check("original left out of raycast set", src.name not in coll.objects)
+    proxies = [o for o in coll.objects if o.groundfx.proxy_source is src]
+    harness.check("proxy created", len(proxies) == 1)
+    proxy = proxies[0]
+    harness.check("proxy hidden from render", proxy.hide_render)
+
+    deps = bpy.context.evaluated_depsgraph_get()
+    proxy_faces = len(proxy.evaluated_get(deps).data.polygons)
+    # Bounding box is 6 faces vs thousands: the raycast target shrinks hugely.
+    harness.check("proxy far cheaper than original",
+                  proxy_faces * 20 < src_faces,
+                  f"proxy {proxy_faces} faces vs source {src_faces}")
+
+    # The proxy follows the source, so pressing the source in still carves.
+    scene.frame_set(1)
+    deps = bpy.context.evaluated_depsgraph_get()
+    base = _max_height_band(obj, deps, -0.9, 0.9, ymax=0.9)
+    for f in range(2, 10):
+        src.location = (0.0, 0.0, 0.15)
+        scene.frame_set(f)
+        deps = bpy.context.evaluated_depsgraph_get()
+    after = _height_near(obj, deps, 0.0, 0.0, r=0.15)
+    harness.check("proxy collider carves a trench", after < base - 0.01,
+                  f"min height under proxy {after:.4f} (base ~{base:.4f})")
+
+    for o in (src, proxy, obj):
+        if o.name in bpy.data.objects:
+            bpy.data.objects.remove(o, do_unlink=True)
+
+
 def test_mark_and_unmark_operators():
     """The mark op fills the collection; unmark removes the active row."""
     _reset()

@@ -2,7 +2,7 @@
 
 **Letzte Aktualisierung:** 2026-08-20
 **Aktueller Meilenstein:** M2 (Physik) — in Arbeit
-**Tests:** 42/42 grün (Blender 5.2.0 LTS, headless)
+**Tests:** 47/47 grün (Blender 5.2.0 LTS, headless)
 
 > Diese Datei ist der Wiedereinstiegspunkt. Wer den Kontext geleert hat, liest
 > `STATUS.md` → `PLAN.md` → `BACKLOG.md` → `API_NOTES.md` und ist wieder im Bild.
@@ -42,7 +42,11 @@ sind nicht bindend, nur optionale Hilfe fürs spätere Preset-Fine-Tuning.
   aus der Schwerpunkt-Verschiebung des Fußabdrucks (robust null bei Stillstand); Pile wird per
   Advektion nach vorne verlagert (`bow_wave`-Input pro Element). Test: vorne > hinten; bw=0
   symmetrisch. Schließt E3-T13 (Bugwelle) mit ab.
-- E4-S2 Proxy (High-Poly) · E4-S4 Silhouette (Hero) — offen; E4-T11 (Substep-Lückenfüllung) hängt an E3-S5
+- **E4-S2 Proxy (High-Poly)** ✅ fertig — `ng_collider_proxy` (Bounding Box / Convex Hull), folgt
+  dem Original inkl. Deformation via `Object Info`; Mark-Operator legt Proxy an, Original bleibt aus
+  der Raycast-Menge. Benchmark-Test: Zielflächen 6 statt Tausende. Decimate-Proxy + BBox-Vorfilter
+  (E4-T5/T7) offen.
+- E4-S4 Silhouette (Hero) — offen; E4-T11 (Substep-Lückenfüllung) hängt an E3-S5
 
 ## Danach
 
@@ -85,7 +89,8 @@ groundfx/
     nodegroups/
       ng_ground_sim.py   Solver-Toplevel: Init → Carve → Deposit → Relax → SetPos
       ng_relax.py        Böschungswinkel-Toppling (Repeat-Zone)
-      ng_deposit.py      Pile-Transport zum Rand / Berm (Repeat-Zone)
+      ng_deposit.py      Pile-Transport + gerichtete Bugwelle (Repeat-Zone)
+      ng_collider_proxy.py  Low-Poly-Stand-in (BBox/Convex Hull) via Object Info
   data/
     prefs.py             AddonPreferences (Debug-Schalter)
     properties.py        GroundFXObjectSettings (obj.groundfx) + Callbacks

@@ -57,6 +57,22 @@ ATTR_FLOW = "gfx_flow"          # last displacement direction (vector) -> shader
 ATTR_AGE = "gfx_age"            # frames since last disturbance
 ATTR_SURFACE = "gfx_surface"    # base + h, cached for neighbour sampling in relax
 
+# --- Collider proxy modes ---------------------------------------------------
+# How a collider is presented to the raycast: the original mesh, or a cheap
+# low-poly stand-in that follows the original (incl. deformation) via Object
+# Info. Bounding box is the guaranteed perf win; convex hull keeps the shape of
+# compact objects. Silhouette-true "hero" mode (original geometry) is E4-S4.
+PROXY_NONE = "NONE"
+PROXY_BBOX = "BBOX"
+PROXY_HULL = "HULL"
+PROXY_MODES = (PROXY_NONE, PROXY_BBOX, PROXY_HULL)
+PROXY_MODE_LABELS = {
+    PROXY_NONE: "Original",
+    PROXY_BBOX: "Bounding Box",
+    PROXY_HULL: "Convex Hull",
+}
+PROXY_TYPE_INT = {PROXY_BBOX: 0, PROXY_HULL: 1}  # -> node-group menu int
+
 # --- Object custom-property keys -------------------------------------------
 PROP_IS_DOMAIN = "gfx_is_domain"       # marks a GroundFX domain object
 PROP_IS_COLLIDER = "gfx_is_collider"   # marks a collider object
@@ -65,6 +81,7 @@ PROP_NG_VERSION = "gfx_ng_version"     # node-group version stamp on the tree
 
 # --- Node-group names -------------------------------------------------------
 NG_GROUND_SIM = "GFX_GroundSim"        # top-level solver group
+NG_COLLIDER_PROXY = "GFX_ColliderProxy"  # low-poly stand-in for a collider
 NG_DEPOSIT = "GFX_Deposit"
 NG_COLLIDE = "GFX_Collide"
 NG_DISPLACE = "GFX_Displace"
