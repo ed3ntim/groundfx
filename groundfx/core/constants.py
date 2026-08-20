@@ -66,6 +66,9 @@ NG_RELAX = "GFX_Relax"
 NG_SPRAY = "GFX_Spray"
 NG_DISPLAY = "GFX_Display"
 
+# --- Modifier ---------------------------------------------------------------
+MODIFIER_NAME = "GroundFX"      # name of the geometry-nodes modifier on a domain
+
 # --- Material names ---------------------------------------------------------
 MAT_SAND = "GFX_Sand"
 MAT_SNOW = "GFX_Snow"

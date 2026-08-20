@@ -36,6 +36,11 @@ def register() -> None:
     if not _guard_version():
         return
 
+    # Self-heal: if a previous register() left classes behind (reload, or a
+    # test that skipped teardown), tear them down before registering again.
+    if _registered:
+        unregister()
+
     # The extension is imported as "bl_ext.<repo>.groundfx"; the preferences
     # class must advertise that exact module path as its bl_idname.
     _prefs.GFX_Preferences.bl_idname = __package__
@@ -44,6 +49,8 @@ def register() -> None:
     for cls in registry.all_classes():
         bpy.utils.register_class(cls)
         _registered.append(cls)
+
+    registry.register_extras()
 
     # Apply the persisted debug setting now that preferences exist.
     try:
@@ -57,6 +64,10 @@ def register() -> None:
 
 
 def unregister() -> None:
+    try:
+        registry.unregister_extras()
+    except Exception:  # noqa: BLE001
+        pass
     # Unregister in reverse so dependents go before their dependencies.
     for cls in reversed(_registered):
         try:
