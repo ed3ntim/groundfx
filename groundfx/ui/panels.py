@@ -90,6 +90,9 @@ class GFX_PT_domain(bpy.types.Panel):
         col.prop(st, "domain_size")
         col.prop(st, "material_height")
         col.prop(st, "stickiness", slider=True)
+        col.prop(st, "terrain")
+        if st.terrain is not None:
+            col.label(text="Press Rebuild to conform to terrain", icon="INFO")
         col.prop(st, "hero_contact")
 
 

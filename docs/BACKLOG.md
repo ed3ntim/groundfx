@@ -117,12 +117,12 @@ nur Einweg-Kollision · UI und Code Englisch, Doku Deutsch · Nahaufnahme-Maßst
 - [ ] E2-T3 Integration ins `Add`-Menü und ins N-Panel
 - [ ] E2-T4 Auto-Benennung und Collection-Organisation (`GroundFX` Collection)
 
-### E2-S2 — Als User will ich, dass das Material sich an vorhandenes Terrain anpasst. `M`
+### E2-S2 — Als User will ich, dass das Material sich an vorhandenes Terrain anpasst. `M` ✅ (E2-T8 offen)
 
-- [ ] E2-T5 Terrain-Slot: beliebiges Objekt als Untergrund wählbar
-- [ ] E2-T6 `gfx_base` einmalig aus dem Terrain raycasten und cachen (nicht pro Frame!)
-- [ ] E2-T7 Fallback flache Ebene, wenn kein Terrain gesetzt ist
-- [ ] E2-T8 Rand-Verhalten: offen (Material fällt hinaus) oder geschlossen (Wanne)
+- [x] E2-T5 Terrain-Slot (`groundfx.terrain`, PointerProperty) im Domain-Panel
+- [x] E2-T6 Grid wird beim Rebuild einmalig aufs Terrain geraycastet (BVH, nach unten), Vertex-Z = Treffer → `gfx_base` = Terrain-Höhe. Kein Per-Frame-Cost (`conform_grid_to_terrain`)
+- [x] E2-T7 Fallback flache Ebene, wenn kein Terrain gesetzt (Standard); Punkte, die das Terrain verfehlen, bleiben flach
+- [ ] E2-T8 Rand-Verhalten: offen (Material fällt hinaus) oder geschlossen (Wanne) — offen
 
 ### E2-S3 — Als User will ich sehen, wie fein mein Setup wirklich ist. `S`
 

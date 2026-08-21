@@ -231,6 +231,11 @@ class GroundFXObjectSettings(bpy.types.PropertyGroup):
         description="Supersample the contact edge for a silhouette-accurate "
                     "imprint (product/hero shots). Costs more per frame")
 
+    terrain: bpy.props.PointerProperty(
+        name="Terrain", type=bpy.types.Object,
+        description="Ground the material rests on: the grid conforms to this "
+                    "object's surface on Rebuild (empty = flat plane)")
+
     # --- Look (E8): four sliders that drive the generated material ----------
     look_base_color: bpy.props.FloatVectorProperty(
         name="Base Color", subtype="COLOR", size=3, min=0.0, max=1.0,

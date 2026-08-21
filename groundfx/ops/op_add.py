@@ -138,6 +138,41 @@ def create_domain(context, element: str,
     return obj
 
 
+def conform_grid_to_terrain(obj, terrain, context) -> int:
+    """Drop each grid vertex onto ``terrain`` so the material rests on it.
+
+    Casts a ray straight down from high above every grid point against the
+    terrain's evaluated surface (via a BVH tree in world space) and sets the
+    vertex height to the hit. Points that miss (outside the terrain) keep their
+    flat height. Done once at build time — the solver reads this as ``gfx_base``,
+    so no per-frame cost. Returns the number of vertices that hit (E2-T6/T7).
+    """
+    from mathutils.bvhtree import BVHTree
+
+    deps = context.evaluated_depsgraph_get()
+    ev = terrain.evaluated_get(deps)
+    tmw = ev.matrix_world
+    verts = [tmw @ v.co for v in ev.data.vertices]
+    polys = [tuple(p.vertices) for p in ev.data.polygons]
+    if not polys:
+        return 0
+    bvh = BVHTree.FromPolygons(verts, polys)
+
+    ow = obj.matrix_world
+    owi = ow.inverted()
+    me = obj.data
+    top = 1.0e4
+    hits = 0
+    for v in me.vertices:
+        wp = ow @ v.co
+        loc, _nrm, _idx, _dist = bvh.ray_cast((wp.x, wp.y, top), (0.0, 0.0, -1.0))
+        if loc is not None:
+            v.co.z = (owi @ loc).z
+            hits += 1
+    me.update()
+    return hits
+
+
 def expected_vertex_count(obj) -> int:
     """How many vertices the domain's grid should have at its quality."""
     return (qmod.profile(obj.groundfx.quality).resolution + 1) ** 2
@@ -173,6 +208,10 @@ def rebuild_grid(obj) -> bool:
         bpy.data.meshes.remove(old)
     if mat is not None:
         matb.assign_material(obj, mat)
+    # Conform to a terrain if one is set (E2-S2).
+    terrain = st.terrain
+    if terrain is not None and terrain is not obj:
+        conform_grid_to_terrain(obj, terrain, bpy.context)
 
     modifier_io.set_input(md, gsim.IN_CELL_SIZE, size / prof.resolution, tag=False)
     modifier_io.set_input(md, gsim.IN_GRID_N, prof.resolution + 1, tag=False)
