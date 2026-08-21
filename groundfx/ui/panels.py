@@ -141,8 +141,13 @@ class GFX_PT_colliders(bpy.types.Panel):
             side = row.column(align=True)
             side.operator(f"{OP_PREFIX}.unmark_collider", text="", icon="X")
             n = len(coll.objects)
-            layout.label(text=f"{n} collider{'' if n == 1 else 's'}",
-                         icon="OBJECT_DATA")
+            if n == 0:
+                hint = layout.row()
+                hint.label(text="No colliders — nothing will deform",
+                           icon="INFO")
+            else:
+                layout.label(text=f"{n} collider{'' if n == 1 else 's'}",
+                             icon="OBJECT_DATA")
         else:
             layout.label(text="No collider collection", icon="ERROR")
 
