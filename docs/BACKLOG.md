@@ -430,7 +430,7 @@ erkennt den Stillstand und friert automatisch auf ein rendfertiges High-Res-Mesh
 
 ### E11-S3 — Als User will ich sofort loslegen können. `M`
 
-- [ ] E11-T9 Beispielszene je Element
+- [x] E11-T9 One-Click **„Add Sandbox"** (`groundfx.add_sandbox`): Domain + fallender, keyframe-animierter Collider → Play zeigt sofort einen Imprint (`create_sandbox`). Beispielszene je Element via Element-Wechsel
 - [ ] E11-T10 Release-ZIP, Versionierung, Changelog
 - [ ] E11-T11 Lizenz und Attributionen
 

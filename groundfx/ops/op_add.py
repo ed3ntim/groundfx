@@ -331,6 +331,93 @@ class GFX_OT_rebuild_grid(bpy.types.Operator):
         return {"FINISHED"}
 
 
+def create_sandbox(context, element: str = None):
+    """A one-click demo: a domain plus a collider that drops into it (E11-S3).
+
+    Gives a brand-new user something that *does* something the moment they press
+    play — a sphere falls, presses an imprint, leaves a trace — without having
+    to wire a collider by hand. Returns (domain, collider).
+    """
+    from .op_collider import ensure_collider_collection
+    from ..core.constants import ELEM_SAND
+
+    element = element or ELEM_SAND
+    domain = create_domain(context, element)
+    domain.location = context.scene.cursor.location
+
+    # A collider sphere above the domain, keyframed to drop and drag.
+    ball = bpy.data.objects.new("GroundFX Collider", _uv_sphere_mesh("gfx_ball"))
+    get_groundfx_collection(context).objects.link(ball)
+    coll = ensure_collider_collection(context, domain)
+    coll.objects.link(ball)
+    ball.groundfx.is_collider = True
+
+    scene = context.scene
+    scene.frame_start = 1
+    scene.frame_end = 48
+    base = domain.location
+    keys = {1: (base.x - 0.6, base.y, base.z + 1.0),
+            14: (base.x - 0.5, base.y, base.z + 0.12),
+            40: (base.x + 0.6, base.y, base.z + 0.12)}
+    for frame, loc in keys.items():
+        scene.frame_set(frame)
+        ball.location = loc
+        ball.keyframe_insert("location", frame=frame)
+    scene.frame_set(1)
+    return domain, ball
+
+
+def _uv_sphere_mesh(name, radius=0.16, rings=16, segments=24):
+    """A UV-sphere mesh without bpy.ops (headless-safe)."""
+    import numpy as np
+
+    verts = [(0.0, 0.0, radius)]
+    for i in range(1, rings):
+        theta = np.pi * i / rings
+        for j in range(segments):
+            phi = 2.0 * np.pi * j / segments
+            verts.append((radius * np.sin(theta) * np.cos(phi),
+                          radius * np.sin(theta) * np.sin(phi),
+                          radius * np.cos(theta)))
+    verts.append((0.0, 0.0, -radius))
+    faces = []
+    for j in range(segments):
+        faces.append((0, 1 + j, 1 + (j + 1) % segments))
+    for i in range(rings - 2):
+        r0 = 1 + i * segments
+        r1 = r0 + segments
+        for j in range(segments):
+            a, b = j, (j + 1) % segments
+            faces.append((r0 + a, r1 + a, r1 + b, r0 + b))
+    last = len(verts) - 1
+    r0 = 1 + (rings - 2) * segments
+    for j in range(segments):
+        faces.append((last, r0 + (j + 1) % segments, r0 + j))
+    me = bpy.data.meshes.new(name)
+    me.from_pydata(verts, [], faces)
+    me.update()
+    for p in me.polygons:
+        p.use_smooth = True
+    return me
+
+
+class GFX_OT_add_sandbox(bpy.types.Operator):
+    """Add a ready-to-play demo: a domain with a collider that drops in"""
+
+    bl_idname = f"{OP_PREFIX}.add_sandbox"
+    bl_label = "Add Sandbox (demo)"
+    bl_options = {"REGISTER", "UNDO"}
+
+    def execute(self, context):
+        domain, ball = create_sandbox(context)
+        for o in context.selected_objects:
+            o.select_set(False)
+        domain.select_set(True)
+        context.view_layer.objects.active = domain
+        self.report({"INFO"}, "Sandbox added — press Play to see the imprint")
+        return {"FINISHED"}
+
+
 class GFX_OT_add_ground(bpy.types.Operator):
     """Add a GroundFX domain of the given element at the 3D cursor"""
 
@@ -357,6 +444,7 @@ class GFX_OT_add_ground(bpy.types.Operator):
 
 classes = (
     GFX_OT_add_ground,
+    GFX_OT_add_sandbox,
     GFX_OT_rebuild_grid,
     GFX_OT_repair,
 )

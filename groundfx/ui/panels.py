@@ -33,6 +33,8 @@ class GFX_PT_main(bpy.types.Panel):
                               text=ELEMENT_LABELS[elem])
             op.element = elem
 
+        layout.operator(f"{OP_PREFIX}.add_sandbox", icon="PLAY")
+
         layout.separator()
         layout.operator(f"{OP_PREFIX}.repair", text="Repair Node Setup",
                         icon="FILE_REFRESH").all_domains = True
