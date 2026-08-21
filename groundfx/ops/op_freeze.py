@@ -170,8 +170,56 @@ class GFX_OT_photo_setup(bpy.types.Operator):
         return {"FINISHED"}
 
 
+_HERO_MOD = "GFX Detail"
+
+
+def hero_detail_modifier(domain):
+    return domain.modifiers.get(_HERO_MOD) if domain else None
+
+
+class GFX_OT_hero_detail(bpy.types.Operator):
+    """Toggle true micro-displacement for Cycles close-ups.
+
+    Adds an adaptive Subdivision Surface after the solver so the material's
+    grain/crystal relief becomes real geometry near the camera — the close-up
+    ('Nahaufnahme') look bump alone can't give. Off removes it again"""
+
+    bl_idname = f"{OP_PREFIX}.hero_detail"
+    bl_label = "Hero Detail (Displacement)"
+    bl_options = {"REGISTER", "UNDO"}
+
+    @classmethod
+    def poll(cls, context):
+        return _active_domain(context) is not None
+
+    def execute(self, context):
+        domain = _active_domain(context)
+        existing = hero_detail_modifier(domain)
+        if existing is not None:
+            domain.modifiers.remove(existing)
+            self.report({"INFO"}, "Hero Detail off")
+            return {"FINISHED"}
+
+        # Displacement only shows in Cycles, and needs geometry to move: an
+        # adaptive Subdivision Surface dices to the camera so only what's on
+        # screen gets dense. It sits *after* the solver modifier (added last).
+        context.scene.render.engine = "CYCLES"
+        sub = domain.modifiers.new(_HERO_MOD, "SUBSURF")
+        sub.subdivision_type = "CATMULL_CLARK"
+        sub.levels = 1
+        sub.render_levels = 1
+        try:
+            sub.use_adaptive_subdivision = True
+            sub.adaptive_space = "PIXEL"
+        except (AttributeError, TypeError):  # older/newer API drift
+            sub.render_levels = 3
+        self.report({"INFO"}, "Hero Detail on — Cycles adaptive displacement")
+        return {"FINISHED"}
+
+
 classes = (
     GFX_OT_freeze_to_mesh,
     GFX_OT_settle_and_freeze,
     GFX_OT_photo_setup,
+    GFX_OT_hero_detail,
 )

@@ -61,12 +61,12 @@ class LookDefaults:
     __slots__ = ("base_color", "wet_color", "roughness", "detail",
                  "base_wetness", "grain_scale", "subsurface", "ripple",
                  "sparkle", "macro_scale", "crevice", "rough_var", "mottle",
-                 "sparkle_scale")
+                 "sparkle_scale", "disp_scale")
 
     def __init__(self, base_color, wet_color, roughness, detail,
                  base_wetness, grain_scale, subsurface, ripple=0.0,
                  sparkle=0.0, macro_scale=8.0, crevice=0.5, rough_var=0.12,
-                 mottle=0.1, sparkle_scale=600.0):
+                 mottle=0.1, sparkle_scale=600.0, disp_scale=0.004):
         self.base_color = base_color      # dry albedo (RGB)
         self.wet_color = wet_color        # albedo at full wetness (RGB)
         self.roughness = roughness        # dry roughness 0..1
@@ -81,6 +81,7 @@ class LookDefaults:
         self.rough_var = rough_var        # +/- roughness noise (breaks plastic)
         self.mottle = mottle              # fine albedo brightness variation
         self.sparkle_scale = sparkle_scale  # glint fleck density
+        self.disp_scale = disp_scale      # true-displacement amplitude, metres
 
 
 LOOKS = {
@@ -89,19 +90,19 @@ LOOKS = {
         roughness=0.95, detail=1.0, base_wetness=0.0,
         grain_scale=520.0, subsurface=0.0, ripple=0.6,
         sparkle=0.7, macro_scale=6.0, crevice=0.6,
-        rough_var=0.18, mottle=0.14, sparkle_scale=900.0),
+        rough_var=0.18, mottle=0.14, sparkle_scale=900.0, disp_scale=0.0035),
     ELEM_SNOW: LookDefaults(
         base_color=(0.90, 0.93, 0.98), wet_color=(0.72, 0.78, 0.90),
         roughness=0.42, detail=0.7, base_wetness=0.1,
         grain_scale=150.0, subsurface=0.18, ripple=0.25,
         sparkle=0.95, macro_scale=9.0, crevice=0.6,
-        rough_var=0.22, mottle=0.05, sparkle_scale=520.0),
+        rough_var=0.22, mottle=0.05, sparkle_scale=520.0, disp_scale=0.008),
     ELEM_MUD: LookDefaults(
         base_color=(0.21, 0.15, 0.10), wet_color=(0.07, 0.05, 0.03),
         roughness=0.62, detail=0.6, base_wetness=0.6,
         grain_scale=90.0, subsurface=0.0, ripple=0.15,
         sparkle=0.2, macro_scale=14.0, crevice=0.7,
-        rough_var=0.16, mottle=0.12, sparkle_scale=700.0),
+        rough_var=0.16, mottle=0.12, sparkle_scale=700.0, disp_scale=0.005),
 }
 
 
@@ -202,6 +203,7 @@ def _structure(b, element, look, P, det_eff, n_wet):
     crevice = None         # 0..1, 1 = ridge (bright), 0 = valley (dark)
     tint = None            # per-cell colour multiplier (as a fraction)
     extra_dark = None      # 0..1, 1 = fully dark (cracks)
+    relief = None          # 0..1 height for TRUE displacement (Cycles hero)
 
     if element == ELEM_SAND:
         grain = _voronoi(b, P, look.grain_scale, "F1", randomness=1.0)
@@ -212,6 +214,11 @@ def _structure(b, element, look, P, det_eff, n_wet):
             (micro, "Factor", _math(b, "MULTIPLY", det_eff, 0.4), 0.0015),
         ]
         crevice = grain_h
+        # displacement relief: grains, with a touch of micro dune
+        relief = _math(b, "ADD",
+                       _math(b, "MULTIPLY", grain_h, 0.8),
+                       _math(b, "MULTIPLY", (micro, "Factor"), 0.2),
+                       label="sand relief")
         # per-grain *brightness* jitter (grayscale, not coloured, or the grains
         # turn into rainbow confetti). Luminance of the Voronoi cell colour ->
         # a scalar in ~0.85..1.12 that lightens/darkens each grain.
@@ -232,6 +239,10 @@ def _structure(b, element, look, P, det_eff, n_wet):
             (micro, "Factor", _math(b, "MULTIPLY", det_eff, 0.35), 0.0015),
         ]
         crevice = (clump, "Distance")
+        relief = _math(b, "ADD",
+                       _math(b, "MULTIPLY", (clump, "Distance"), 0.6),
+                       _math(b, "MULTIPLY", (crystal, "Distance"), 0.4),
+                       label="snow relief")
 
     else:  # MUD
         lump = _noise(b, P, look.macro_scale, detail=4.0, roughness=0.6)
@@ -249,8 +260,13 @@ def _structure(b, element, look, P, det_eff, n_wet):
         ]
         crevice = (lump, "Factor")
         extra_dark = crack_dry
+        # lumps push up, cracks cut down
+        relief = _math(b, "SUBTRACT",
+                       _math(b, "MULTIPLY", (lump, "Factor"), 0.8),
+                       _math(b, "MULTIPLY", crack_dry, 0.5),
+                       label="mud relief")
 
-    return layers, macro, crevice, tint, extra_dark
+    return layers, macro, crevice, tint, extra_dark, relief
 
 
 def build_material(element: str, look: LookDefaults | None = None,
@@ -295,7 +311,7 @@ def build_material(element: str, look: LookDefaults | None = None,
     b.set_default(det_wet[0], 2, 1.0)
     det_eff = _math(b, "MULTIPLY", (n_detail, "Value"), det_wet, label="detail")
 
-    layers, macro, crevice, tint, extra_dark = _structure(
+    layers, macro, crevice, tint, extra_dark, relief = _structure(
         b, element, look, P, det_eff, n_wet)
 
     # -- base colour: two-tone macro shading + variation --------------------
@@ -412,6 +428,24 @@ def build_material(element: str, look: LookDefaults | None = None,
 
     out = b.add("ShaderNodeOutputMaterial")
     b.link(bsdf, "BSDF", out, "Surface")
+
+    # -- true displacement (Cycles hero close-ups) --------------------------
+    # The same relief that drives the bump also drives real geometry
+    # displacement, so a close-up shows grain/crystal *silhouette*, not a flat
+    # fake. Harmless without subdivision (no verts to move -> looks like the
+    # bump); the Hero Detail operator adds adaptive subdivision so it kicks in.
+    # Wetness flattens it (a wet surface packs the grain down).
+    if relief is not None:
+        disp_amt = _math(b, "MULTIPLY", relief,
+                         _math(b, "SUBTRACT", 1.0,
+                               _math(b, "MULTIPLY", (n_wet, "Value"), 0.7)),
+                         label="displace amount")
+        disp = b.add("ShaderNodeDisplacement",
+                     inputs={"Midlevel": 0.0, "Scale": look.disp_scale})
+        b.link(disp_amt[0], disp_amt[1], disp, "Height")
+        b.link(disp, "Displacement", out, "Displacement")
+        # BOTH: displacement for the silhouette + bump for sub-dice micro detail.
+        mat.displacement_method = "BOTH"
 
     b.layout()
     return mat

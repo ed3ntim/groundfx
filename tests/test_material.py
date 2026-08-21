@@ -119,3 +119,44 @@ def test_wetness_moves_look_and_physics():
     harness.check("wetness reached the shader", abs(matwet - 0.8) < 1e-4,
                   f"material wetness = {matwet:.3f}")
     bpy.data.objects.remove(obj, do_unlink=True)
+
+
+def test_materials_declare_displacement():
+    """Every element wires a displacement branch and asks for BOTH (E8 hero)."""
+    _reset()
+    for element in (ELEM_SAND, ELEM_SNOW, ELEM_MUD):
+        mat = matb.build_material(element)
+        out = next((n for n in mat.node_tree.nodes
+                    if n.type == "OUTPUT_MATERIAL"), None)
+        harness.check(f"{element}: displacement linked",
+                      out is not None and out.inputs["Displacement"].is_linked)
+        harness.check(f"{element}: displacement method BOTH",
+                      mat.displacement_method == "BOTH",
+                      f"{mat.displacement_method}")
+
+
+def test_hero_detail_toggles_adaptive_subsurf():
+    """Hero Detail adds an adaptive Subdivision Surface after the solver, off removes it."""
+    _reset()
+    from groundfx.ops.op_add import create_domain
+    from groundfx.ops.op_freeze import hero_detail_modifier
+    from groundfx.core.constants import MODIFIER_NAME
+    obj = create_domain(bpy.context, ELEM_SAND)
+    bpy.context.view_layer.objects.active = obj
+
+    harness.check("no hero modifier initially",
+                  hero_detail_modifier(obj) is None)
+    bpy.ops.groundfx.hero_detail()
+    sub = hero_detail_modifier(obj)
+    harness.check("hero detail added a subsurf", sub is not None and sub.type == "SUBSURF")
+    if sub is not None:
+        harness.check("adaptive subdivision on",
+                      getattr(sub, "use_adaptive_subdivision", False))
+        # the solver modifier must still come first
+        idx = list(obj.modifiers).index
+        harness.check("solver runs before the detail subsurf",
+                      idx(obj.modifiers[MODIFIER_NAME]) < idx(sub))
+    bpy.ops.groundfx.hero_detail()  # toggle off
+    harness.check("hero detail removed on second toggle",
+                  hero_detail_modifier(obj) is None)
+    bpy.data.objects.remove(obj, do_unlink=True)

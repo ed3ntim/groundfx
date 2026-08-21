@@ -216,8 +216,14 @@ class GFX_PT_photo(bpy.types.Panel):
 
     def draw(self, context):
         layout = self.layout
+        from ..ops.op_freeze import hero_detail_modifier
+
         col = layout.column(align=True)
         col.operator(f"{OP_PREFIX}.photo_setup", icon="CAMERA_DATA")
+        on = hero_detail_modifier(context.active_object) is not None
+        col.operator(f"{OP_PREFIX}.hero_detail",
+                     text="Hero Detail" + (" (on)" if on else ""),
+                     icon="MOD_SUBSURF", depress=on)
         col.operator(f"{OP_PREFIX}.settle_and_freeze", icon="FREEZE")
         col.operator(f"{OP_PREFIX}.freeze_to_mesh", icon="MESH_DATA")
 

@@ -363,7 +363,7 @@ erkennt den Stillstand und friert automatisch auf ein rendfertiges High-Res-Mesh
 ### E8-S3 — Als User will ich die Optik schnell anpassen können. `S` ✅
 
 - [x] E8-T8 Panel `GFX_PT_look`: Base Color, Roughness, Detail, Wetness
-- [x] E8-T9 Prozedural/Principled = engine-agnostisch; EEVEE gerendert (docs/mat_*.png), Cycles nutzt dieselbe Kette. Nur Bump, kein Displacement (Höhenfeld ist schon echte Geometrie)
+- [x] E8-T9 EEVEE (Bump) + Cycles (echtes adaptives Displacement via Hero-Detail-Toggle) beide gerendert; Displacement nur wo sinnvoll (Cycles-Nahaufnahme, docs/disp_*.png)
 - [x] E8-T10 Materialien sind als `gfx_generated` gestempelt; Elementwechsel tauscht nur ein gestempeltes Material, ein eigenes bleibt unberührt (Test `test_user_material_is_never_overwritten`)
 
 ---
