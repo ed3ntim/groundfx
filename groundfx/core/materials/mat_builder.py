@@ -48,10 +48,12 @@ class LookDefaults:
     """Per-element authored look — the starting point for the Look sliders."""
 
     __slots__ = ("base_color", "wet_color", "roughness", "detail",
-                 "base_wetness", "grain_scale", "subsurface", "ripple")
+                 "base_wetness", "grain_scale", "subsurface", "ripple",
+                 "sparkle")
 
     def __init__(self, base_color, wet_color, roughness, detail,
-                 base_wetness, grain_scale, subsurface, ripple=0.0):
+                 base_wetness, grain_scale, subsurface, ripple=0.0,
+                 sparkle=0.0):
         self.base_color = base_color      # dry albedo (RGB)
         self.wet_color = wet_color        # albedo at full wetness (RGB)
         self.roughness = roughness        # dry roughness 0..1
@@ -60,6 +62,7 @@ class LookDefaults:
         self.grain_scale = grain_scale    # procedural grain frequency
         self.subsurface = subsurface      # Principled subsurface weight
         self.ripple = ripple              # transverse track-ripple strength
+        self.sparkle = sparkle            # ice-crystal glint strength (snow)
 
 
 LOOKS = {
@@ -70,7 +73,7 @@ LOOKS = {
     ELEM_SNOW: LookDefaults(
         base_color=(0.90, 0.93, 0.98), wet_color=(0.72, 0.78, 0.90),
         roughness=0.55, detail=0.35, base_wetness=0.1,
-        grain_scale=38.0, subsurface=0.12, ripple=0.25),
+        grain_scale=38.0, subsurface=0.12, ripple=0.25, sparkle=1.0),
     ELEM_MUD: LookDefaults(
         base_color=(0.20, 0.14, 0.09), wet_color=(0.07, 0.05, 0.03),
         roughness=0.55, detail=0.45, base_wetness=0.6,
@@ -204,6 +207,29 @@ def build_material(element: str, look: LookDefaults | None = None,
     rough_final = b.add("ShaderNodeMath", operation="MULTIPLY", label="roughness")
     b.link(r1, "Value", rough_final, 0)
     b.link(one_m_trk, "Value", rough_final, 1)
+
+    # -- snow sparkle: tiny mirror-smooth facets that glint (E8-T3) ----------
+    # A high-frequency Voronoi picks scattered points; the closest ones become
+    # near-mirror (roughness dips) so under a hard light they flash like ice
+    # crystals. Purely a roughness dip on a few cells -> cheap, works in EEVEE
+    # and Cycles alike.
+    if look.sparkle > 0.0:
+        voro = b.add("ShaderNodeTexVoronoi", inputs={"Scale": 220.0})
+        b.link(mapping, "Vector", voro, "Vector")
+        crystal = b.add("ShaderNodeMath", operation="LESS_THAN",
+                        inputs={1: 0.06}, label="crystal spots")
+        b.link(voro, "Distance", crystal, 0)
+        dip = b.add("ShaderNodeMath", operation="MULTIPLY",
+                    inputs={1: 0.85 * look.sparkle}, label="sparkle dip")
+        b.link(crystal, "Value", dip, 0)
+        keep_rough = b.add("ShaderNodeMath", operation="SUBTRACT",
+                           inputs={0: 1.0}, label="1 - dip")
+        b.link(dip, "Value", keep_rough, 1)
+        sparkled = b.add("ShaderNodeMath", operation="MULTIPLY",
+                         label="roughness w/ sparkle")
+        b.link(rough_final, "Value", sparkled, 0)
+        b.link(keep_rough, "Value", sparkled, 1)
+        rough_final = sparkled
 
     # -- specular rises with wetness (wet sheen) ----------------------------
     spec = b.add("ShaderNodeMath", operation="MULTIPLY_ADD",
