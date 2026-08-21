@@ -131,6 +131,13 @@ class GFX_PT_colliders(bpy.types.Panel):
         layout.operator_menu_enum(f"{OP_PREFIX}.mark_collider", "proxy",
                                   text="Mark Selected", icon="ADD")
 
+        # Live Sculpt: drag a collider and see the trace without pressing Play.
+        active = context.scene.gfx_live_active
+        layout.separator()
+        layout.operator(f"{OP_PREFIX}.live_sculpt",
+                        text="Live Sculpt" + (" (on)" if active else ""),
+                        icon="GREASEPENCIL", depress=active)
+
 
 class GFX_PT_look(bpy.types.Panel):
     """Material look: a few well-named sliders (E8-S3)."""

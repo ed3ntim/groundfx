@@ -32,6 +32,18 @@ Meilenstein-Zuordnung: M1 = E0–E2, M2 = E3–E4, M3 = E5–E9, M4 = E10, E13�
   Selektion. → umgesetzt (`collider_pick`).
 - [x] **B4 Presets nach Element vorfiltern** — Preset-Dropdown zeigt nur Presets des aktiven Elements.
 
+## User-Punkte (2026-08-21, nach E8)
+
+- [x] **P3 Live-Spur ohne Timeline** — Collider im Viewport ziehen zeigt die Spur sofort, ohne Play.
+  Modaler Operator `groundfx.live_sculpt` mit Timer: bei Collider-Bewegung wird EIN Sim-Frame-Schritt
+  ausgelöst (Range auto-verlängert). Nutzt den kompletten bestehenden Solver wieder (inkl. B2/Swept
+  Carve), statt Physik in Python zu duplizieren. Toggle-Button im Collider-Panel. Playhead wandert dabei
+  mit (= faktisch eine Animation, ausgelöst durchs Ziehen); Scrub auf Startframe = Reset. Kern in
+  `LiveStepper`, headless getestet (`tests/test_live.py`). Visuell: docs/live_sculpt.png.
+- [ ] **P1 Anhaftung / Verfangen (gestuft)** — (a) im Höhenfeld machbar: Sand bleibt liegen / verfängt
+  sich (Reibung/Haftung, koppelt an E14). (b) später, sprengt 2.5D: Sand reitet oben auf dem Collider
+  mit (Schaufel füllt sich) → Partikel-/Zweitschicht (E10/E14). Nächster Punkt in Arbeit.
+
 **Rahmen (entschieden am 2026-08-20):** Addon-Name `GroundFX` · Höhenfeld + Spray (Modell B) ·
 nur Einweg-Kollision · UI und Code Englisch, Doku Deutsch · Nahaufnahme-Maßstab, Default-Domain
 2 × 2 m.

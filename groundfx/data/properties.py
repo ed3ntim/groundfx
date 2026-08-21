@@ -243,8 +243,14 @@ classes = (
 def register_pointers():
     bpy.types.Object.groundfx = bpy.props.PointerProperty(
         type=GroundFXObjectSettings)
+    # Scene-wide flag: whether the Live Sculpt modal is currently running. The
+    # panel button reads it (depress state) and a second click clears it.
+    bpy.types.Scene.gfx_live_active = bpy.props.BoolProperty(
+        name="Live Sculpt Active", default=False)
 
 
 def unregister_pointers():
     if hasattr(bpy.types.Object, "groundfx"):
         del bpy.types.Object.groundfx
+    if hasattr(bpy.types.Scene, "gfx_live_active"):
+        del bpy.types.Scene.gfx_live_active
