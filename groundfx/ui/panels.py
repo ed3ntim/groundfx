@@ -216,6 +216,8 @@ class GFX_PT_cache(bpy.types.Panel):
         return obj is not None and getattr(obj.groundfx, "is_domain", False)
 
     def draw(self, context):
+        from ..ops.op_bake import bake_estimate_mb
+
         layout = self.layout
         row = layout.row(align=True)
         row.operator(f"{OP_PREFIX}.bake", icon="PHYSICS")
@@ -223,6 +225,14 @@ class GFX_PT_cache(bpy.types.Panel):
         row = layout.row(align=True)
         row.operator(f"{OP_PREFIX}.bake_all")
         row.operator(f"{OP_PREFIX}.free_all")
+
+        # Cost estimate (E7-S2): frames × verts × ~bytes.
+        mb, frames, verts = bake_estimate_mb(context.active_object, context.scene)
+        box = layout.box()
+        box.label(text=f"~{mb:.0f} MB  ({frames} frames × {verts:,} verts)",
+                  icon="DISK_DRIVE")
+        if not bpy.data.filepath:
+            box.label(text="Save the .blend for a disk cache", icon="ERROR")
 
 
 class GFX_PT_photo(bpy.types.Panel):

@@ -13,6 +13,20 @@ import bpy
 from ..core.constants import OP_PREFIX, MODIFIER_NAME
 from ..utils import compat
 
+# The simulation cache stores, per baked frame, the point positions plus the
+# gfx_* state attributes the solver carries. Roughly 15 floats/vertex:
+# position (3) + h/base/carve/carve_prev/occ/occ_prev/pile/comp/age (9) +
+# flow (3). Four bytes each — an estimate for the panel, not an exact figure.
+_BYTES_PER_VERTEX = 15 * 4
+
+
+def bake_estimate_mb(obj, scene) -> tuple[float, int, int]:
+    """Rough megabytes a full bake would cost, plus (frames, vertices)."""
+    verts = len(obj.data.vertices) if obj.data else 0
+    frames = max(0, scene.frame_end - scene.frame_start + 1)
+    mb = verts * frames * _BYTES_PER_VERTEX / (1024.0 * 1024.0)
+    return mb, frames, verts
+
 
 def _is_domain(obj) -> bool:
     return getattr(obj.groundfx, "is_domain", False) and \
