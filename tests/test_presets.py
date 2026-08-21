@@ -53,6 +53,24 @@ def test_apply_preset_changes_physics():
     harness.check(
         "preset material height applied",
         abs(obj.groundfx.material_height - wet.material_height) < 1e-5)
+    harness.check(
+        "preset stickiness applied",
+        abs(modifier_io.get_input(md, gsim.IN_STICKINESS) - wet.stickiness) < 1e-5,
+        f"{modifier_io.get_input(md, gsim.IN_STICKINESS):.4f} vs {wet.stickiness:.4f}")
+    harness.check(
+        "preset stickiness reached the panel slider",
+        abs(obj.groundfx.stickiness - wet.stickiness) < 1e-5)
+    harness.check(
+        "preset recovery applied",
+        abs(modifier_io.get_input(md, gsim.IN_RECOVERY) - wet.recovery) < 1e-5,
+        f"{modifier_io.get_input(md, gsim.IN_RECOVERY):.4f} vs {wet.recovery:.4f}")
+
+    # Presets of the same element must differ in the new params, or they'd be
+    # indistinguishable in feel — the gap this fills.
+    fine = pmod.get("FINE_DRY_SAND")
+    harness.check("wet vs dry sand differ in stickiness",
+                  abs(wet.stickiness - fine.stickiness) > 0.1,
+                  f"wet {wet.stickiness} vs dry {fine.stickiness}")
 
     # A cross-element preset also switches the element (via the helper; the
     # operator's dropdown is filtered to the active element, B4).

@@ -46,6 +46,11 @@ def apply_preset(domain, preset):
         modifier_io.set_input(md, gsim.IN_COHESION, preset.cohesion, tag=False)
         modifier_io.set_input(md, gsim.IN_FLOW, preset.flow_rate, tag=False)
         modifier_io.set_input(md, gsim.IN_BOW_WAVE, preset.bow_wave, tag=False)
+        modifier_io.set_input(md, gsim.IN_RECOVERY, preset.recovery, tag=False)
+    # Stickiness via the property so the panel slider reflects the preset (its
+    # callback pushes IN_STICKINESS). Set after st.element, which reset it to
+    # the element default.
+    st.stickiness = preset.stickiness
     st.material_height = preset.material_height  # its callback tags + re-solves
     log.info("applied preset %s to %s", preset.key, domain.name)
 

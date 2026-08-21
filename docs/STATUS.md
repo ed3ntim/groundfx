@@ -2,7 +2,7 @@
 
 **Letzte Aktualisierung:** 2026-08-21
 **Aktueller Meilenstein:** M3 (Workflow) — E7 in Arbeit (E4/M2-Kern fertig)
-**Tests:** 139/139 grün (Blender 5.2.0 LTS, headless)
+**Tests:** 143/143 grün (Blender 5.2.0 LTS, headless)
 
 > Diese Datei ist der Wiedereinstiegspunkt. Wer den Kontext geleert hat, liest
 > `STATUS.md` → `PLAN.md` → `BACKLOG.md` → `API_NOTES.md` und ist wieder im Bild.
