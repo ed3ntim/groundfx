@@ -267,19 +267,21 @@ wenn doch größere Szenen dazukommen.*
 
 ### E7-S3 — Als User will ich ein Sim-Ergebnis als statisches Mesh einfrieren. `M`
 
-- [ ] E7-T9 „Freeze to Mesh": aktueller Frame → neues Objekt mit Attributen
-- [ ] E7-T10 Materialübernahme und Attributerhalt (`gfx_comp`, `gfx_wet` bleiben nutzbar)
+- [x] E7-T9 „Freeze to Mesh": aktueller Frame → neues statisches Objekt (`new_from_object`,
+  `preserve_all_data_layers`), live-Domain wird versteckt
+- [x] E7-T10 Materialübernahme + Attributerhalt (alle `gfx_*` bleiben auf dem Frozen-Mesh)
 
 ### E7-S4 — Als Produktfotograf will ich einen „Settle & Freeze"-Workflow für Hero-Shots. `M` `P1`
 
 **Akzeptanz:** Ein Objekt fällt/wird in Sand gedrückt; das Addon simuliert bis zum Ruhezustand,
 erkennt den Stillstand und friert automatisch auf ein rendfertiges High-Res-Mesh ein.
 
-- [ ] E7-T11 „Photo"-Workflow-Schalter: setzt Quality High/Ultra, Cycles, erhöhte Substeps
-- [ ] E7-T12 Ruhezustand-Erkennung (Höhenänderung pro Frame unter Schwelle → „settled")
-- [ ] E7-T13 Auto-Freeze auf den Ruheframe, danach Solver deaktivierbar für schnelles Look-Dev
-- [ ] E7-T14 Anti-Kriechen: Relaxation stoppt sauber statt endlos minimal weiterzufließen
-- [ ] E7-T15 Turntable-tauglich: eingefrorenes Mesh ist rotierbar/kamerafahrt-fest
+- [~] E7-T11 „Photo"-Setup-Operator: Hero-Contact an, Cycles, dichtere Relaxation. Höhere Auflösung
+  (Quality) + Substeps als Hinweis (Regrid = E6, Substeps = E3-S5)
+- [x] E7-T12 Ruhezustand-Erkennung: max |Δgfx_h| pro Frame < Schwelle → „settled" (numpy `foreach_get`)
+- [x] E7-T13 Auto-Freeze auf den Ruheframe (Frozen-Mesh ohne Solver; Live-Domain versteckt → schnelles Look-Dev)
+- [~] E7-T14 Anti-Kriechen: Settle-Schwelle stoppt sauber; Kohäsions-Yield begrenzt Restfluss (ok für v1)
+- [x] E7-T15 Turntable-tauglich: Frozen-Mesh ist ein statisches Objekt mit Materialien, frei rotierbar
 
 ---
 

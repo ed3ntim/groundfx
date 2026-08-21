@@ -129,9 +129,34 @@ class GFX_PT_colliders(bpy.types.Panel):
                                   text="Mark as Collider", icon="ADD")
 
 
+class GFX_PT_photo(bpy.types.Panel):
+    """Settle & Freeze workflow for hero / product shots."""
+
+    bl_label = "Settle & Freeze"
+    bl_idname = "GFX_PT_photo"
+    bl_space_type = "VIEW_3D"
+    bl_region_type = "UI"
+    bl_category = PANEL_CATEGORY
+    bl_parent_id = "GFX_PT_domain"
+    bl_options = {"DEFAULT_CLOSED"}
+
+    @classmethod
+    def poll(cls, context):
+        obj = context.active_object
+        return obj is not None and getattr(obj.groundfx, "is_domain", False)
+
+    def draw(self, context):
+        layout = self.layout
+        col = layout.column(align=True)
+        col.operator(f"{OP_PREFIX}.photo_setup", icon="CAMERA_DATA")
+        col.operator(f"{OP_PREFIX}.settle_and_freeze", icon="FREEZE")
+        col.operator(f"{OP_PREFIX}.freeze_to_mesh", icon="MESH_DATA")
+
+
 classes = (
     GFX_PT_main,
     GFX_PT_domain,
     GFX_UL_colliders,
     GFX_PT_colliders,
+    GFX_PT_photo,
 )
