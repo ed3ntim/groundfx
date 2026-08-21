@@ -104,6 +104,18 @@ den Bias in **dieselbe normierte Gather-Maske** legen — der Upwind-Nachbar bek
 Konstruktion nicht-negativ, monoton und massenerhaltend; der Clamp entfällt. Zentrale Differenzen
 sind hier ohnehin falsch: sie sehen die Ein-Zell-Mode gar nicht, der Kamm wächst frei mit.
 
+**Static Friction / Haften (P1) — zwei Schwellen, nicht eine:** Die Relaxation zieht Material ab,
+wenn die Höhendifferenz eines Nachbarpaars die stabile Stufe `T = (tan(repose)*calib + cohesion)*cell`
+überschreitet. Erhöht man `T` einfach, steigt der *effektive* Repose-Winkel überall → die
+Kalibrierung (und die B1/Repose-Tests) brechen. Für Haftung stattdessen **zwei Schwellen**: `T_stop`
+(= altes `T`, das Ziel) und `T_start = T_stop + stickiness*cell` (Losbrech-Schwelle). Ein Paar
+tauscht Material nur, wenn `|diff| > T_start`, und relaxiert dann Richtung `T_stop`. Zwischen den
+Schwellen ist es *fest* → Material bleibt in Rillen liegen, Haufen sacken nicht flach. Wichtig für
+Massenerhaltung: die Gate-Bedingung (`> T_start`) und der Betrag (`- T_stop`) müssen für Aus- und
+Einstrom identisch sein, dann gilt weiter *A→B-Ausstrom == B←A-Einstrom* (symmetrisch). Bei
+`stickiness = 0` ist `T_start == T_stop` → bit-gleich zum reinen Toppling, Repose-Kalibrierung
+unangetastet. Verifiziert: 34°-Spike hält mit stickiness=0.3 rund 6° steiler.
+
 **Swept Carve (E3-S5, löst die zeitliche Unterabtastung von B2):** Substeps NICHT als Schleife über
 die ganze Solver-Kette (Carve+Deposit+Relax N×) bauen — die Instabilität sitzt allein im
 Carve-Sampling, Relax/Deposit N× laufen zu lassen ist reine Verschwendung. Stattdessen nur den

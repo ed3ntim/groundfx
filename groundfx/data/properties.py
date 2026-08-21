@@ -74,7 +74,9 @@ def _push_element(self, context):
     self.look_base_color = look.base_color
     self.look_roughness = look.roughness
     self.look_detail = look.detail
+    self.stickiness = ed.stickiness
     _look_guard = False
+    modifier_io.set_input(md, gsim.IN_STICKINESS, ed.stickiness, tag=False)
     modifier_io.set_input(md, gsim.IN_COHESION,
                           _effective_cohesion(self.element, self.wetness),
                           tag=True)
@@ -138,6 +140,15 @@ def _push_hero_contact(self, context):
     if md:
         modifier_io.set_input(md, gsim.IN_CONTACT_AA,
                               1.0 if self.hero_contact else 0.0)
+
+
+def _push_stickiness(self, context):
+    """Push the static-friction margin into the solver (P1)."""
+    if _look_guard:
+        return
+    md = _domain_modifier(self.id_data)
+    if md:
+        modifier_io.set_input(md, gsim.IN_STICKINESS, self.stickiness)
 
 
 def _push_look(self, context):
@@ -233,6 +244,13 @@ class GroundFXObjectSettings(bpy.types.PropertyGroup):
         name="Wetness", default=0.0, min=0.0, max=1.0, update=_push_wetness,
         description="Moisture: darkens and glosses the look and stiffens the "
                     "material (raises cohesion) at the same time")
+
+    stickiness: bpy.props.FloatProperty(
+        name="Stickiness", default=0.05, min=0.0, max=1.0,
+        update=_push_stickiness,
+        description="Static friction: how far past the repose angle the "
+                    "material holds before it starts to flow. Higher = stays "
+                    "caught in grooves, heaps sit without draining flat")
 
 
 classes = (

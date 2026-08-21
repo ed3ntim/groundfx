@@ -40,9 +40,16 @@ Meilenstein-Zuordnung: M1 = E0–E2, M2 = E3–E4, M3 = E5–E9, M4 = E10, E13�
   Carve), statt Physik in Python zu duplizieren. Toggle-Button im Collider-Panel. Playhead wandert dabei
   mit (= faktisch eine Animation, ausgelöst durchs Ziehen); Scrub auf Startframe = Reset. Kern in
   `LiveStepper`, headless getestet (`tests/test_live.py`). Visuell: docs/live_sculpt.png.
-- [ ] **P1 Anhaftung / Verfangen (gestuft)** — (a) im Höhenfeld machbar: Sand bleibt liegen / verfängt
-  sich (Reibung/Haftung, koppelt an E14). (b) später, sprengt 2.5D: Sand reitet oben auf dem Collider
-  mit (Schaufel füllt sich) → Partikel-/Zweitschicht (E10/E14). Nächster Punkt in Arbeit.
+- [~] **P1 Anhaftung / Verfangen (gestuft)**
+  - [x] **(a) Haften/Verfangen im Höhenfeld** — Static-Friction-Schwellwert in der Relaxation:
+    Material fließt erst, wenn die Steigung `Repose + Stickiness*cell` überschreitet, und relaxiert
+    dann zurück Richtung Repose (Hysterese über zwei Schwellen `T_stop`/`T_start`, symmetrisch →
+    massenerhaltend). Effekt: Material bleibt in Rillen/Ritzen liegen, Haufen sacken nicht flach.
+    Neuer `Stickiness`-Input + Regler, pro Element (Sand 0.05 / Snow 0.25 / Mud 0.4). Stickiness 0 =
+    exakt altes Verhalten (Repose-Kalibrierung unberührt). NG-Version 10. Tests
+    `test_stickiness_holds_a_steeper_slope`, `test_zero_stickiness_matches_plain_repose`.
+  - [ ] **(b) Oben-auf mitreiten (Schaufel)** — sprengt 2.5D: Sand liegt AUF dem Collider und wird
+    mitgehoben → Partikel-/Zweitschicht (E10/E14). Aufgeschoben.
 
 **Rahmen (entschieden am 2026-08-20):** Addon-Name `GroundFX` · Höhenfeld + Spray (Modell B) ·
 nur Einweg-Kollision · UI und Code Englisch, Doku Deutsch · Nahaufnahme-Maßstab, Default-Domain

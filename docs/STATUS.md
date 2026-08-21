@@ -2,7 +2,7 @@
 
 **Letzte Aktualisierung:** 2026-08-21
 **Aktueller Meilenstein:** M3 (Workflow) — E7 in Arbeit (E4/M2-Kern fertig)
-**Tests:** 119/119 grün (Blender 5.2.0 LTS, headless)
+**Tests:** 122/122 grün (Blender 5.2.0 LTS, headless)
 
 > Diese Datei ist der Wiedereinstiegspunkt. Wer den Kontext geleert hat, liest
 > `STATUS.md` → `PLAN.md` → `BACKLOG.md` → `API_NOTES.md` und ist wieder im Bild.
@@ -79,7 +79,8 @@ sind nicht bindend, nur optionale Hilfe fürs spätere Preset-Fine-Tuning.
   `tests/test_substeps.py` halten alles fest.
 - **E3-S5 Substeps (Swept Carve)** ✅ — schließt B2 ab. Carve-seitiges Sub-Frame-Sampling entlang des Bewegungsvektors füllt den dashed Graben schneller Collider zu einer durchgehenden Spur; unter einer Zelle Bewegung/Frame bit-identisch (E3-T21). NG-Version 9, `Carve Substeps`-Input quality-gesteuert. Visuell verifiziert (docs/substeps_*.png).
 - **E8 Shader** ✅ — prozedurale Principled-Materialien je Element (`core/materials/mat_builder.py`), Elemente = eine Zahlen-Tabelle. `gfx_comp` macht Spuren dunkler+glatter (E8-T6); Wetness-Regler bewegt Optik UND Kohäsion zugleich (E8-T7). Vier Look-Regler im Panel `GFX_PT_look`. Materialien `gfx_generated`-gestempelt → Elementwechsel tauscht nur eigene, User-Material bleibt (E8-T10). EEVEE gerendert (docs/mat_*.png). Aufgeschoben (brauchen E3-S4-Felder): Ripples/`gfx_flow`, Pfützen+Risse via `gfx_h`/`gfx_wet`, Snow-Sparkle.
-- **P3 Live-Spur (Live Sculpt)** ✅ — modaler Operator `groundfx.live_sculpt` + Timer löst bei Collider-Bewegung EINEN Sim-Schritt aus → Spur ohne Play. Nutzt den ganzen Solver wieder; Kern `LiveStepper` (headless getestet). Toggle im Collider-Panel; Playhead wandert mit. docs/live_sculpt.png. Nächstes: P1 Anhaftung (gestuft — erst Haften/Verfangen).
+- **P3 Live-Spur (Live Sculpt)** ✅ — modaler Operator `groundfx.live_sculpt` + Timer löst bei Collider-Bewegung EINEN Sim-Schritt aus → Spur ohne Play. Nutzt den ganzen Solver wieder; Kern `LiveStepper` (headless getestet). Toggle im Collider-Panel; Playhead wandert mit. docs/live_sculpt.png.
+- **P1(a) Haften/Verfangen** ✅ — Static-Friction-Schwellwert in der Relaxation (`T_start`/`T_stop`-Hysterese, symmetrisch/massenerhaltend): Material fließt erst über `Repose + Stickiness` und bleibt so in Rillen liegen / Haufen sacken nicht flach. Neuer `Stickiness`-Input+Regler, pro Element. Stickiness 0 = altes Verhalten. NG-Version 10. Tests grün, docs/stick_high.png. **Offen P1(b):** Sand oben-auf mitreiten (Schaufel) → braucht E10/E14 Partikel/Zweitschicht.
 
 ## Danach
 

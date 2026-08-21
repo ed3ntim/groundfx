@@ -40,6 +40,7 @@ IN_REPOSE = "Angle Of Repose"
 IN_COHESION = "Cohesion"
 IN_FLOW = "Flow Rate"
 IN_RELAX_ITERS = "Relax Iterations"
+IN_STICKINESS = "Stickiness"
 IN_CELL_SIZE = "Cell Size"
 IN_GRID_N = "Grid N"
 IN_DISPLACE_RATIO = "Displacement Ratio"
@@ -103,6 +104,10 @@ def build(name: str = NG_GROUND_SIM) -> bpy.types.GeometryNodeTree:
             description="How fast excess material flows downhill")
     b.input(IN_RELAX_ITERS, "NodeSocketInt", default=4, min=0, max=64,
             description="Relaxation iterations per frame (quality-driven)")
+    b.input(IN_STICKINESS, "NodeSocketFloat", default=0.0, min=0.0, max=1.0,
+            description="Static friction: extra slope the material holds before "
+                        "it starts to flow, so it stays caught in grooves and "
+                        "heaps sit without draining flat (0 = free-flowing)")
     b.input(IN_CELL_SIZE, "NodeSocketFloat", default=0.0156, min=1e-5, max=10.0,
             subtype="DISTANCE",
             description="Grid cell size = domain size / resolution")
@@ -536,6 +541,7 @@ def build(name: str = NG_GROUND_SIM) -> bpy.types.GeometryNodeTree:
             "iterations": (gin, IN_RELAX_ITERS),
             "cell_size": (gin, IN_CELL_SIZE),
             "grid_n": (gin, IN_GRID_N),
+            "stickiness": (gin, IN_STICKINESS),
         },
     )
 

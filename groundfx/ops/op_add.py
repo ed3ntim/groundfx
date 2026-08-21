@@ -106,7 +106,9 @@ def create_domain(context, element: str,
     modifier_io.set_input(md, gsim.IN_DISPLACE_RATIO, 0.7, tag=False)
     modifier_io.set_input(md, gsim.IN_DEPOSIT_ITERS, 6, tag=False)
     modifier_io.set_input(md, gsim.IN_CARVE_SUBSTEPS, prof.substeps, tag=False)
+    modifier_io.set_input(md, gsim.IN_STICKINESS, ed.stickiness, tag=False)
     modifier_io.set_input(md, gsim.IN_BOW_WAVE, ed.bow_wave, tag=True)
+    st.stickiness = ed.stickiness
 
     # Procedural material (E8): seed the Look sliders from the element defaults
     # and build/assign the matching material.

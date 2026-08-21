@@ -74,6 +74,7 @@ class GFX_PT_domain(bpy.types.Panel):
         col = layout.column()
         col.prop(st, "domain_size")
         col.prop(st, "material_height")
+        col.prop(st, "stickiness", slider=True)
         col.prop(st, "hero_contact")
 
 

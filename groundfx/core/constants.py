@@ -20,7 +20,8 @@ ADDON_NAME = "GroundFX"
 # v7 (B1): cohesion scales with cell size (extra-slope yield), so walls relax.
 # v8 (B2): lazy pile diffusion + upwind bow wave + Deposit Spread/Rate inputs.
 # v9 (E3-S5): swept carve along collider motion + Carve Substeps input.
-NODEGROUP_VERSION = 9
+# v10 (P1): static-friction hold in relaxation + Stickiness input.
+NODEGROUP_VERSION = 10
 
 # --- UI ---------------------------------------------------------------------
 PANEL_CATEGORY = "GroundFX"     # N-panel tab label

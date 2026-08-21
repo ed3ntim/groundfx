@@ -20,7 +20,7 @@ from groundfx.core.constants import ATTR_HEIGHT, ATTR_BASE, ATTR_SURFACE
 
 
 def _build_spike_group(name, repose_rad, cohesion, flow, iterations,
-                       cell_size, grid_n, spike_r, spike_h):
+                       cell_size, grid_n, spike_r, spike_h, stickiness=None):
     tree = new_geometry_group(name)
     b = NodeTreeBuilder(tree)
     b.input("Geometry", "NodeSocketGeometry")
@@ -76,17 +76,17 @@ def _build_spike_group(name, repose_rad, cohesion, flow, iterations,
     gridn_node = b.add("FunctionNodeInputInt")
     gridn_node.integer = int(grid_n)
 
-    relax_node, relax_key = ng_relax.add_relaxation(
-        b, st_surf, "Geometry",
-        refs={
-            "repose": (val(repose_rad), "Value"),
-            "cohesion": (val(cohesion), "Value"),
-            "flow": (val(flow), "Value"),
-            "iterations": (iters_node, "Integer"),
-            "cell_size": (val(cell_size), "Value"),
-            "grid_n": (gridn_node, "Integer"),
-        },
-    )
+    refs = {
+        "repose": (val(repose_rad), "Value"),
+        "cohesion": (val(cohesion), "Value"),
+        "flow": (val(flow), "Value"),
+        "iterations": (iters_node, "Integer"),
+        "cell_size": (val(cell_size), "Value"),
+        "grid_n": (gridn_node, "Integer"),
+    }
+    if stickiness is not None:
+        refs["stickiness"] = (val(stickiness), "Value")
+    relax_node, relax_key = ng_relax.add_relaxation(b, st_surf, "Geometry", refs)
 
     # set position z = base + h
     fb = b.add("GeometryNodeInputNamedAttribute", data_type="FLOAT",
@@ -108,7 +108,7 @@ def _build_spike_group(name, repose_rad, cohesion, flow, iterations,
     return tree
 
 
-def _measure_repose(deg):
+def _measure_repose(deg, stickiness=None):
     """Relax a spike at the given repose angle; return measured flank angle."""
     from groundfx.ops.op_add import _make_grid_mesh
 
@@ -117,14 +117,15 @@ def _measure_repose(deg):
     cell = size / grid_res
     grid_n = grid_res + 1
 
-    mesh = _make_grid_mesh(f"repose_{int(deg)}", size, grid_res)
-    obj = bpy.data.objects.new(f"repose_{int(deg)}", mesh)
+    tag = f"{int(deg)}_{int((stickiness or 0) * 100)}"
+    mesh = _make_grid_mesh(f"repose_{tag}", size, grid_res)
+    obj = bpy.data.objects.new(f"repose_{tag}", mesh)
     bpy.context.scene.collection.objects.link(obj)
 
     tree = _build_spike_group(
-        f"gfx_repose_{int(deg)}", math.radians(deg), cohesion=0.0, flow=0.9,
+        f"gfx_repose_{tag}", math.radians(deg), cohesion=0.0, flow=0.9,
         iterations=600, cell_size=cell, grid_n=grid_n,
-        spike_r=0.08, spike_h=0.35)
+        spike_r=0.08, spike_h=0.35, stickiness=stickiness)
     md = obj.modifiers.new("GN", "NODES")
     md.node_group = tree
     bpy.context.view_layer.update()
@@ -172,3 +173,28 @@ def test_repose_angle_steep():
                       f"measured {measured:.1f}deg, want 55+-3")
     else:
         harness.check("steep cone formed", False, "no flank samples")
+
+
+def test_stickiness_holds_a_steeper_slope():
+    """P1: with a static-friction margin, a pile settles steeper than repose.
+
+    Same 34-deg spike, once free-flowing and once sticky. Static friction lets
+    the material stop before it reaches the repose angle, so the sticky cone
+    stands clearly steeper -- the mechanism that keeps material caught in a
+    groove or a heap standing instead of draining flat.
+    """
+    free, _ = _measure_repose(34.0, stickiness=0.0)
+    sticky, _ = _measure_repose(34.0, stickiness=0.30)
+    harness.check("both cones measured", free is not None and sticky is not None,
+                  f"free={free} sticky={sticky}")
+    if free is not None and sticky is not None:
+        harness.check("stickiness holds a steeper slope", sticky > free + 3.0,
+                      f"free {free:.1f}deg vs sticky {sticky:.1f}deg")
+
+
+def test_zero_stickiness_matches_plain_repose():
+    """Stickiness 0 must not disturb the repose calibration (still ~34 deg)."""
+    measured, _ = _measure_repose(34.0, stickiness=0.0)
+    if measured is not None:
+        harness.check("stick=0 still ~34deg", abs(measured - 34.0) <= 3.0,
+                      f"measured {measured:.1f}deg")
