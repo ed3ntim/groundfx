@@ -17,7 +17,8 @@ ADDON_NAME = "GroundFX"
 # v4 (E4-S1): single Collider object socket -> Collider Collection socket.
 # v5 (E4-S3): carve_prev + bow-wave (directional deposit) input.
 # v6 (E4-S4): supersampled contact carve (Contact AA) for hero silhouettes.
-NODEGROUP_VERSION = 6
+# v7 (B1): cohesion scales with cell size (extra-slope yield), so walls relax.
+NODEGROUP_VERSION = 7
 
 # --- UI ---------------------------------------------------------------------
 PANEL_CATEGORY = "GroundFX"     # N-panel tab label

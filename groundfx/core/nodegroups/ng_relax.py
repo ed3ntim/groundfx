@@ -22,7 +22,13 @@ from __future__ import annotations
 
 from ..ng_builder import NodeTreeBuilder
 from ..ng_zones import make_repeat_zone
-from ..constants import ATTR_HEIGHT, ATTR_BASE, ATTR_SURFACE
+from ..constants import ATTR_HEIGHT, ATTR_BASE, ATTR_SURFACE, ATTR_CARVE
+
+# A neighbour with carve above this is occupied by the collider: material may
+# not flow into it (the collider fills that space). Blocking it lets a berm
+# build at the rim instead of draining back into the hole and being scraped
+# away (B1 "no piling").
+_OCCUPIED_EPS = 1e-5
 
 # Stability factor: fraction of the computed excess moved per iteration. Below
 # 0.25 the 4-neighbour sum can't overshoot into oscillation.
@@ -99,7 +105,26 @@ def _neighbour_flow(b, sample_geo_node, self_surface, index_node,
     masked = b.add("ShaderNodeMath", operation="MULTIPLY", label="* valid")
     b.link(net, "Value", masked, 0)
     b.link(valid_node, "Value", masked, 1)
-    return masked
+    free = _neighbour_free(b, sample_geo_node, nidx, "Value")
+    masked_free = b.add("ShaderNodeMath", operation="MULTIPLY", label="* free")
+    b.link(masked, "Value", masked_free, 0)
+    b.link(free, "Value", masked_free, 1)
+    return masked_free
+
+
+def _neighbour_free(b, geo_node, nidx_node, nidx_key):
+    """1.0 if the neighbour at ``nidx`` is *not* under the collider."""
+    sample = b.add("GeometryNodeSampleIndex", data_type="FLOAT", domain="POINT",
+                   clamp=True)
+    carve_attr = b.add("GeometryNodeInputNamedAttribute", data_type="FLOAT",
+                       inputs={"Name": ATTR_CARVE})
+    b.link(geo_node, "Geometry", sample, "Geometry")
+    b.link(carve_attr, "Attribute", sample, "Value")
+    b.link(nidx_node, nidx_key, sample, "Index")
+    free = b.add("ShaderNodeMath", operation="LESS_THAN",
+                 inputs={1: _OCCUPIED_EPS}, label="neighbour free")
+    b.link(sample, "Value", free, 0)
+    return free
 
 
 def add_relaxation(b: NodeTreeBuilder, geo_node, geo_key, refs):
@@ -119,18 +144,22 @@ def add_relaxation(b: NodeTreeBuilder, geo_node, geo_key, refs):
 
     it_geo = zone.input  # geometry available inside the loop
 
-    # threshold T = tan(repose) * cell_size + cohesion
+    # Stable height step over one cell: T = (tan(repose)*calib + cohesion) * cell.
+    # Cohesion is an *extra slope* the material holds (a Bingham yield), so it
+    # must be added to the tangent BEFORE scaling by cell size — otherwise, as
+    # an absolute height, a 2 cm cohesion would let a 1.5 cm cell hold a ~60°
+    # wall at close-up scale, and slopes never relaxed to the repose angle (B1).
     tan = b.add("ShaderNodeMath", operation="TANGENT", label="tan(repose)")
     b.link(*refs["repose"], tan, 0)
     tan_c = b.add("ShaderNodeMath", operation="MULTIPLY",
                   inputs={1: _SLOPE_CALIB}, label="tan*calib")
     b.link(tan, "Value", tan_c, 0)
-    tc = b.add("ShaderNodeMath", operation="MULTIPLY", label="tan*cell")
-    b.link(tan_c, "Value", tc, 0)
-    b.link(*refs["cell_size"], tc, 1)
-    threshold = b.add("ShaderNodeMath", operation="ADD", label="T")
-    b.link(tc, "Value", threshold, 0)
-    b.link(*refs["cohesion"], threshold, 1)
+    tan_coh = b.add("ShaderNodeMath", operation="ADD", label="+ cohesion slope")
+    b.link(tan_c, "Value", tan_coh, 0)
+    b.link(*refs["cohesion"], tan_coh, 1)
+    threshold = b.add("ShaderNodeMath", operation="MULTIPLY", label="T = slope*cell")
+    b.link(tan_coh, "Value", threshold, 0)
+    b.link(*refs["cell_size"], threshold, 1)
 
     # Grid coordinates from the point index.
     index = b.add("GeometryNodeInputIndex")
@@ -217,7 +246,12 @@ def add_relaxation(b: NodeTreeBuilder, geo_node, geo_key, refs):
         masked = b.add("ShaderNodeMath", operation="MULTIPLY", label=f"*valid {label}")
         b.link(net, "Value", masked, 0)
         b.link(valid, "Value", masked, 1)
-        dirs.append(masked)
+        free = _neighbour_free(b, it_geo, nidx, "Value")
+        masked_free = b.add("ShaderNodeMath", operation="MULTIPLY",
+                            label=f"*free {label}")
+        b.link(masked, "Value", masked_free, 0)
+        b.link(free, "Value", masked_free, 1)
+        dirs.append(masked_free)
 
     # sum the four nets
     s01 = b.add("ShaderNodeMath", operation="ADD")
@@ -238,12 +272,24 @@ def add_relaxation(b: NodeTreeBuilder, geo_node, geo_key, refs):
     b.link(delta, "Value", delta_f, 0)
     b.link(*refs["flow"], delta_f, 1)
 
+    # An occupied cell (under the collider) doesn't relax — its height is the
+    # carved surface. Masking its delta keeps mass conserved with the blocked
+    # inflow from free neighbours (no phantom fill in the hole).
+    self_carve = b.add("GeometryNodeInputNamedAttribute", data_type="FLOAT",
+                       inputs={"Name": ATTR_CARVE})
+    self_free = b.add("ShaderNodeMath", operation="LESS_THAN",
+                      inputs={1: _OCCUPIED_EPS}, label="self free")
+    b.link(self_carve, "Attribute", self_free, 0)
+    delta_m = b.add("ShaderNodeMath", operation="MULTIPLY", label="* self free")
+    b.link(delta_f, "Value", delta_m, 0)
+    b.link(self_free, "Value", delta_m, 1)
+
     # new_h = max(0, h + delta)
     read_h = b.add("GeometryNodeInputNamedAttribute", data_type="FLOAT",
                    inputs={"Name": ATTR_HEIGHT})
     h_plus = b.add("ShaderNodeMath", operation="ADD", label="h + delta")
     b.link(read_h, "Attribute", h_plus, 0)
-    b.link(delta_f, "Value", h_plus, 1)
+    b.link(delta_m, "Value", h_plus, 1)
     new_h = b.add("ShaderNodeMath", operation="MAXIMUM", inputs={1: 0.0},
                   label="max(0,_)")
     b.link(h_plus, "Value", new_h, 0)

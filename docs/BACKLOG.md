@@ -8,15 +8,14 @@ Meilenstein-Zuordnung: M1 = E0–E2, M2 = E3–E4, M3 = E5–E9, M4 = E10, E13�
 
 ## Offene Beobachtungen / Solver-Qualität (User-Feedback 2026-08-21)
 
-- [ ] **B1 Senkrechte Wände am Collider** — beim Eindrücken (z. B. Kugel) fällt das Material nicht
-  zur Böschung zusammen, sondern bleibt an der „dicksten" Stelle senkrecht stehen. Vermutung: die
-  Relaxation slumpt die Kontaktkante (Übergang unberührt→ausgehoben) nicht auf den Böschungswinkel;
-  ggf. Relax-Iterationen/Reichweite an der Carve-Kante erhöhen bzw. nach dem Abheben nachfließen.
-  → untersuchen mit Höhenprofil-Messung. (2.5D kann keine Überhänge — „über dem Objekt schließen"
-  ist physikalisch nur begrenzt möglich, aber Böschung an den Wänden muss kommen.)
-- [ ] **B2 Bugwelle spiky** — die gerichtete Advektion (E4-S3) häuft schneller an, als die
-  Relaxation glättet → Spikes/Zacken. Optionen: Advektions-Term clampen/glätten, Default `bow_wave`
-  senken, oder eine Glättung nach dem Deposit. (User-Hinweis: sieht evtl. mit Shader besser aus.)
+- [x] **B1 Senkrechte Wände am Collider** — GELÖST: (1) Kohäsion skaliert jetzt mit der Zellgröße
+  (Steigungs-Yield statt absoluter Höhe) → Wände slumpen auf ~34° statt 62°; (2) Relaxation blockt
+  Fluss in vom Collider besetzte Zellen → Berm bleibt stehen statt ins Loch zu rinnen. NG-Version 7.
+  Verifiziert: nach Abheben max|dh|≈0.0096 (≈34°), Berm-Höhe hält. Details in API_NOTES.
+- [ ] **B2 Bugwelle spiky / Anti-Kriechen** — zwei zusammenhängende Punkte: (a) die gerichtete
+  Advektion (E4-S3) kann zacken; (b) ein *gehaltener* Collider settelt kaum, weil der Deposit den
+  Pile zu weit über die Domain verteilt (langsamer Schwanz, Dauer-Churn am Rand). Nächster Schritt:
+  lokalere Ablage + Kriech-Deadband (koppelt an E7-T14). (User-Hinweis: evtl. mit Shader besser.)
 - [x] **B3 Collider per Picker hinzufügen** — Objekt-Auswahlfeld (Pipette) im Panel statt nur über
   Selektion. → umgesetzt (`collider_pick`).
 - [x] **B4 Presets nach Element vorfiltern** — Preset-Dropdown zeigt nur Presets des aktiven Elements.

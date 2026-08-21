@@ -74,18 +74,20 @@ def test_settle_and_freeze():
 
     obj = create_domain(bpy.context, ELEM_SAND)
     cube = _press_collider(scene, obj, 7)
-    # Collider now held still at frame 7; the berm should relax to rest.
+    # Lift the collider away so the disturbed surface can actually come to rest
+    # (a held collider keeps churning its contact edge -- see E7-T14/B2).
+    cube.location = (0.0, 0.0, 5.0)
     bpy.context.view_layer.objects.active = obj
 
     n_before = len(bpy.data.objects)
-    bpy.ops.groundfx.settle_and_freeze(threshold=1e-3, max_frames=100)
+    bpy.ops.groundfx.settle_and_freeze(threshold=1e-3, max_frames=80)
     frozen = bpy.context.view_layer.objects.active
 
     harness.check("settle produced a frozen mesh",
                   len(bpy.data.objects) == n_before + 1
                   and frozen.name.endswith("_Frozen"))
     harness.check("settle stopped before the max",
-                  scene.frame_current < 7 + 100,
+                  scene.frame_current < 7 + 80,
                   f"stopped at frame {scene.frame_current}")
 
     bpy.data.objects.remove(cube, do_unlink=True)

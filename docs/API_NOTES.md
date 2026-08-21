@@ -40,6 +40,22 @@ massenerhaltend außer bei Clamp auf h≥0.
 - Messmethode im Test: steilen Materialkegel 600× relaxieren, Flanke (15–85 % der Spitzenhöhe)
   linear fitten, `atan(|slope|)` = gemessener Winkel. Höherer Winkel → höherer Kegel (Physik ok).
 
+**Kohäsion + Wand-Slump (B1, 2026-08-21):** Zwei Relaxations-Bugs im Nahaufnahme-Maßstab:
+1. Kohäsion war als **absolute Höhe** zur Schwelle addiert (`T = tan·calib·cell + cohesion`). Bei
+   1,5-cm-Zellen ließ Sand-Kohäsion 0.02 eine ~62°-Wand stehen → Böschung wurde nie erreicht. Fix:
+   Kohäsion als **Steigungs-Addend** vor der Zell-Skalierung: `T = (tan·calib + cohesion)·cell`.
+   Kalibrierung bleibt gültig (Kegel-Test nutzt cohesion=0).
+2. Das aufgehäufte Rim-Material relaxte **zurück ins vom Collider besetzte Loch** (carve>0) und
+   wurde weggecarvt → kein bleibender Berm. Fix: In `ng_relax` Fluss in besetzte Nachbarzellen
+   (carve≥eps) blocken (`_neighbour_free`) UND besetzte Zellen selbst nicht relaxieren
+   (`self_free`), sonst Massen-Phantom. Danach: Wände slumpen auf ~34°, Berm bleibt stehen.
+
+**Anti-Kriechen / Settle bei gehaltenem Collider (offen, E7-T14/B2):** Ein *dauerhaft* im Material
+stehender Collider settelt kaum — der Berm kann nicht ins besetzte Loch, spreizt stattdessen langsam
+über die Domain (max|Δh| fällt nur ~0.05→0.014 über 120 Frames). Nach dem *Abheben* settelt es in
+~14 Frames. Der Deposit verteilt Pile zu weit → langsamer Schwanz; lokalere Ablage + Kriech-Deadband
+sind der nächste Schritt.
+
 **Gerichtete Bugwelle / Collider-Geschwindigkeit (E4-S3):** Die Bewegungsrichtung eines Colliders
 NICHT aus dem Gradienten von `dcarve = carve − carve_prev` ableiten — der zeigt bei jedem
 Fußabdruck (auch einem stehenden, nur tiefer eindrückenden) radial nach innen und würgt die
