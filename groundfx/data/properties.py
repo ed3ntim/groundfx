@@ -77,6 +77,7 @@ def _push_element(self, context):
     self.stickiness = ed.stickiness
     _look_guard = False
     modifier_io.set_input(md, gsim.IN_STICKINESS, ed.stickiness, tag=False)
+    modifier_io.set_input(md, gsim.IN_RECOVERY, ed.recovery, tag=False)
     modifier_io.set_input(md, gsim.IN_COHESION,
                           _effective_cohesion(self.element, self.wetness),
                           tag=True)

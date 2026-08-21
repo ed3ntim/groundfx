@@ -29,8 +29,12 @@ from ..constants import (
     ELEM_SAND, ELEM_SNOW, ELEM_MUD,
     MAT_SAND, MAT_SNOW, MAT_MUD, PROP_MAT_GENERATED,
     MAT_CTRL_BASECOLOR, MAT_CTRL_ROUGHNESS, MAT_CTRL_DETAIL, MAT_CTRL_WETNESS,
-    ATTR_COMP,
+    ATTR_COMP, ATTR_FLOW,
 )
+
+# Spatial frequency of the transverse track ripples, in radians per object-space
+# unit (the domain spans ~2 units). ~40 gives a few-centimetre wavelength.
+_RIPPLE_SCALE = 42.0
 
 _MAT_NAME = {ELEM_SAND: MAT_SAND, ELEM_SNOW: MAT_SNOW, ELEM_MUD: MAT_MUD}
 
@@ -44,10 +48,10 @@ class LookDefaults:
     """Per-element authored look — the starting point for the Look sliders."""
 
     __slots__ = ("base_color", "wet_color", "roughness", "detail",
-                 "base_wetness", "grain_scale", "subsurface")
+                 "base_wetness", "grain_scale", "subsurface", "ripple")
 
     def __init__(self, base_color, wet_color, roughness, detail,
-                 base_wetness, grain_scale, subsurface):
+                 base_wetness, grain_scale, subsurface, ripple=0.0):
         self.base_color = base_color      # dry albedo (RGB)
         self.wet_color = wet_color        # albedo at full wetness (RGB)
         self.roughness = roughness        # dry roughness 0..1
@@ -55,21 +59,22 @@ class LookDefaults:
         self.base_wetness = base_wetness  # resting moisture 0..1
         self.grain_scale = grain_scale    # procedural grain frequency
         self.subsurface = subsurface      # Principled subsurface weight
+        self.ripple = ripple              # transverse track-ripple strength
 
 
 LOOKS = {
     ELEM_SAND: LookDefaults(
         base_color=(0.60, 0.47, 0.29), wet_color=(0.30, 0.20, 0.10),
         roughness=0.85, detail=0.5, base_wetness=0.0,
-        grain_scale=55.0, subsurface=0.0),
+        grain_scale=55.0, subsurface=0.0, ripple=0.6),
     ELEM_SNOW: LookDefaults(
         base_color=(0.90, 0.93, 0.98), wet_color=(0.72, 0.78, 0.90),
         roughness=0.55, detail=0.35, base_wetness=0.1,
-        grain_scale=38.0, subsurface=0.12),
+        grain_scale=38.0, subsurface=0.12, ripple=0.25),
     ELEM_MUD: LookDefaults(
         base_color=(0.20, 0.14, 0.09), wet_color=(0.07, 0.05, 0.03),
         roughness=0.55, detail=0.45, base_wetness=0.6,
-        grain_scale=45.0, subsurface=0.0),
+        grain_scale=45.0, subsurface=0.0, ripple=0.15),
 }
 
 
@@ -215,9 +220,47 @@ def build_material(element: str, look: LookDefaults | None = None,
     det_str = b.add("ShaderNodeMath", operation="MULTIPLY", label="bump strength")
     b.link(n_detail, "Value", det_str, 0)
     b.link(det_wet, "Value", det_str, 1)
+
+    # -- track ripples: transverse corrugations along gfx_flow (E8-T2) ------
+    # Sand dragged past leaves ridges *across* the motion. gfx_flow is the unit
+    # motion direction the solver recorded per cell; a sine of the position
+    # projected onto it gives bands perpendicular to travel. Gated by the track
+    # mask (gfx_comp) and by |flow|, so ripples show only where material was
+    # actually pushed, never on untouched ground.
+    height = grain
+    height_key = "Factor"
+    if look.ripple > 0.0:
+        flow = b.add("ShaderNodeAttribute", attribute_type="GEOMETRY",
+                     attribute_name=ATTR_FLOW, label="gfx_flow")
+        pdot = b.add("ShaderNodeVectorMath", operation="DOT_PRODUCT",
+                     label="P . flow")
+        b.link(tex, "Object", pdot, 0)
+        b.link(flow, "Vector", pdot, 1)
+        phase = b.add("ShaderNodeMath", operation="MULTIPLY",
+                      inputs={1: _RIPPLE_SCALE}, label="phase")
+        b.link(pdot, "Value", phase, 0)
+        wave = b.add("ShaderNodeMath", operation="SINE", label="ripple wave")
+        b.link(phase, "Value", wave, 0)
+        # magnitude of flow (0 on untouched ground, ~1 on a track)
+        flow_len = b.add("ShaderNodeVectorMath", operation="LENGTH")
+        b.link(flow, "Vector", flow_len, 0)
+        gate = b.add("ShaderNodeMath", operation="MULTIPLY", label="ripple gate")
+        b.link(track_c, "Result", gate, 0)
+        b.link(flow_len, "Value", gate, 1)
+        ripple_amt = b.add("ShaderNodeMath", operation="MULTIPLY",
+                           inputs={1: look.ripple}, label="ripple * strength")
+        b.link(gate, "Value", ripple_amt, 0)
+        ripple_h = b.add("ShaderNodeMath", operation="MULTIPLY", label="ripple h")
+        b.link(wave, "Value", ripple_h, 0)
+        b.link(ripple_amt, "Value", ripple_h, 1)
+        combined = b.add("ShaderNodeMath", operation="ADD", label="grain+ripple")
+        b.link(grain, "Factor", combined, 0)
+        b.link(ripple_h, "Value", combined, 1)
+        height, height_key = combined, "Value"
+
     bump = b.add("ShaderNodeBump", inputs={"Distance": 0.002})
     b.link(det_str, "Value", bump, "Strength")
-    b.link(grain, "Factor", bump, "Height")
+    b.link(height, height_key, bump, "Height")
 
     # -- assemble Principled ------------------------------------------------
     bsdf = b.add("ShaderNodeBsdfPrincipled")

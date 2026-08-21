@@ -21,7 +21,8 @@ ADDON_NAME = "GroundFX"
 # v8 (B2): lazy pile diffusion + upwind bow wave + Deposit Spread/Rate inputs.
 # v9 (E3-S5): swept carve along collider motion + Carve Substeps input.
 # v10 (P1): static-friction hold in relaxation + Stickiness input.
-NODEGROUP_VERSION = 10
+# v11 (E3-S4): gfx_comp recovery + gfx_age + gfx_flow fields, Recovery input.
+NODEGROUP_VERSION = 11
 
 # --- UI ---------------------------------------------------------------------
 PANEL_CATEGORY = "GroundFX"     # N-panel tab label

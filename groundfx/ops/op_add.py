@@ -107,6 +107,7 @@ def create_domain(context, element: str,
     modifier_io.set_input(md, gsim.IN_DEPOSIT_ITERS, 6, tag=False)
     modifier_io.set_input(md, gsim.IN_CARVE_SUBSTEPS, prof.substeps, tag=False)
     modifier_io.set_input(md, gsim.IN_STICKINESS, ed.stickiness, tag=False)
+    modifier_io.set_input(md, gsim.IN_RECOVERY, ed.recovery, tag=False)
     modifier_io.set_input(md, gsim.IN_BOW_WAVE, ed.bow_wave, tag=True)
     st.stickiness = ed.stickiness
 

@@ -163,12 +163,16 @@ nur Einweg-Kollision · UI und Code Englisch, Doku Deutsch · Nahaufnahme-Maßst
 - [x] E3-T13 Gerichtete Bugwelle — in E4-S3 umgesetzt (Pile-Advektion in Collider-Bewegungsrichtung)
 - [x] E3-T14 Ablage nur außerhalb des Colliders (free-Maske carve<eps)
 
-### E3-S4 — Als User will ich Verdichtung und Feuchtigkeit als sichtbare Effekte. `M`
+### E3-S4 — Als User will ich Verdichtung und Feuchtigkeit als sichtbare Effekte. `M` ✅ (bis auf gfx_wet-Feld)
 
-- [ ] E3-T15 `gfx_comp` aufbauen und über Zeit abbauen („Nachrieseln", Schnee rieselt zu)
-- [ ] E3-T16 `gfx_wet` mit Diffusion, koppelt an Kohäsion
-- [ ] E3-T17 `gfx_flow` (Richtungsvektor) für die Shader
-- [ ] E3-T18 `gfx_age` für Zeit-basierte Effekte
+- [x] E3-T15 `gfx_comp` baut unter dem Collider auf und **fällt** per `Recovery`-Rate wieder ab
+  (Spuren verheilen; Schnee rieselt zu). Pro Element. Test `test_compaction_recovers_over_time`.
+- [ ] E3-T16 `gfx_wet` als *Feld* mit Diffusion (Pfützen) — offen. Wetness ist bisher global
+  (Regler koppelt an Kohäsion, E8-T7); ein räumliches Feld folgt, wenn Senken/Pfützen dran sind.
+- [x] E3-T17 `gfx_flow` (Einheits-Bewegungsrichtung pro Zelle) aus der Footprint-Schwerpunkt-
+  Verschiebung; treibt die Track-Ripples im Sand-Shader (E8-T2). Test `test_flow_points_along_the_drag`.
+- [x] E3-T18 `gfx_age` (Frames seit letzter Störung; 0 unter Collider, sonst +1).
+  Test `test_age_zero_under_collider_grows_elsewhere`.
 
 ### E3-S5 — Als User will ich Substeps für stabile schnelle Bewegungen. `M` ✅
 
@@ -346,7 +350,7 @@ erkennt den Stillstand und friert automatisch auf ein rendfertiges High-Res-Mesh
 ### E8-S1 — Als User will ich Materialien, die ohne Nacharbeit gut aussehen. `L` ✅
 
 - [x] E8-T1 `mat_builder`: gemeinsame Bausteine (Object-Coords-Noise, Wetness-Mix, Detail-Bump, Track-Darken) — eine Principled-Kette, Elemente unterscheiden sich nur in `LOOKS`-Tabelle
-- [x] E8-T2 Sand: Körnung + Farbvariation (zwei Töne über Noise). Ripples entlang `gfx_flow` aufgeschoben (Solver produziert `gfx_flow` noch nicht → E3-S4)
+- [x] E8-T2 Sand: Körnung + Farbvariation (zwei Töne über Noise) + **Track-Ripples** transversal zu `gfx_flow`, per `gfx_comp` auf die Spur maskiert (docs/ripples.png)
 - [x] E8-T3 Schnee: hell, leicht bläuliche Nass-/Track-Farbe, Subsurface-Weight (Cycles + EEVEE). Sparkle/Bläue-in-Senken (braucht Krümmung/`gfx_h`-Auswertung) später
 - [x] E8-T4 Schlamm: nasser Glanz (Specular ↑, Roughness ↓ mit Wetness), dunkel. Pfützen-in-Senken + Trockenrisse aufgeschoben (brauchen `gfx_h`/`gfx_wet`-Felder → E3-S4)
 

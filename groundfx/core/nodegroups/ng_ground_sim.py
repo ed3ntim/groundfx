@@ -26,7 +26,8 @@ from . import ng_relax
 from . import ng_deposit
 from ..constants import (
     NG_GROUND_SIM, ATTR_HEIGHT, ATTR_BASE, ATTR_CARVE, ATTR_CARVE_PREV,
-    ATTR_OCC, ATTR_OCC_PREV, ATTR_PILE, ATTR_COMP, DEFAULT_MATERIAL_HEIGHT,
+    ATTR_OCC, ATTR_OCC_PREV, ATTR_PILE, ATTR_COMP, ATTR_AGE, ATTR_FLOW,
+    DEFAULT_MATERIAL_HEIGHT,
 )
 
 # Group input socket names (also used by the property/socket mapping).
@@ -41,6 +42,7 @@ IN_COHESION = "Cohesion"
 IN_FLOW = "Flow Rate"
 IN_RELAX_ITERS = "Relax Iterations"
 IN_STICKINESS = "Stickiness"
+IN_RECOVERY = "Recovery"
 IN_CELL_SIZE = "Cell Size"
 IN_GRID_N = "Grid N"
 IN_DISPLACE_RATIO = "Displacement Ratio"
@@ -65,6 +67,15 @@ _MAX_SUBSTEPS = 4
 def _store_float(b, geo_socket_node, geo_key, name, value_node, value_key):
     """Append a Store Named Attribute(FLOAT, POINT) to the geometry chain."""
     store = b.add("GeometryNodeStoreNamedAttribute", data_type="FLOAT",
+                  domain="POINT", inputs={"Name": name})
+    b.link(geo_socket_node, geo_key, store, "Geometry")
+    b.link(value_node, value_key, store, "Value")
+    return store
+
+
+def _store_vector(b, geo_socket_node, geo_key, name, value_node, value_key):
+    """Append a Store Named Attribute(FLOAT_VECTOR, POINT) to the chain."""
+    store = b.add("GeometryNodeStoreNamedAttribute", data_type="FLOAT_VECTOR",
                   domain="POINT", inputs={"Name": name})
     b.link(geo_socket_node, geo_key, store, "Geometry")
     b.link(value_node, value_key, store, "Value")
@@ -108,6 +119,10 @@ def build(name: str = NG_GROUND_SIM) -> bpy.types.GeometryNodeTree:
             description="Static friction: extra slope the material holds before "
                         "it starts to flow, so it stays caught in grooves and "
                         "heaps sit without draining flat (0 = free-flowing)")
+    b.input(IN_RECOVERY, "NodeSocketFloat", default=0.1, min=0.0, max=1.0,
+            description="How fast compaction (gfx_comp) fades once undisturbed, "
+                        "so tracks recover over time (snow settling back). "
+                        "0 = tracks are permanent")
     b.input(IN_CELL_SIZE, "NodeSocketFloat", default=0.0156, min=1e-5, max=10.0,
             subtype="DISTANCE",
             description="Grid cell size = domain size / resolution")
@@ -148,10 +163,16 @@ def build(name: str = NG_GROUND_SIM) -> bpy.types.GeometryNodeTree:
     init_pile = _store_float(b, init_h, "Geometry", ATTR_PILE, zero, "Value")
     init_comp = _store_float(b, init_pile, "Geometry", ATTR_COMP, zero, "Value")
     init_occ = _store_float(b, init_comp, "Geometry", ATTR_OCC, zero, "Value")
+    # gfx_age (frames since last disturbance) and gfx_flow (last motion dir)
+    # start empty too, so the shader-facing fields exist from frame one.
+    init_age = _store_float(b, init_occ, "Geometry", ATTR_AGE, zero, "Value")
+    zero_vec = b.add("ShaderNodeCombineXYZ", label="(0,0,0)")
+    init_flow = _store_vector(b, init_age, "Geometry", ATTR_FLOW,
+                              zero_vec, "Vector")
 
     # -- simulation zone (geometry state carries the attributes) ------------
     zone = make_simulation_zone(b, state_items=[])
-    b.link(init_occ, "Geometry", zone.input, "Geometry")
+    b.link(init_flow, "Geometry", zone.input, "Geometry")
 
     sim_geo = zone.input  # geometry available at the zone's input node output
 
@@ -483,11 +504,90 @@ def build(name: str = NG_GROUND_SIM) -> bpy.types.GeometryNodeTree:
     acc_pile = b.add("ShaderNodeMath", operation="ADD", label="pile + displaced")
     b.link(prev_pile, "Attribute", acc_pile, 0)
     b.link(displaced, "Value", acc_pile, 1)
+    # Compaction accumulates the packed-down share, then fades by ``recovery``
+    # per frame so tracks recover over time (snow settling back). E3-T15:
+    #   comp = max(0, prev_comp*(1 - recovery) + compacted)
     prev_comp = b.add("GeometryNodeInputNamedAttribute", data_type="FLOAT",
                       inputs={"Name": ATTR_COMP})
-    acc_comp = b.add("ShaderNodeMath", operation="ADD", label="comp + compacted")
-    b.link(prev_comp, "Attribute", acc_comp, 0)
-    b.link(compacted, "Value", acc_comp, 1)
+    keep_comp = b.add("ShaderNodeMath", operation="SUBTRACT", inputs={0: 1.0},
+                      label="1 - recovery")
+    b.link(gin, IN_RECOVERY, keep_comp, 1)
+    decayed_comp = b.add("ShaderNodeMath", operation="MULTIPLY",
+                         label="comp * keep")
+    b.link(prev_comp, "Attribute", decayed_comp, 0)
+    b.link(keep_comp, "Value", decayed_comp, 1)
+    acc_comp_raw = b.add("ShaderNodeMath", operation="ADD",
+                         label="decayed + compacted")
+    b.link(decayed_comp, "Value", acc_comp_raw, 0)
+    b.link(compacted, "Value", acc_comp_raw, 1)
+    acc_comp = b.add("ShaderNodeMath", operation="MAXIMUM", inputs={1: 0.0},
+                     label="max(comp,0)")
+    b.link(acc_comp_raw, "Value", acc_comp, 0)
+
+    # --- gfx_age: frames since this cell was last disturbed (E3-T18) --------
+    # A cell is disturbed where the collider stands (occupancy) or where the
+    # surface was cut this frame (carve). Disturbed -> 0, else prev_age + 1.
+    disturbed_occ = b.add("ShaderNodeMath", operation="GREATER_THAN",
+                          inputs={1: 0.5}, label="under collider")
+    b.link(occupancy, "Value", disturbed_occ, 0)
+    disturbed_carve = b.add("ShaderNodeMath", operation="GREATER_THAN",
+                            inputs={1: _CONTACT_EPS}, label="cut this frame")
+    b.link(carve, "Value", disturbed_carve, 0)
+    disturbed = b.add("ShaderNodeMath", operation="MAXIMUM", label="disturbed")
+    b.link(disturbed_occ, "Value", disturbed, 0)
+    b.link(disturbed_carve, "Value", disturbed, 1)
+    prev_age = b.add("GeometryNodeInputNamedAttribute", data_type="FLOAT",
+                     inputs={"Name": ATTR_AGE})
+    age_inc = b.add("ShaderNodeMath", operation="ADD", inputs={1: 1.0},
+                    label="prev_age + 1")
+    b.link(prev_age, "Attribute", age_inc, 0)
+    # new_age = disturbed ? 0 : age_inc  ==  age_inc * (1 - disturbed)
+    keep_age = b.add("ShaderNodeMath", operation="SUBTRACT", inputs={0: 1.0},
+                     label="1 - disturbed")
+    b.link(disturbed, "Value", keep_age, 1)
+    new_age = b.add("ShaderNodeMath", operation="MULTIPLY", label="new age")
+    b.link(age_inc, "Value", new_age, 0)
+    b.link(keep_age, "Value", new_age, 1)
+
+    # --- gfx_flow: the last motion direction, for the shader (E3-T17) -------
+    # Reuse the footprint centroid shift (vx_m, vy_m) computed for the swept
+    # carve; store its unit direction where the cell was disturbed *and* the
+    # collider actually moved, else keep the previous direction (a straight
+    # press must not wipe the recorded flow to zero).
+    flow_len2 = b.add("ShaderNodeMath", operation="MULTIPLY_ADD",
+                      label="vx^2+vy^2")
+    b.link(vx_m, "Value", flow_len2, 0)
+    b.link(vx_m, "Value", flow_len2, 1)
+    vy2 = b.add("ShaderNodeMath", operation="MULTIPLY")
+    b.link(vy_m, "Value", vy2, 0)
+    b.link(vy_m, "Value", vy2, 1)
+    b.link(vy2, "Value", flow_len2, 2)
+    flow_len = b.add("ShaderNodeMath", operation="SQRT", label="|v|")
+    b.link(flow_len2, "Value", flow_len, 0)
+    safe_len = b.add("ShaderNodeMath", operation="MAXIMUM", inputs={1: 1e-6})
+    b.link(flow_len, "Value", safe_len, 0)
+    fx = b.add("ShaderNodeMath", operation="DIVIDE", label="vx/|v|")
+    b.link(vx_m, "Value", fx, 0)
+    b.link(safe_len, "Value", fx, 1)
+    fy = b.add("ShaderNodeMath", operation="DIVIDE", label="vy/|v|")
+    b.link(vy_m, "Value", fy, 0)
+    b.link(safe_len, "Value", fy, 1)
+    flow_vec = b.add("ShaderNodeCombineXYZ", label="flow dir")
+    b.link(fx, "Value", flow_vec, "X")
+    b.link(fy, "Value", flow_vec, "Y")
+    moving = b.add("ShaderNodeMath", operation="GREATER_THAN", inputs={1: 1e-5},
+                   label="is moving")
+    b.link(flow_len, "Value", moving, 0)
+    flow_update = b.add("ShaderNodeMath", operation="MULTIPLY",
+                        label="disturbed & moving")
+    b.link(disturbed, "Value", flow_update, 0)
+    b.link(moving, "Value", flow_update, 1)
+    prev_flow = b.add("GeometryNodeInputNamedAttribute", data_type="FLOAT_VECTOR",
+                      inputs={"Name": ATTR_FLOW})
+    new_flow = b.add("ShaderNodeMix", data_type="VECTOR", label="new flow")
+    b.link(flow_update, "Value", new_flow, 0)  # Factor (Float)
+    b.link(prev_flow, "Attribute", new_flow, 4)  # A (Vector)
+    b.link(flow_vec, "Vector", new_flow, 5)      # B (Vector)
 
     # Store updated attributes. IMPORTANT: gfx_h is stored LAST. Named-attribute
     # fields re-evaluate against the geometry they flow through, so carve/pile/
@@ -516,7 +616,11 @@ def build(name: str = NG_GROUND_SIM) -> bpy.types.GeometryNodeTree:
                               acc_pile, "Value")
     store_comp = _store_float(b, store_pile, "Geometry", ATTR_COMP,
                               acc_comp, "Value")
-    store_h = _store_float(b, store_comp, "Geometry", ATTR_HEIGHT, new_h, "Value")
+    store_age = _store_float(b, store_comp, "Geometry", ATTR_AGE,
+                             new_age, "Value")
+    store_flow = _store_vector(b, store_age, "Geometry", ATTR_FLOW,
+                               new_flow, 1)  # Mix Result (Vector) is output 1
+    store_h = _store_float(b, store_flow, "Geometry", ATTR_HEIGHT, new_h, "Value")
 
     # --- deposit: displaced material heaps up at the rim -------------------
     deposit_node, deposit_key = ng_deposit.add_deposit(
