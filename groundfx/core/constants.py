@@ -19,7 +19,8 @@ ADDON_NAME = "GroundFX"
 # v6 (E4-S4): supersampled contact carve (Contact AA) for hero silhouettes.
 # v7 (B1): cohesion scales with cell size (extra-slope yield), so walls relax.
 # v8 (B2): lazy pile diffusion + upwind bow wave + Deposit Spread/Rate inputs.
-NODEGROUP_VERSION = 8
+# v9 (E3-S5): swept carve along collider motion + Carve Substeps input.
+NODEGROUP_VERSION = 9
 
 # --- UI ---------------------------------------------------------------------
 PANEL_CATEGORY = "GroundFX"     # N-panel tab label

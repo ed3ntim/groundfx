@@ -104,6 +104,22 @@ den Bias in **dieselbe normierte Gather-Maske** legen — der Upwind-Nachbar bek
 Konstruktion nicht-negativ, monoton und massenerhaltend; der Clamp entfällt. Zentrale Differenzen
 sind hier ohnehin falsch: sie sehen die Ein-Zell-Mode gar nicht, der Kamm wächst frei mit.
 
+**Swept Carve (E3-S5, löst die zeitliche Unterabtastung von B2):** Substeps NICHT als Schleife über
+die ganze Solver-Kette (Carve+Deposit+Relax N×) bauen — die Instabilität sitzt allein im
+Carve-Sampling, Relax/Deposit N× laufen zu lassen ist reine Verschwendung. Stattdessen nur den
+*Carve* substeppen: die Eindrück-Tiefe ist unabhängig von der Position (feste Unterseite), also ist
+die Tiefe an einer Zwischenposition gleich der aktuellen Tiefe *einen Bruchteil des Bewegungsvektors
+zurück*. Damit braucht es KEINEN Geometrie-Move und keinen zweiten Raycast: `surf_q` (Quincunx-
+Ergebnis) per **Sample Index** an Zell-Offset `round(v/cell · t/T)` lesen, über die Taps das Minimum
+(tiefster Schnitt) nehmen. `v` ist die Footprint-Schwerpunkt-Verschiebung (gleicher Schätzer wie die
+Bugwelle), gegated auf 0 falls nicht *beide* Frames Kontakt hatten (erster Touch smeart sonst).
+Zwei Invarianten fallen gratis ab: (1) `|v| < 1 Zelle` → Offsets runden auf 0 → jeder Tap trifft die
+eigene Zelle → **bit-identisch** zum Einzel-Sample, also langsame Bewegung unverändert bei jeder
+Substep-Zahl (E3-T21) und der Contact-AA-Pfad (stehender Collider) unangetastet; (2) das Minimum
+senkt die Oberfläche nur ab → erfindet nie Masse. Unrollt auf `_MAX_SUBSTEPS=4` Taps, per `t<=T`
+maskiert (kein Repeat-Zone-Overhead). Verifiziert: schneller Drag Sohlen-Riffel ~0.9→~0.2 mm bei
+T=3, visuell durchgehende Spur.
+
 **Zeitliche Unterabtastung bleibt übrig (→ E3-S5 Substeps):** Pile entsteht nur dort, wo der
 Collider *in diesem Frame* schneidet. Rückt er mehrere Zellen pro Frame, legt er pro Frame einen
 Klumpen ab. Gemessen: Riffel-Periode = Weg pro Frame, 1.9 Zellen → Periode 2, 2.9 → 3, 3.8 → 4.

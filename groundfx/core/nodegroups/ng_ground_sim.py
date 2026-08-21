@@ -35,6 +35,7 @@ IN_MATERIAL_HEIGHT = "Material Height"
 IN_COLLIDER_COLLECTION = "Colliders"
 IN_COLLIDER_OFFSET = "Collider Offset"
 IN_CONTACT_AA = "Contact AA"
+IN_CARVE_SUBSTEPS = "Carve Substeps"
 IN_REPOSE = "Angle Of Repose"
 IN_COHESION = "Cohesion"
 IN_FLOW = "Flow Rate"
@@ -53,6 +54,11 @@ _RAY_LENGTH = 10.0  # metres; ample for the close-up domain scale
 # Tolerance for "the collider is touching this cell" (metres). Large enough to
 # survive the raycast's own precision, far below anything visible.
 _CONTACT_EPS = 1e-4
+
+# The swept carve is unrolled to this many taps and masked down to the live
+# ``Carve Substeps`` count. Four covers the quality ladder (ultra = 3) with a
+# spare; a substep count above it just clamps to four taps.
+_MAX_SUBSTEPS = 4
 
 
 def _store_float(b, geo_socket_node, geo_key, name, value_node, value_key):
@@ -83,6 +89,11 @@ def build(name: str = NG_GROUND_SIM) -> bpy.types.GeometryNodeTree:
     b.input(IN_CONTACT_AA, "NodeSocketFloat", default=0.0, min=0.0, max=1.0,
             description="Hero mode: sub-cell supersampling of the contact edge "
                         "(0 = one ray/vertex, 1 = anti-aliased silhouette)")
+    b.input(IN_CARVE_SUBSTEPS, "NodeSocketInt", default=1, min=1, max=8,
+            description="Sub-frame carve samples along the collider's motion. "
+                        "1 = imprint only at this frame's position (fast objects "
+                        "leave a dashed trench); higher fills the gap into a "
+                        "continuous trench. No effect below one cell of motion")
     b.input(IN_REPOSE, "NodeSocketFloat", default=math.radians(34.0),
             min=0.0, max=math.radians(85.0), subtype="ANGLE",
             description="Angle of repose: the steepest stable slope")
@@ -267,10 +278,181 @@ def build(name: str = NG_GROUND_SIM) -> bpy.types.GeometryNodeTree:
         b.link(total, "Value", avg, 0)
         return avg
 
-    new_surface = _avg5([s[0] for s in samples], ["Value"] * 5,
-                        "new_surface = avg")
-    occupancy = _avg5([s[1] for s in samples], ["Output"] * 5,
-                      "coverage = avg")
+    surf_q = _avg5([s[0] for s in samples], ["Value"] * 5, "surf @ frame pos")
+    occupancy = _avg5([s[1] for s in samples], ["Output"] * 5, "coverage = avg")
+
+    # --- swept carve (E3-S5 substeps) --------------------------------------
+    # The carve above only imprints at the collider's position *this* frame, so
+    # a collider crossing several cells per frame leaves a dashed trench: one
+    # lump per frame, ripple period == per-frame travel (B2's residue). We fill
+    # the gap by sampling the same imprint depth at a few sub-frame positions
+    # along the motion and taking the deepest. Because pressing the collider in
+    # cuts to a fixed underside, the depth at an intermediate position equals
+    # the depth we just computed one motion-vector back -- so we do not need to
+    # move any geometry: we read ``surf_q`` at grid cells offset by v*(t/T).
+    #
+    # v is the footprint centroid shift between frames (same estimator the bow
+    # wave uses), gated to zero unless the collider had contact in *both* frames
+    # so the first touch doesn't smear. When |v| < one cell the offsets round to
+    # zero and every tap lands on the current cell, so the result is bit-for-bit
+    # the single-position carve: slow motion is identical at any substep count
+    # (E3-T21), and a still collider (Contact-AA path) is untouched.
+    cell_node, cell_key = (gin, IN_CELL_SIZE)
+    grid_node, grid_key = (gin, IN_GRID_N)
+    subs_node, subs_key = (gin, IN_CARVE_SUBSTEPS)
+
+    def _mask_gt(field_node, field_key, thresh, label):
+        m = b.add("ShaderNodeMath", operation="GREATER_THAN",
+                  inputs={1: thresh}, label=label)
+        b.link(field_node, field_key, m, 0)
+        return m
+
+    def _centroid(sel_node, sel_key, axis_key):
+        stat = b.add("GeometryNodeAttributeStatistic", data_type="FLOAT",
+                     domain="POINT")
+        b.link(sim_geo, "Geometry", stat, "Geometry")
+        b.link(sel_node, sel_key, stat, "Selection")
+        b.link(sep2, axis_key, stat, "Attribute")
+        return stat
+
+    occ_prev_attr = b.add("GeometryNodeInputNamedAttribute", data_type="FLOAT",
+                          inputs={"Name": ATTR_OCC})
+    mask_now = _mask_gt(occupancy, "Value", 0.5, "covered now")
+    mask_prev = _mask_gt(occ_prev_attr, "Attribute", 0.5, "covered before")
+    cx_now = _centroid(mask_now, "Value", "X")
+    cy_now = _centroid(mask_now, "Value", "Y")
+    cx_prev = _centroid(mask_prev, "Value", "X")
+    cy_prev = _centroid(mask_prev, "Value", "Y")
+
+    def _delta(now_stat, prev_stat, label):
+        d = b.add("ShaderNodeMath", operation="SUBTRACT", label=label)
+        b.link(now_stat, "Mean", d, 0)
+        b.link(prev_stat, "Mean", d, 1)
+        return d
+
+    vx_m = _delta(cx_now, cx_prev, "vx")
+    vy_m = _delta(cy_now, cy_prev, "vy")
+    # Gate: both frames must have touched, or v is meaningless (first contact).
+    now_has = _mask_gt(mask_now, "Value", 0.5, "any contact now")
+    now_hi = b.add("GeometryNodeAttributeStatistic", data_type="FLOAT",
+                   domain="POINT")
+    b.link(sim_geo, "Geometry", now_hi, "Geometry")
+    b.link(occupancy, "Value", now_hi, "Attribute")
+    prev_hi = b.add("GeometryNodeAttributeStatistic", data_type="FLOAT",
+                    domain="POINT")
+    b.link(sim_geo, "Geometry", prev_hi, "Geometry")
+    b.link(occ_prev_attr, "Attribute", prev_hi, "Attribute")
+    now_touch = _mask_gt(now_hi, "Max", 0.5, "touch now")
+    prev_touch = _mask_gt(prev_hi, "Max", 0.5, "touch before")
+    gate = b.add("ShaderNodeMath", operation="MULTIPLY", label="both touched")
+    b.link(now_touch, "Value", gate, 0)
+    b.link(prev_touch, "Value", gate, 1)
+
+    def _v_cells(v_node, label):
+        g = b.add("ShaderNodeMath", operation="MULTIPLY", label=f"{label} gated")
+        b.link(v_node, "Value", g, 0)
+        b.link(gate, "Value", g, 1)
+        c = b.add("ShaderNodeMath", operation="DIVIDE", label=f"{label}/cell")
+        b.link(g, "Value", c, 0)
+        b.link(cell_node, cell_key, c, 1)
+        return c
+
+    vx_cells = _v_cells(vx_m, "vx")
+    vy_cells = _v_cells(vy_m, "vy")
+
+    # 1/T, computed once; the per-tap fraction is t * (1/T).
+    inv_t = b.add("ShaderNodeMath", operation="DIVIDE", label="1/substeps")
+    b.set_default(inv_t, 0, 1.0)
+    b.link(subs_node, subs_key, inv_t, 1)
+
+    # This cell's grid coordinates.
+    idx = b.add("GeometryNodeInputIndex")
+    col = b.add("ShaderNodeMath", operation="MODULO", label="col")
+    b.link(idx, "Index", col, 0)
+    b.link(grid_node, grid_key, col, 1)
+    row_f = b.add("ShaderNodeMath", operation="DIVIDE")
+    b.link(idx, "Index", row_f, 0)
+    b.link(grid_node, grid_key, row_f, 1)
+    row = b.add("ShaderNodeMath", operation="FLOOR", label="row")
+    b.link(row_f, "Value", row, 0)
+
+    def _in_range(coord_node, coord_key, label):
+        """1.0 if 0 <= coord < N."""
+        lo = b.add("ShaderNodeMath", operation="GREATER_THAN", inputs={1: -0.5},
+                   label=f"{label}>=0")
+        b.link(coord_node, coord_key, lo, 0)
+        hi = b.add("ShaderNodeMath", operation="LESS_THAN", label=f"{label}<N")
+        b.link(coord_node, coord_key, hi, 0)
+        b.link(grid_node, grid_key, hi, 1)
+        both = b.add("ShaderNodeMath", operation="MULTIPLY")
+        b.link(lo, "Value", both, 0)
+        b.link(hi, "Value", both, 1)
+        return both
+
+    def _tap(t, acc):
+        """Fold one sub-frame sample at fraction t/T into the running minimum."""
+        frac = b.add("ShaderNodeMath", operation="MULTIPLY", inputs={0: float(t)},
+                     label=f"frac {t}")
+        b.link(inv_t, "Value", frac, 1)
+        offx = b.add("ShaderNodeMath", operation="ROUND", label=f"offx {t}")
+        ox = b.add("ShaderNodeMath", operation="MULTIPLY")
+        b.link(vx_cells, "Value", ox, 0)
+        b.link(frac, "Value", ox, 1)
+        b.link(ox, "Value", offx, 0)
+        offy = b.add("ShaderNodeMath", operation="ROUND", label=f"offy {t}")
+        oy = b.add("ShaderNodeMath", operation="MULTIPLY")
+        b.link(vy_cells, "Value", oy, 0)
+        b.link(frac, "Value", oy, 1)
+        b.link(oy, "Value", offy, 0)
+        tcol = b.add("ShaderNodeMath", operation="ADD", label=f"tap col {t}")
+        b.link(col, "Value", tcol, 0)
+        b.link(offx, "Value", tcol, 1)
+        trow = b.add("ShaderNodeMath", operation="ADD", label=f"tap row {t}")
+        b.link(row, "Value", trow, 0)
+        b.link(offy, "Value", trow, 1)
+        tidx = b.add("ShaderNodeMath", operation="MULTIPLY_ADD",
+                     label=f"tap idx {t}")
+        b.link(trow, "Value", tidx, 0)
+        b.link(grid_node, grid_key, tidx, 1)
+        b.link(tcol, "Value", tidx, 2)
+        sample = b.add("GeometryNodeSampleIndex", data_type="FLOAT",
+                       domain="POINT", clamp=True)
+        b.link(sim_geo, "Geometry", sample, "Geometry")
+        b.link(surf_q, "Value", sample, "Value")
+        b.link(tidx, "Value", sample, "Index")
+        # valid = t <= T  AND  tap stays on the grid.
+        active = b.add("ShaderNodeMath", operation="LESS_THAN",
+                       inputs={0: float(t) - 0.5}, label=f"t<=T {t}")
+        b.link(subs_node, subs_key, active, 1)
+        in_c = _in_range(tcol, "Value", f"col {t}")
+        in_r = _in_range(trow, "Value", f"row {t}")
+        valid = b.add("ShaderNodeMath", operation="MULTIPLY", label=f"valid {t}")
+        v_ar = b.add("ShaderNodeMath", operation="MULTIPLY")
+        b.link(in_c, "Value", v_ar, 0)
+        b.link(in_r, "Value", v_ar, 1)
+        b.link(active, "Value", valid, 0)
+        b.link(v_ar, "Value", valid, 1)
+        # candidate = valid ? sample : surf_q  (so an invalid tap can't deepen)
+        diff = b.add("ShaderNodeMath", operation="SUBTRACT")
+        b.link(sample, "Value", diff, 0)
+        b.link(surf_q, "Value", diff, 1)
+        masked = b.add("ShaderNodeMath", operation="MULTIPLY")
+        b.link(diff, "Value", masked, 0)
+        b.link(valid, "Value", masked, 1)
+        cand = b.add("ShaderNodeMath", operation="ADD", label=f"cand {t}")
+        b.link(surf_q, "Value", cand, 0)
+        b.link(masked, "Value", cand, 1)
+        out = b.add("ShaderNodeMath", operation="MINIMUM", label=f"swept {t}")
+        b.link(acc[0], acc[1], out, 0)
+        b.link(cand, "Value", out, 1)
+        return out, "Value"
+
+    swept = (surf_q, "Value")
+    for t in range(1, _MAX_SUBSTEPS + 1):
+        swept = _tap(t, swept)
+    new_surface = b.add("ShaderNodeMath", operation="ADD", inputs={1: 0.0},
+                        label="swept surface")
+    b.link(swept[0], swept[1], new_surface, 0)
 
     # new_h = new_surface - base ; carve = surface_old - new_surface
     new_h = b.add("ShaderNodeMath", operation="SUBTRACT", label="new_h")

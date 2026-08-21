@@ -117,8 +117,8 @@ def _report(tag, n, h, c, ys):
                 f"{h[i][j] * 1000:4.0f}" for j in range(j0, min(n - 1, j0 + 28)))))
 
 
-def _run(bw=None, dep=None, relax=None, spread=None, rate=None, tag="base",
-         step=0.045, steps=24):
+def _run(bw=None, dep=None, relax=None, spread=None, rate=None, subs=None,
+         tag="base", step=0.045, steps=24):
     _reset()
     from groundfx.ops.op_add import create_domain
 
@@ -139,6 +139,8 @@ def _run(bw=None, dep=None, relax=None, spread=None, rate=None, tag="base",
         modifier_io.set_input(md, gsim.IN_DEPOSIT_SPREAD, float(spread))
     if rate is not None:
         modifier_io.set_input(md, gsim.IN_DEPOSIT_RATE, float(rate))
+    if subs is not None:
+        modifier_io.set_input(md, gsim.IN_CARVE_SUBSTEPS, int(subs))
 
     bpy.ops.mesh.primitive_cube_add(size=0.4, location=(-0.6, 0.0, 2.0))
     cube = bpy.context.active_object
@@ -177,7 +179,7 @@ def main():
             k, _, v = part.partition("=")
             k = k.strip()
             kw[k] = v if k == "tag" else float(v)
-        for k in ("dep", "relax", "steps"):
+        for k in ("dep", "relax", "steps", "subs"):
             if k in kw:
                 kw[k] = int(kw[k])
         kw.setdefault("tag", spec.replace(",", "_").replace("=", ""))

@@ -105,6 +105,7 @@ def create_domain(context, element: str,
     modifier_io.set_input(md, gsim.IN_GRID_N, prof.resolution + 1, tag=False)
     modifier_io.set_input(md, gsim.IN_DISPLACE_RATIO, 0.7, tag=False)
     modifier_io.set_input(md, gsim.IN_DEPOSIT_ITERS, 6, tag=False)
+    modifier_io.set_input(md, gsim.IN_CARVE_SUBSTEPS, prof.substeps, tag=False)
     modifier_io.set_input(md, gsim.IN_BOW_WAVE, ed.bow_wave, tag=True)
 
     # Auto-create the (empty) collider collection and wire it, so the user can

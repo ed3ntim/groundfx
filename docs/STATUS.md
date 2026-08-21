@@ -2,7 +2,7 @@
 
 **Letzte Aktualisierung:** 2026-08-21
 **Aktueller Meilenstein:** M3 (Workflow) — E7 in Arbeit (E4/M2-Kern fertig)
-**Tests:** 85/85 grün (Blender 5.2.0 LTS, headless)
+**Tests:** 89/89 grün (Blender 5.2.0 LTS, headless)
 
 > Diese Datei ist der Wiedereinstiegspunkt. Wer den Kontext geleert hat, liest
 > `STATUS.md` → `PLAN.md` → `BACKLOG.md` → `API_NOTES.md` und ist wieder im Bild.
@@ -69,14 +69,15 @@ sind nicht bindend, nur optionale Hilfe fürs spätere Preset-Fine-Tuning.
 - **E5-S2 Presets** ✅ — 12 benannte Presets (4×Sand/Snow/Mud) als Datentabelle `data/presets.py`,
   Apply-Operator + Panel-Dropdown; wechselt auch das Element. JSON-Format + User-Presets (E5-T4/T9)
   aufgeschoben.
-- **B2 Zacken/Spikes** ✅ größtenteils — drei Ursachen gefunden, einzeln nachgemessen, NG-Version 8:
+- **B2 Zacken/Spikes** ✅ **komplett** — vier Ursachen, einzeln nachgemessen:
   (1) Pile-Transport war odd-even-entkoppelt (4-Nachbar-Mittel ohne Selbst-Term) → jede zweite Zelle
   bekam exakt nichts = der Zahn-Kamm; (2) Relaxations-/Deposit-Masken lagen auf `gfx_carve`
   (Pro-Frame-Delta) und flackerten → neues Deckungs-Attribut `gfx_occ`; (3) additive Advektion +
-  `max(s,0)`-Clamp erfand Masse. Neue Inputs `Deposit Spread` / `Deposit Rate`,
-  `tests/test_deposit.py` hält beides fest. **Offen:** ein Collider, der mehrere Zellen pro Frame
-  weiterrückt, legt pro Frame einen Klumpen ab (Riffel-Periode = Weg pro Frame) → braucht E3-S5
-  Substeps. Nächstes sinnvoll: E3-S5 Substeps oder E8 Shader.
+  `max(s,0)`-Clamp erfand Masse; (4) schneller Collider legte pro Frame einen Klumpen ab (dashed
+  Graben, Riffel-Periode = Weg pro Frame) → **E3-S5 Swept Carve** (s. u.). Neue Inputs
+  `Deposit Spread` / `Deposit Rate` / `Carve Substeps`, `tests/test_deposit.py` +
+  `tests/test_substeps.py` halten alles fest.
+- **E3-S5 Substeps (Swept Carve)** ✅ — schließt B2 ab. Carve-seitiges Sub-Frame-Sampling entlang des Bewegungsvektors füllt den dashed Graben schneller Collider zu einer durchgehenden Spur; unter einer Zelle Bewegung/Frame bit-identisch (E3-T21). NG-Version 9, `Carve Substeps`-Input quality-gesteuert. Visuell verifiziert (docs/substeps_*.png). Nächstes sinnvoll: E8 Shader.
 
 ## Danach
 

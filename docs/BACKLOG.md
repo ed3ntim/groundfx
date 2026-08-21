@@ -24,11 +24,10 @@ Meilenstein-Zuordnung: M1 = E0–E2, M2 = E3–E4, M3 = E5–E9, M4 = E10, E13�
      auf 2.8 m bei höherer Transportweite). Fix: Bias als Gewicht in der normierten Gather-Maske,
      Clamp entfällt. Test `test_carving_never_creates_material` hält das fest.
   Neue Group-Inputs: `Deposit Spread`, `Deposit Rate`. NG-Version 8. Tests: 85/85.
-- [ ] **B2-Rest: Klumpen pro Frame bei schnellem Collider** — Pile entsteht nur, wo der Collider *in
-  diesem Frame* schneidet; bei mehreren Zellen Weg pro Frame legt er pro Frame einen Klumpen ab.
-  Gemessen: Riffel-Periode = Weg pro Frame (1.9 Zellen → 2, 2.9 → 3, 3.8 → 4), Amplitude ~±5 mm bei
-  15.6 mm Zellen. Rein zeitliche Unterabtastung — räumliches Glätten hilft nachweislich nicht
-  (Verschmieren längs der Bahn hat die Amplitude erhöht). → braucht **E3-S5 Substeps**.
+- [x] **B2-Rest: Klumpen pro Frame bei schnellem Collider** — GELÖST via E3-S5 Swept Carve (s. u.).
+  Der dashed Graben (eine Rippe pro Frame, Periode = Weg pro Frame) wird durch Sub-Frame-Abtastung
+  entlang der Bewegung zu einer durchgehenden Spur gefüllt. Visuell verifiziert
+  (docs/substeps_1_dashed.png vs substeps_3_filled.png).
 - [x] **B3 Collider per Picker hinzufügen** — Objekt-Auswahlfeld (Pipette) im Panel statt nur über
   Selektion. → umgesetzt (`collider_pick`).
 - [x] **B4 Presets nach Element vorfiltern** — Preset-Dropdown zeigt nur Presets des aktiven Elements.
@@ -152,11 +151,19 @@ nur Einweg-Kollision · UI und Code Englisch, Doku Deutsch · Nahaufnahme-Maßst
 - [ ] E3-T17 `gfx_flow` (Richtungsvektor) für die Shader
 - [ ] E3-T18 `gfx_age` für Zeit-basierte Effekte
 
-### E3-S5 — Als User will ich Substeps für stabile schnelle Bewegungen. `M`
+### E3-S5 — Als User will ich Substeps für stabile schnelle Bewegungen. `M` ✅
 
-- [ ] E3-T19 Substep-Schleife innerhalb eines Frames (Repeat Zone über die Solver-Kette)
-- [ ] E3-T20 dt-Korrektheit über alle Raten hinweg
-- [ ] E3-T21 Test: gleiche Endform bei 1 vs. 3 Substeps für langsame Bewegung
+- [x] E3-T19/T20 **Swept Carve** statt Substep-Schleife über die *ganze* Kette. Die Instabilität
+  saß allein im Carve-Sampling (Pile entsteht nur, wo der Collider *diesen* Frame schneidet), nicht
+  in Relax/Deposit — die dreimal laufen zu lassen wäre 3× teurer und würde das Falsche kurieren.
+  Stattdessen: die aktuelle Schnitt-Tiefe an ein paar Sub-Frame-Positionen entlang des
+  Bewegungsvektors abtasten (Sample Index auf Zell-Offset `v/cell·t/T`, Minimum) → durchgehender
+  Graben. Kein Geometrie-Move nötig (Eindrücken schneidet auf feste Unterseite, Tiefe an
+  Zwischenposition = Tiefe einen Bewegungsvektor zurück). Tap-Zahl = `Carve Substeps` (quality:
+  Low/Med 1, High 2, Ultra 3). NG-Version 9.
+- [x] E3-T21 Test: `tests/test_substeps.py` — unter einer Zelle Bewegung/Frame **bit-identisch** bei
+  1 vs. 3 Substeps (Offsets runden auf 0); bei schnellem Drag halbiert 3 Substeps die
+  Grabensohlen-Riffelung mindestens (gemessen ~0.9→~0.2 mm). Damit ist **B2 komplett**.
 
 ---
 
