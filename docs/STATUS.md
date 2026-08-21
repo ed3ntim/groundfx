@@ -2,7 +2,7 @@
 
 **Letzte Aktualisierung:** 2026-08-20
 **Aktueller Meilenstein:** M3 (Workflow) — E7 in Arbeit (E4/M2-Kern fertig)
-**Tests:** 71/71 grün (Blender 5.2.0 LTS, headless)
+**Tests:** 78/78 grün (Blender 5.2.0 LTS, headless)
 
 > Diese Datei ist der Wiedereinstiegspunkt. Wer den Kontext geleert hat, liest
 > `STATUS.md` → `PLAN.md` → `BACKLOG.md` → `API_NOTES.md` und ist wieder im Bild.
@@ -65,7 +65,10 @@ sind nicht bindend, nur optionale Hilfe fürs spätere Preset-Fine-Tuning.
 - E7-S2 Cache-Info (Größe/Hash/veraltet, `.blend`-Warnung, eigene Framerange) — offen
   (unter Memory-Bake geringer Wert; zurückgestellt).
 - **E5-S1 Elementwechsel (Physik)** ✅ — Update-Callback am `element`-Enum pusht die Element-Physik
-  atomar in den Solver; Material-Swap folgt mit E8. Nächstes: E5-S2 Presets (JSON), E8 Shader.
+  atomar in den Solver; Material-Swap folgt mit E8.
+- **E5-S2 Presets** ✅ — 12 benannte Presets (4×Sand/Snow/Mud) als Datentabelle `data/presets.py`,
+  Apply-Operator + Panel-Dropdown; wechselt auch das Element. JSON-Format + User-Presets (E5-T4/T9)
+  aufgeschoben. Nächstes sinnvoll: E8 Shader (macht Look/Frozen-Meshes fotoreal).
 
 ## Danach
 

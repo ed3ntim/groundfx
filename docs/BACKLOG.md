@@ -204,12 +204,13 @@ groben Proxy).
 
 **Akzeptanz:** Mindestens acht Presets, jedes mit Beschreibung, sichtbar unterschiedlichem Verhalten und dokumentierten Kennwerten.
 
-- [ ] E5-T4 JSON-Preset-Format samt Schema-Validierung
-- [ ] E5-T5 Sand: Fine Dry Sand · Coarse Sand · Wet Sand · Beach Sand
-- [ ] E5-T6 Snow: Dry Powder · Packed Snow · Heavy Wet Snow · Fresh Fluff
-- [ ] E5-T7 Mud: Thick Mud · Thin Mud · Wet Clay · Slush
-- [ ] E5-T8 Operator „Preset anwenden" mit Vorschau der Kennwerte
-- [ ] E5-T9 User-Presets speichern und löschen (in den Addon-Config-Ordner)
+- [ ] E5-T4 JSON-Preset-Format + Schema-Validierung — aufgeschoben (aktuell Datentabelle
+  `data/presets.py`; Externalisierung später)
+- [x] E5-T5 Sand: Fine Dry Sand · Coarse Sand · Wet Sand · Beach Sand
+- [x] E5-T6 Snow: Dry Powder · Packed Snow · Heavy Wet Snow · Fresh Fluff
+- [x] E5-T7 Mud: Thick Mud · Thin Mud · Wet Clay · Slush
+- [x] E5-T8 Operator „Preset anwenden" (`ops/op_preset.py`, Dropdown im Panel; Kennwert-Vorschau später)
+- [ ] E5-T9 User-Presets speichern/löschen (Config-Ordner) — aufgeschoben (mit E5-T4)
 
 ---
 

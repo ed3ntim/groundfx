@@ -17,6 +17,7 @@ from .ops import op_add
 from .ops import op_collider
 from .ops import op_freeze
 from .ops import op_bake
+from .ops import op_preset
 from .ui import panels
 
 # Order matters: PropertyGroups before the panels/operators that reference
@@ -28,6 +29,7 @@ _MODULES = (
     op_collider,
     op_freeze,
     op_bake,
+    op_preset,
     panels,
 )
 

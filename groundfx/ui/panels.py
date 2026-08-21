@@ -54,6 +54,8 @@ class GFX_PT_domain(bpy.types.Panel):
 
         col = layout.column()
         col.prop(st, "element")
+        col.operator_menu_enum(f"{OP_PREFIX}.apply_preset", "preset",
+                               text="Apply Preset", icon="PRESET")
         col.prop(st, "quality")
 
         # Live resolution / cell-size readout with a traffic light.
