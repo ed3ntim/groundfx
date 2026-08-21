@@ -45,10 +45,12 @@ def all_classes():
 
 
 def register_extras():
-    """Register non-class bits (pointer properties) after classes exist."""
+    """Register non-class bits (pointer properties, menu append) after classes."""
     properties.register_pointers()
+    panels.register_menu()
 
 
 def unregister_extras():
     """Tear down non-class bits before classes go away."""
+    panels.unregister_menu()
     properties.unregister_pointers()

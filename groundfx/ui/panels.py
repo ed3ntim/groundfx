@@ -246,6 +246,32 @@ class GFX_PT_photo(bpy.types.Panel):
         col.operator(f"{OP_PREFIX}.freeze_to_mesh", icon="MESH_DATA")
 
 
+class GFX_MT_add(bpy.types.Menu):
+    """GroundFX entries under the 3D-view Add menu (Shift+A)."""
+
+    bl_idname = "GFX_MT_add"
+    bl_label = ADDON_NAME
+
+    def draw(self, context):
+        layout = self.layout
+        for elem in (ELEM_SAND, ELEM_SNOW, ELEM_MUD):
+            op = layout.operator(f"{OP_PREFIX}.add_ground",
+                                 text=ELEMENT_LABELS[elem], icon="MESH_GRID")
+            op.element = elem
+
+
+def _draw_add_menu(self, context):
+    self.layout.menu(GFX_MT_add.bl_idname, icon="MESH_GRID")
+
+
+def register_menu():
+    bpy.types.VIEW3D_MT_add.append(_draw_add_menu)
+
+
+def unregister_menu():
+    bpy.types.VIEW3D_MT_add.remove(_draw_add_menu)
+
+
 classes = (
     GFX_PT_main,
     GFX_PT_domain,
@@ -254,4 +280,5 @@ classes = (
     GFX_PT_look,
     GFX_PT_cache,
     GFX_PT_photo,
+    GFX_MT_add,
 )

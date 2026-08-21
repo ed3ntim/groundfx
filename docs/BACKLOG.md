@@ -114,7 +114,7 @@ nur Einweg-Kollision · UI und Code Englisch, Doku Deutsch · Nahaufnahme-Maßst
 
 - [ ] E2-T1 Operator `groundfx.add_ground(element)` samt Undo-Support
 - [ ] E2-T2 Domain-Objekt: Grid, korrekte Skalierung, Objekt-Custom-Props
-- [ ] E2-T3 Integration ins `Add`-Menü und ins N-Panel
+- [x] E2-T3 Integration ins `Add`-Menü (Shift+A → GroundFX-Submenü, `GFX_MT_add`) und ins N-Panel
 - [ ] E2-T4 Auto-Benennung und Collection-Organisation (`GroundFX` Collection)
 
 ### E2-S2 — Als User will ich, dass das Material sich an vorhandenes Terrain anpasst. `M` ✅ (E2-T8 offen)
