@@ -60,11 +60,13 @@ class LookDefaults:
 
     __slots__ = ("base_color", "wet_color", "roughness", "detail",
                  "base_wetness", "grain_scale", "subsurface", "ripple",
-                 "sparkle", "macro_scale", "crevice")
+                 "sparkle", "macro_scale", "crevice", "rough_var", "mottle",
+                 "sparkle_scale")
 
     def __init__(self, base_color, wet_color, roughness, detail,
                  base_wetness, grain_scale, subsurface, ripple=0.0,
-                 sparkle=0.0, macro_scale=8.0, crevice=0.5):
+                 sparkle=0.0, macro_scale=8.0, crevice=0.5, rough_var=0.12,
+                 mottle=0.1, sparkle_scale=600.0):
         self.base_color = base_color      # dry albedo (RGB)
         self.wet_color = wet_color        # albedo at full wetness (RGB)
         self.roughness = roughness        # dry roughness 0..1
@@ -73,27 +75,33 @@ class LookDefaults:
         self.grain_scale = grain_scale    # fine grain / crystal frequency
         self.subsurface = subsurface      # Principled subsurface weight
         self.ripple = ripple              # transverse track-ripple strength
-        self.sparkle = sparkle            # ice-crystal glint strength
+        self.sparkle = sparkle            # glint strength (roughness dip)
         self.macro_scale = macro_scale    # low-frequency relief frequency
         self.crevice = crevice            # how much valleys darken (fake AO)
+        self.rough_var = rough_var        # +/- roughness noise (breaks plastic)
+        self.mottle = mottle              # fine albedo brightness variation
+        self.sparkle_scale = sparkle_scale  # glint fleck density
 
 
 LOOKS = {
     ELEM_SAND: LookDefaults(
-        base_color=(0.62, 0.48, 0.30), wet_color=(0.33, 0.22, 0.11),
-        roughness=0.92, detail=0.9, base_wetness=0.0,
-        grain_scale=320.0, subsurface=0.0, ripple=0.6,
-        sparkle=0.35, macro_scale=6.0, crevice=0.55),
+        base_color=(0.64, 0.50, 0.31), wet_color=(0.33, 0.22, 0.11),
+        roughness=0.95, detail=1.0, base_wetness=0.0,
+        grain_scale=520.0, subsurface=0.0, ripple=0.6,
+        sparkle=0.7, macro_scale=6.0, crevice=0.6,
+        rough_var=0.18, mottle=0.14, sparkle_scale=900.0),
     ELEM_SNOW: LookDefaults(
         base_color=(0.90, 0.93, 0.98), wet_color=(0.72, 0.78, 0.90),
-        roughness=0.5, detail=0.7, base_wetness=0.1,
-        grain_scale=120.0, subsurface=0.15, ripple=0.25,
-        sparkle=1.0, macro_scale=9.0, crevice=0.6),
+        roughness=0.42, detail=0.7, base_wetness=0.1,
+        grain_scale=150.0, subsurface=0.18, ripple=0.25,
+        sparkle=0.95, macro_scale=9.0, crevice=0.6,
+        rough_var=0.22, mottle=0.05, sparkle_scale=520.0),
     ELEM_MUD: LookDefaults(
         base_color=(0.21, 0.15, 0.10), wet_color=(0.07, 0.05, 0.03),
-        roughness=0.6, detail=0.6, base_wetness=0.6,
+        roughness=0.62, detail=0.6, base_wetness=0.6,
         grain_scale=90.0, subsurface=0.0, ripple=0.15,
-        sparkle=0.0, macro_scale=14.0, crevice=0.7),
+        sparkle=0.2, macro_scale=14.0, crevice=0.7,
+        rough_var=0.16, mottle=0.12, sparkle_scale=700.0),
 }
 
 
@@ -192,7 +200,6 @@ def _structure(b, element, look, P, det_eff, n_wet):
     micro = _noise(b, P, look.grain_scale * 2.2, detail=6.0, roughness=0.7)
     layers = []            # (height, strength, distance)
     crevice = None         # 0..1, 1 = ridge (bright), 0 = valley (dark)
-    rough_mult = None      # multiplies roughness where present
     tint = None            # per-cell colour multiplier (as a fraction)
     extra_dark = None      # 0..1, 1 = fully dark (cracks)
 
@@ -214,9 +221,6 @@ def _structure(b, element, look, P, det_eff, n_wet):
         lum.inputs[1].default_value = (0.33, 0.33, 0.33)
         tint = _math(b, "MULTIPLY_ADD", (lum, "Value"), 0.3, label="grain bright")
         b.set_default(tint[0], 2, 0.85)
-        # faint quartz sparkle
-        spk = _voronoi(b, P, look.grain_scale * 2.5, "F1")
-        rough_mult = _sparkle_mult(b, spk, 0.06, 0.3 * look.sparkle)
 
     elif element == ELEM_SNOW:
         clump = _voronoi(b, P, look.macro_scale * 2.4, "SMOOTH_F1",
@@ -228,8 +232,6 @@ def _structure(b, element, look, P, det_eff, n_wet):
             (micro, "Factor", _math(b, "MULTIPLY", det_eff, 0.35), 0.0015),
         ]
         crevice = (clump, "Distance")
-        spk = _voronoi(b, P, look.grain_scale * 3.0, "F1", randomness=1.0)
-        rough_mult = _sparkle_mult(b, spk, 0.05, 0.9 * look.sparkle)
 
     else:  # MUD
         lump = _noise(b, P, look.macro_scale, detail=4.0, roughness=0.6)
@@ -248,14 +250,7 @@ def _structure(b, element, look, P, det_eff, n_wet):
         crevice = (lump, "Factor")
         extra_dark = crack_dry
 
-    return layers, macro, crevice, rough_mult, tint, extra_dark
-
-
-def _sparkle_mult(b, voro, thresh, strength):
-    """Roughness multiplier: dips toward 0 on the sparkle cells."""
-    spots = _math(b, "LESS_THAN", (voro, "Distance"), thresh, label="sparkle")
-    dip = _math(b, "MULTIPLY", spots, strength, label="dip")
-    return _math(b, "SUBTRACT", 1.0, dip, label="1 - dip")
+    return layers, macro, crevice, tint, extra_dark
 
 
 def build_material(element: str, look: LookDefaults | None = None,
@@ -300,7 +295,7 @@ def build_material(element: str, look: LookDefaults | None = None,
     b.set_default(det_wet[0], 2, 1.0)
     det_eff = _math(b, "MULTIPLY", (n_detail, "Value"), det_wet, label="detail")
 
-    layers, macro, crevice, rough_mult, tint, extra_dark = _structure(
+    layers, macro, crevice, tint, extra_dark = _structure(
         b, element, look, P, det_eff, n_wet)
 
     # -- base colour: two-tone macro shading + variation --------------------
@@ -315,6 +310,16 @@ def build_material(element: str, look: LookDefaults | None = None,
     # per-grain brightness jitter (scalar), sand only
     if tint is not None:
         col2 = _scale_color(b, col2, tint, "grain brightness")
+
+    # fine albedo mottle: a high-frequency brightness wobble so the colour is
+    # never flat — grains/crystals catch light unevenly (anti-plastic).
+    if look.mottle > 0.0:
+        mott = _noise(b, P, look.sparkle_scale * 0.5, detail=4.0, roughness=0.7)
+        mfac = _math(b, "MULTIPLY_ADD",
+                     _math(b, "SUBTRACT", (mott, "Factor"), 0.5),
+                     2.0 * look.mottle, label="mottle factor")
+        b.set_default(mfac[0], 2, 1.0)  # 1 + 2*mottle*(n-0.5)
+        col2 = _scale_color(b, col2, mfac, "albedo mottle")
 
     # crevice darken (fake AO): valleys lose brightness
     crv_f = _math(b, "MULTIPLY_ADD", crevice,
@@ -343,16 +348,38 @@ def build_material(element: str, look: LookDefaults | None = None,
     col_wet = _mix_rgba(b, wet_fac, col_trk, _rgba(look.wet_color),
                         "wetness darken")
 
-    # -- roughness: base, lowered by wetness and track, sparkle dips --------
+    # -- roughness ----------------------------------------------------------
+    # Uniform roughness is *the* plastic tell. Two things break it: a
+    # high-frequency noise that wobbles roughness cell to cell, and scattered
+    # near-mirror flecks (quartz in sand, ice facets in snow) that flash under a
+    # sharp light. Wetness kills both (a wet surface is smooth and unsparkly).
     one_m_wet = _math(b, "SUBTRACT", 1.0,
                       _math(b, "MULTIPLY", (n_wet, "Value"), 0.6))
     one_m_trk = _math(b, "SUBTRACT", 1.0,
                       _math(b, "MULTIPLY", (track_c, "Result"), 0.35))
-    rough = _math(b, "MULTIPLY",
-                  _math(b, "MULTIPLY", (n_rough, "Value"), one_m_wet),
-                  one_m_trk, label="roughness")
-    if rough_mult is not None:
-        rough = _math(b, "MULTIPLY", rough, rough_mult, label="+ sparkle")
+    rough_base = _math(b, "MULTIPLY",
+                       _math(b, "MULTIPLY", (n_rough, "Value"), one_m_wet),
+                       one_m_trk, label="roughness base")
+    # + noise variation, centred on 0
+    rvar_n = _noise(b, P, look.sparkle_scale * 0.4, detail=3.0, roughness=0.7)
+    rvar = _math(b, "MULTIPLY",
+                 _math(b, "SUBTRACT", (rvar_n, "Factor"), 0.5),
+                 2.0 * look.rough_var, label="rough var")
+    rough_v = _math(b, "ADD", rough_base, rvar)
+    # sparkle: sparse cells dip toward a near-mirror roughness
+    dry = _math(b, "SUBTRACT", 1.0, (n_wet, "Value"), label="dryness")
+    spk = _voronoi(b, P, look.sparkle_scale, "F1", randomness=1.0)
+    spk_mask = _math(b, "LESS_THAN", (spk, "Distance"), 0.16, label="glint cells")
+    spk_amt = _math(b, "MULTIPLY",
+                    _math(b, "MULTIPLY", spk_mask, dry),
+                    float(look.sparkle), label="glint amount")
+    # rough = mix(rough_v, 0.04, spk_amt) = rough_v + (0.04 - rough_v)*spk_amt
+    to_mirror = _math(b, "SUBTRACT", 0.04, rough_v, label="toward mirror")
+    rough_spk = _math(b, "ADD", rough_v,
+                      _math(b, "MULTIPLY", to_mirror, spk_amt))
+    rough_clamp = b.add("ShaderNodeClamp", inputs={"Min": 0.03, "Max": 1.0})
+    b.link(rough_spk[0], rough_spk[1], rough_clamp, "Value")
+    rough = (rough_clamp, "Result")
 
     # -- specular sheen rises with wetness ----------------------------------
     spec = _math(b, "MULTIPLY_ADD", (n_wet, "Value"), 0.5, label="specular")
