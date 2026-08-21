@@ -58,6 +58,9 @@ def _make_grid_mesh(name: str, size: float, resolution: int) -> bpy.types.Mesh:
     mesh.loops.foreach_set("vertex_index", faces.ravel())
     mesh.polygons.foreach_set("loop_start", np.arange(0, faces.size, 4))
     mesh.polygons.foreach_set("loop_total", np.full(len(faces), 4))
+    # Smooth shading: a displaced height field reads as faceted spikes when
+    # flat-shaded; smooth normals make berms and slopes look continuous (B2).
+    mesh.polygons.foreach_set("use_smooth", np.ones(len(faces), dtype=bool))
     mesh.update()
     mesh.validate()
     return mesh
