@@ -6,6 +6,21 @@
 
 Meilenstein-Zuordnung: M1 = E0–E2, M2 = E3–E4, M3 = E5–E9, M4 = E10, E13–E15, E11, E12 offen.
 
+## Offene Beobachtungen / Solver-Qualität (User-Feedback 2026-08-21)
+
+- [ ] **B1 Senkrechte Wände am Collider** — beim Eindrücken (z. B. Kugel) fällt das Material nicht
+  zur Böschung zusammen, sondern bleibt an der „dicksten" Stelle senkrecht stehen. Vermutung: die
+  Relaxation slumpt die Kontaktkante (Übergang unberührt→ausgehoben) nicht auf den Böschungswinkel;
+  ggf. Relax-Iterationen/Reichweite an der Carve-Kante erhöhen bzw. nach dem Abheben nachfließen.
+  → untersuchen mit Höhenprofil-Messung. (2.5D kann keine Überhänge — „über dem Objekt schließen"
+  ist physikalisch nur begrenzt möglich, aber Böschung an den Wänden muss kommen.)
+- [ ] **B2 Bugwelle spiky** — die gerichtete Advektion (E4-S3) häuft schneller an, als die
+  Relaxation glättet → Spikes/Zacken. Optionen: Advektions-Term clampen/glätten, Default `bow_wave`
+  senken, oder eine Glättung nach dem Deposit. (User-Hinweis: sieht evtl. mit Shader besser aus.)
+- [x] **B3 Collider per Picker hinzufügen** — Objekt-Auswahlfeld (Pipette) im Panel statt nur über
+  Selektion. → umgesetzt (`collider_pick`).
+- [x] **B4 Presets nach Element vorfiltern** — Preset-Dropdown zeigt nur Presets des aktiven Elements.
+
 **Rahmen (entschieden am 2026-08-20):** Addon-Name `GroundFX` · Höhenfeld + Spray (Modell B) ·
 nur Einweg-Kollision · UI und Code Englisch, Doku Deutsch · Nahaufnahme-Maßstab, Default-Domain
 2 × 2 m.

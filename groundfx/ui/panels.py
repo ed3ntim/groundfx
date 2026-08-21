@@ -127,8 +127,9 @@ class GFX_PT_colliders(bpy.types.Panel):
         else:
             layout.label(text="No collider collection", icon="ERROR")
 
+        layout.prop(st, "collider_pick", text="Add")
         layout.operator_menu_enum(f"{OP_PREFIX}.mark_collider", "proxy",
-                                  text="Mark as Collider", icon="ADD")
+                                  text="Mark Selected", icon="ADD")
 
 
 class GFX_PT_cache(bpy.types.Panel):

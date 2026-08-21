@@ -54,11 +54,25 @@ def test_apply_preset_changes_physics():
         "preset material height applied",
         abs(obj.groundfx.material_height - wet.material_height) < 1e-5)
 
-    # A cross-element preset also switches the element.
-    bpy.ops.groundfx.apply_preset(preset="THICK_MUD")
+    # A cross-element preset also switches the element (via the helper; the
+    # operator's dropdown is filtered to the active element, B4).
+    from groundfx.ops.op_preset import apply_preset
+    mud = pmod.get("THICK_MUD")
+    apply_preset(obj, mud)
     harness.check("preset switched element to mud",
                   obj.groundfx.element == "MUD")
-    mud = pmod.get("THICK_MUD")
     harness.check(
         "mud preset cohesion applied",
         abs(modifier_io.get_input(md, gsim.IN_COHESION) - mud.cohesion) < 1e-5)
+
+
+def test_preset_items_filtered_by_element():
+    _reset()
+    from groundfx.ops.op_add import create_domain
+    from groundfx.ops.op_preset import _preset_items
+
+    obj = create_domain(bpy.context, ELEM_SAND)
+    bpy.context.view_layer.objects.active = obj
+    keys = {i[0] for i in _preset_items(None, bpy.context)}
+    harness.check("sand domain lists only sand presets",
+                  "WET_SAND" in keys and "THICK_MUD" not in keys, f"{keys}")

@@ -18,6 +18,24 @@ def _active_domain(context):
     return None
 
 
+# Blender keeps no reference to enum items built on the fly, so cache them to
+# avoid the strings being garbage-collected mid-menu.
+_items_cache = []
+
+
+def _preset_items(self, context):
+    """Only the presets for the active domain's element (B4)."""
+    domain = _active_domain(context)
+    elem = domain.groundfx.element if domain else None
+    _items_cache.clear()
+    for p in pmod.all_presets():
+        if elem is None or p.element == elem:
+            _items_cache.append((p.key, p.label, f"{p.label} preset"))
+    if not _items_cache:  # never hand back an empty enum
+        _items_cache.append(("NONE", "None", "No preset"))
+    return _items_cache
+
+
 def apply_preset(domain, preset):
     """Set a domain's element + physics from a preset, atomically."""
     st = domain.groundfx
@@ -40,8 +58,7 @@ class GFX_OT_apply_preset(bpy.types.Operator):
     bl_options = {"REGISTER", "UNDO"}
 
     preset: bpy.props.EnumProperty(
-        name="Preset",
-        items=[(p.key, p.label, f"{p.label} preset") for p in pmod.all_presets()],
+        name="Preset", items=_preset_items,
         description="Ready-made material look to apply")
 
     @classmethod

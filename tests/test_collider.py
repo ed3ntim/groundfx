@@ -152,6 +152,24 @@ def test_bow_wave_heaps_ahead_of_motion():
         bpy.data.objects.remove(o, do_unlink=True)
 
 
+def test_collider_pick_adds_to_collection():
+    """B3: setting the pick pointer adds the object and clears the field."""
+    _reset()
+    from groundfx.ops.op_add import create_domain
+
+    obj = create_domain(bpy.context, ELEM_SAND)
+    coll = obj.groundfx.collider_collection
+    cube = _add_cube(0.4, (0.0, 0.0, 1.0))
+
+    obj.groundfx.collider_pick = cube
+    harness.check("picked object added", cube.name in coll.objects)
+    harness.check("picked object flagged", cube.groundfx.is_collider)
+    harness.check("pick field reset", obj.groundfx.collider_pick is None)
+
+    for o in (cube, obj):
+        bpy.data.objects.remove(o, do_unlink=True)
+
+
 def test_proxy_reduces_cost_and_still_carves():
     """E4-S2: a bounding-box proxy raycasts far cheaper yet still carves."""
     _reset()

@@ -12,7 +12,7 @@ import bpy
 from ..core import modifier_io
 from ..core.constants import (
     ELEMENTS, ELEMENT_LABELS, QUALITY_LEVELS, MODIFIER_NAME, PROP_ELEMENT,
-    DEFAULT_DOMAIN_SIZE, DEFAULT_MATERIAL_HEIGHT,
+    PROP_IS_COLLIDER, DEFAULT_DOMAIN_SIZE, DEFAULT_MATERIAL_HEIGHT,
     PROXY_MODES, PROXY_MODE_LABELS,
 )
 from ..core.nodegroups import ng_ground_sim as gsim
@@ -50,6 +50,38 @@ def _push_element(self, context):
     modifier_io.set_input(md, gsim.IN_COHESION, ed.cohesion, tag=False)
     modifier_io.set_input(md, gsim.IN_FLOW, ed.flow_rate, tag=False)
     modifier_io.set_input(md, gsim.IN_BOW_WAVE, ed.bow_wave, tag=True)
+
+
+# Guards the pick callback against the recursion of clearing its own pointer.
+_pick_guard = False
+
+
+def _pick_collider(self, context):
+    """Add the picked object to this domain's collider collection (B3).
+
+    Lets the user add a collider straight from an eyedropper/search field
+    instead of selecting it and running the operator. The field resets to empty
+    so the next pick fires again.
+    """
+    global _pick_guard
+    if _pick_guard:
+        return
+    domain = self.id_data
+    picked = self.collider_pick
+    if picked is None:
+        return
+    if picked is not domain and not picked.groundfx.is_domain \
+            and picked.groundfx.proxy_source is None:
+        from ..ops.op_collider import ensure_collider_collection
+        coll = ensure_collider_collection(context, domain)
+        if picked.name not in coll.objects:
+            coll.objects.link(picked)
+        picked.groundfx.is_collider = True
+        picked[PROP_IS_COLLIDER] = True
+        domain.update_tag()
+    _pick_guard = True
+    self.collider_pick = None
+    _pick_guard = False
 
 
 def _push_material_height(self, context):
@@ -118,6 +150,10 @@ class GroundFXObjectSettings(bpy.types.PropertyGroup):
     collider_active: bpy.props.IntProperty(
         name="Active Collider", default=0,
         description="Selected row in the collider list")
+
+    collider_pick: bpy.props.PointerProperty(
+        name="Add Collider", type=bpy.types.Object, update=_pick_collider,
+        description="Pick an object to add it to this domain's colliders")
 
     hero_contact: bpy.props.BoolProperty(
         name="Hero Contact", default=False, update=_push_hero_contact,
