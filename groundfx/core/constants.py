@@ -110,6 +110,17 @@ MAT_SAND = "GFX_Sand"
 MAT_SNOW = "GFX_Snow"
 MAT_MUD = "GFX_Mud"
 
+# Marks a material as GroundFX-authored, so the element switch may rebuild it
+# but a material the user assigned themselves is left untouched (E8-T10).
+PROP_MAT_GENERATED = "gfx_generated"
+
+# Names of the control nodes the Look sliders write into. Looked up per material
+# so a slider edit re-pushes into the right node without hard-coding indices.
+MAT_CTRL_BASECOLOR = "GFX_BaseColor"
+MAT_CTRL_ROUGHNESS = "GFX_Roughness"
+MAT_CTRL_DETAIL = "GFX_Detail"
+MAT_CTRL_WETNESS = "GFX_Wetness"
+
 # --- Defaults (close-up scale, decided in phase 2) -------------------------
 DEFAULT_DOMAIN_SIZE = 2.0        # metres, square domain
 DEFAULT_MATERIAL_HEIGHT = 0.08   # metres of material at rest

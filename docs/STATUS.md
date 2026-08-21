@@ -2,7 +2,7 @@
 
 **Letzte Aktualisierung:** 2026-08-21
 **Aktueller Meilenstein:** M3 (Workflow) — E7 in Arbeit (E4/M2-Kern fertig)
-**Tests:** 89/89 grün (Blender 5.2.0 LTS, headless)
+**Tests:** 113/113 grün (Blender 5.2.0 LTS, headless)
 
 > Diese Datei ist der Wiedereinstiegspunkt. Wer den Kontext geleert hat, liest
 > `STATUS.md` → `PLAN.md` → `BACKLOG.md` → `API_NOTES.md` und ist wieder im Bild.
@@ -64,8 +64,8 @@ sind nicht bindend, nur optionale Hilfe fürs spätere Preset-Fine-Tuning.
   API in `compat.py` gekapselt (`simulation_nodes_cache_bake` / `..._delete`). Panel-Sektion „Cache".
 - E7-S2 Cache-Info (Größe/Hash/veraltet, `.blend`-Warnung, eigene Framerange) — offen
   (unter Memory-Bake geringer Wert; zurückgestellt).
-- **E5-S1 Elementwechsel (Physik)** ✅ — Update-Callback am `element`-Enum pusht die Element-Physik
-  atomar in den Solver; Material-Swap folgt mit E8.
+- **E5-S1 Elementwechsel (Physik + Material)** ✅ — Update-Callback am `element`-Enum pusht die
+  Element-Physik atomar in den Solver und tauscht (seit E8) das Material mit (User-Material bleibt).
 - **E5-S2 Presets** ✅ — 12 benannte Presets (4×Sand/Snow/Mud) als Datentabelle `data/presets.py`,
   Apply-Operator + Panel-Dropdown; wechselt auch das Element. JSON-Format + User-Presets (E5-T4/T9)
   aufgeschoben.
@@ -77,7 +77,8 @@ sind nicht bindend, nur optionale Hilfe fürs spätere Preset-Fine-Tuning.
   Graben, Riffel-Periode = Weg pro Frame) → **E3-S5 Swept Carve** (s. u.). Neue Inputs
   `Deposit Spread` / `Deposit Rate` / `Carve Substeps`, `tests/test_deposit.py` +
   `tests/test_substeps.py` halten alles fest.
-- **E3-S5 Substeps (Swept Carve)** ✅ — schließt B2 ab. Carve-seitiges Sub-Frame-Sampling entlang des Bewegungsvektors füllt den dashed Graben schneller Collider zu einer durchgehenden Spur; unter einer Zelle Bewegung/Frame bit-identisch (E3-T21). NG-Version 9, `Carve Substeps`-Input quality-gesteuert. Visuell verifiziert (docs/substeps_*.png). Nächstes sinnvoll: E8 Shader.
+- **E3-S5 Substeps (Swept Carve)** ✅ — schließt B2 ab. Carve-seitiges Sub-Frame-Sampling entlang des Bewegungsvektors füllt den dashed Graben schneller Collider zu einer durchgehenden Spur; unter einer Zelle Bewegung/Frame bit-identisch (E3-T21). NG-Version 9, `Carve Substeps`-Input quality-gesteuert. Visuell verifiziert (docs/substeps_*.png).
+- **E8 Shader** ✅ — prozedurale Principled-Materialien je Element (`core/materials/mat_builder.py`), Elemente = eine Zahlen-Tabelle. `gfx_comp` macht Spuren dunkler+glatter (E8-T6); Wetness-Regler bewegt Optik UND Kohäsion zugleich (E8-T7). Vier Look-Regler im Panel `GFX_PT_look`. Materialien `gfx_generated`-gestempelt → Elementwechsel tauscht nur eigene, User-Material bleibt (E8-T10). EEVEE gerendert (docs/mat_*.png). Aufgeschoben (brauchen E3-S4-Felder): Ripples/`gfx_flow`, Pfützen+Risse via `gfx_h`/`gfx_wet`, Snow-Sparkle. Nächstes: die 3 User-Punkte (Live-Spur, Anhaftung).
 
 ## Danach
 
@@ -122,6 +123,7 @@ groundfx/
       ng_relax.py        Böschungswinkel-Toppling (Repeat-Zone), Maske auf gfx_occ
       ng_deposit.py      Pile-Transport + Bugwelle als eine normierte Gather-Maske
       ng_collider_proxy.py  Low-Poly-Stand-in (BBox/Convex Hull) via Object Info
+    materials/mat_builder.py  prozedurale Principled-Materialien je Element (E8)
   data/
     prefs.py             AddonPreferences (Debug-Schalter)
     properties.py        GroundFXObjectSettings (obj.groundfx) + Callbacks

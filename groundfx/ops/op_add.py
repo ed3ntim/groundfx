@@ -108,6 +108,22 @@ def create_domain(context, element: str,
     modifier_io.set_input(md, gsim.IN_CARVE_SUBSTEPS, prof.substeps, tag=False)
     modifier_io.set_input(md, gsim.IN_BOW_WAVE, ed.bow_wave, tag=True)
 
+    # Procedural material (E8): seed the Look sliders from the element defaults
+    # and build/assign the matching material.
+    from ..core.materials import mat_builder as matb
+    look = matb.look_defaults(element)
+    st.look_base_color = look.base_color
+    st.look_roughness = look.roughness
+    st.look_detail = look.detail
+    st.wetness = look.base_wetness
+    modifier_io.set_input(md, gsim.IN_COHESION,
+                          min(1.0, ed.cohesion + 0.4 * look.base_wetness),
+                          tag=False)
+    mat = matb.build_material(
+        element, base_color=look.base_color, roughness=look.roughness,
+        detail=look.detail, wetness=look.base_wetness)
+    matb.assign_material(obj, mat)
+
     # Auto-create the (empty) collider collection and wire it, so the user can
     # start marking colliders straight away (E4-T2). Lazy import avoids a
     # module-load cycle with op_collider.

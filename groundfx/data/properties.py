@@ -16,8 +16,22 @@ from ..core.constants import (
     PROXY_MODES, PROXY_MODE_LABELS,
 )
 from ..core.nodegroups import ng_ground_sim as gsim
+from ..core.materials import mat_builder as matb
 from ..data import quality as qmod
 from ..data import elements as emod
+
+# Extra cohesion at full wetness: the wetness slider stiffens the material as it
+# darkens it, so one control moves both physics and look (E8-T7).
+_WET_COHESION_GAIN = 0.4
+
+# Guards the look/element callbacks against re-entrancy while a switch rewrites
+# several properties in a row.
+_look_guard = False
+
+
+def _effective_cohesion(element, wetness):
+    ed = emod.defaults(element)
+    return min(1.0, ed.cohesion + _WET_COHESION_GAIN * float(wetness))
 
 
 def _element_items(self, context):
@@ -40,16 +54,35 @@ def _push_element(self, context):
     The shader swap lands in E8; for now the physics parameters change
     atomically so the behaviour matches the chosen element immediately.
     """
+    global _look_guard
     obj = self.id_data
     obj[PROP_ELEMENT] = self.element
     md = _domain_modifier(obj)
     if not md:
         return
     ed = emod.defaults(self.element)
+    look = matb.look_defaults(self.element)
     modifier_io.set_input(md, gsim.IN_REPOSE, ed.repose_rad, tag=False)
-    modifier_io.set_input(md, gsim.IN_COHESION, ed.cohesion, tag=False)
     modifier_io.set_input(md, gsim.IN_FLOW, ed.flow_rate, tag=False)
-    modifier_io.set_input(md, gsim.IN_BOW_WAVE, ed.bow_wave, tag=True)
+    modifier_io.set_input(md, gsim.IN_BOW_WAVE, ed.bow_wave, tag=False)
+
+    # Reset the Look to the new element's defaults (snow should look like snow),
+    # then rebuild the material from those — but only if the domain still wears
+    # a GroundFX material; a user's own material is left alone (E8-T10).
+    _look_guard = True
+    self.wetness = look.base_wetness
+    self.look_base_color = look.base_color
+    self.look_roughness = look.roughness
+    self.look_detail = look.detail
+    _look_guard = False
+    modifier_io.set_input(md, gsim.IN_COHESION,
+                          _effective_cohesion(self.element, self.wetness),
+                          tag=True)
+    if matb.domain_material(obj) is not None or not obj.material_slots:
+        mat = matb.build_material(
+            self.element, base_color=look.base_color, roughness=look.roughness,
+            detail=look.detail, wetness=look.base_wetness)
+        matb.assign_material(obj, mat)
 
 
 # Guards the pick callback against the recursion of clearing its own pointer.
@@ -107,6 +140,28 @@ def _push_hero_contact(self, context):
                               1.0 if self.hero_contact else 0.0)
 
 
+def _push_look(self, context):
+    """Push the colour/roughness/detail sliders into the domain material."""
+    if _look_guard:
+        return
+    matb.update_controls(matb.domain_material(self.id_data),
+                         base_color=self.look_base_color,
+                         roughness=self.look_roughness,
+                         detail=self.look_detail)
+
+
+def _push_wetness(self, context):
+    """Wetness moves both look (darker, glossier) and physics (cohesion)."""
+    if _look_guard:
+        return
+    obj = self.id_data
+    matb.update_controls(matb.domain_material(obj), wetness=self.wetness)
+    md = _domain_modifier(obj)
+    if md:
+        modifier_io.set_input(md, gsim.IN_COHESION,
+                              _effective_cohesion(self.element, self.wetness))
+
+
 class GroundFXObjectSettings(bpy.types.PropertyGroup):
     is_domain: bpy.props.BoolProperty(
         name="Is GroundFX Domain", default=False)
@@ -159,6 +214,25 @@ class GroundFXObjectSettings(bpy.types.PropertyGroup):
         name="Hero Contact", default=False, update=_push_hero_contact,
         description="Supersample the contact edge for a silhouette-accurate "
                     "imprint (product/hero shots). Costs more per frame")
+
+    # --- Look (E8): four sliders that drive the generated material ----------
+    look_base_color: bpy.props.FloatVectorProperty(
+        name="Base Color", subtype="COLOR", size=3, min=0.0, max=1.0,
+        default=(0.60, 0.47, 0.29), update=_push_look,
+        description="Dry albedo of the material")
+
+    look_roughness: bpy.props.FloatProperty(
+        name="Roughness", default=0.85, min=0.0, max=1.0, update=_push_look,
+        description="Surface roughness when dry (wetness lowers it)")
+
+    look_detail: bpy.props.FloatProperty(
+        name="Detail", default=0.5, min=0.0, max=2.0, update=_push_look,
+        description="Strength of the procedural grain bump")
+
+    wetness: bpy.props.FloatProperty(
+        name="Wetness", default=0.0, min=0.0, max=1.0, update=_push_wetness,
+        description="Moisture: darkens and glosses the look and stiffens the "
+                    "material (raises cohesion) at the same time")
 
 
 classes = (

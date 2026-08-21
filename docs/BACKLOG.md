@@ -324,24 +324,24 @@ erkennt den Stillstand und friert automatisch auf ein rendfertiges High-Res-Mesh
 
 ## E8 · Shader `M3` `P0`
 
-### E8-S1 — Als User will ich Materialien, die ohne Nacharbeit gut aussehen. `L`
+### E8-S1 — Als User will ich Materialien, die ohne Nacharbeit gut aussehen. `L` ✅
 
-- [ ] E8-T1 `mat_builder`: gemeinsame Bausteine (Triplanar-Noise, Wetness-Mix, Detail-Bump)
-- [ ] E8-T2 Sand-Shader: Körnung, Farbvariation, Ripples entlang `gfx_flow`
-- [ ] E8-T3 Schnee-Shader: Sparkle, Bläue in Vertiefungen, SSS (Cycles) / Approximation (EEVEE)
-- [ ] E8-T4 Schlamm-Shader: nasser Glanz, Pfützen in Senken, Risse bei niedriger Feuchtigkeit
+- [x] E8-T1 `mat_builder`: gemeinsame Bausteine (Object-Coords-Noise, Wetness-Mix, Detail-Bump, Track-Darken) — eine Principled-Kette, Elemente unterscheiden sich nur in `LOOKS`-Tabelle
+- [x] E8-T2 Sand: Körnung + Farbvariation (zwei Töne über Noise). Ripples entlang `gfx_flow` aufgeschoben (Solver produziert `gfx_flow` noch nicht → E3-S4)
+- [x] E8-T3 Schnee: hell, leicht bläuliche Nass-/Track-Farbe, Subsurface-Weight (Cycles + EEVEE). Sparkle/Bläue-in-Senken (braucht Krümmung/`gfx_h`-Auswertung) später
+- [x] E8-T4 Schlamm: nasser Glanz (Specular ↑, Roughness ↓ mit Wetness), dunkel. Pfützen-in-Senken + Trockenrisse aufgeschoben (brauchen `gfx_h`/`gfx_wet`-Felder → E3-S4)
 
-### E8-S2 — Als User will ich, dass der Shader auf die Physik reagiert. `M`
+### E8-S2 — Als User will ich, dass der Shader auf die Physik reagiert. `M` ✅ (gfx_comp; Rest → E3-S4)
 
-- [ ] E8-T5 Attribut-Anbindung `gfx_comp`, `gfx_wet`, `gfx_flow`, `gfx_h`
-- [ ] E8-T6 Spuren sichtbar dunkler/glatter als unberührtes Material
-- [ ] E8-T7 Feuchtigkeitsregler wirkt gleichzeitig auf Physik und Optik
+- [x] E8-T5 Attribut-Anbindung: `gfx_comp` (Track) angebunden — das einzige heute vom Solver erzeugte Feld. `gfx_wet`/`gfx_flow`/`gfx_h`-Bindung folgt, sobald E3-S4 die Felder liefert
+- [x] E8-T6 Spuren dunkler + glatter über `gfx_comp` (visuell verifiziert, docs/mat_*.png)
+- [x] E8-T7 Wetness-Regler: verdunkelt/glänzt die Optik UND hebt die Solver-Kohäsion (`_effective_cohesion`, Test `test_wetness_moves_look_and_physics`)
 
-### E8-S3 — Als User will ich die Optik schnell anpassen können. `S`
+### E8-S3 — Als User will ich die Optik schnell anpassen können. `S` ✅
 
-- [ ] E8-T8 Wenige, gut benannte Regler im Panel (Farbe, Rauheit, Detailstärke, Feuchtigkeit)
-- [ ] E8-T9 Beide Render-Engines geprüft; Displacement nur wo sinnvoll
-- [ ] E8-T10 Materialwechsel und eigene Materialien werden nicht überschrieben
+- [x] E8-T8 Panel `GFX_PT_look`: Base Color, Roughness, Detail, Wetness
+- [x] E8-T9 Prozedural/Principled = engine-agnostisch; EEVEE gerendert (docs/mat_*.png), Cycles nutzt dieselbe Kette. Nur Bump, kein Displacement (Höhenfeld ist schon echte Geometrie)
+- [x] E8-T10 Materialien sind als `gfx_generated` gestempelt; Elementwechsel tauscht nur ein gestempeltes Material, ein eigenes bleibt unberührt (Test `test_user_material_is_never_overwritten`)
 
 ---
 

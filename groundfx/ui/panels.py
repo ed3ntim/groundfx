@@ -132,6 +132,38 @@ class GFX_PT_colliders(bpy.types.Panel):
                                   text="Mark Selected", icon="ADD")
 
 
+class GFX_PT_look(bpy.types.Panel):
+    """Material look: a few well-named sliders (E8-S3)."""
+
+    bl_label = "Look"
+    bl_idname = "GFX_PT_look"
+    bl_space_type = "VIEW_3D"
+    bl_region_type = "UI"
+    bl_category = PANEL_CATEGORY
+    bl_parent_id = "GFX_PT_domain"
+
+    @classmethod
+    def poll(cls, context):
+        obj = context.active_object
+        return obj is not None and getattr(obj.groundfx, "is_domain", False)
+
+    def draw(self, context):
+        from ..core.materials import mat_builder as matb
+
+        layout = self.layout
+        obj = context.active_object
+        st = obj.groundfx
+
+        col = layout.column()
+        col.prop(st, "look_base_color")
+        col.prop(st, "look_roughness", slider=True)
+        col.prop(st, "look_detail", slider=True)
+        col.prop(st, "wetness", slider=True)
+
+        if matb.domain_material(obj) is None:
+            layout.label(text="Custom material in use", icon="INFO")
+
+
 class GFX_PT_cache(bpy.types.Panel):
     """Bake / free the simulation cache."""
 
@@ -187,6 +219,7 @@ classes = (
     GFX_PT_domain,
     GFX_UL_colliders,
     GFX_PT_colliders,
+    GFX_PT_look,
     GFX_PT_cache,
     GFX_PT_photo,
 )
