@@ -195,9 +195,10 @@ groben Proxy).
 
 ### E5-S1 — Als User will ich zwischen Sand, Schnee und Schlamm wechseln, ohne Parameter zu kennen. `M`
 
-- [ ] E5-T1 Element-Enum mit vollständigem Parametersatz je Element
-- [ ] E5-T2 Elementwechsel tauscht Physik **und** Material atomar
-- [ ] E5-T3 Nachfrage/Warnung, wenn dabei manuelle Anpassungen verloren gehen
+- [x] E5-T1 Element-Enum mit vollständigem Parametersatz je Element (`data/elements.py`)
+- [~] E5-T2 Elementwechsel tauscht **Physik** atomar (Update-Callback pusht repose/cohesion/flow/
+  bow_wave); Material-Swap folgt mit E8
+- [ ] E5-T3 Warnung, wenn dabei manuelle Anpassungen verloren gehen — offen
 
 ### E5-S2 — Als User will ich fertige Presets, die sofort gut aussehen. `L`
 

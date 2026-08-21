@@ -11,12 +11,13 @@ import bpy
 
 from ..core import modifier_io
 from ..core.constants import (
-    ELEMENTS, ELEMENT_LABELS, QUALITY_LEVELS, MODIFIER_NAME,
+    ELEMENTS, ELEMENT_LABELS, QUALITY_LEVELS, MODIFIER_NAME, PROP_ELEMENT,
     DEFAULT_DOMAIN_SIZE, DEFAULT_MATERIAL_HEIGHT,
     PROXY_MODES, PROXY_MODE_LABELS,
 )
 from ..core.nodegroups import ng_ground_sim as gsim
 from ..data import quality as qmod
+from ..data import elements as emod
 
 
 def _element_items(self, context):
@@ -31,6 +32,24 @@ def _quality_items(self, context):
 
 def _domain_modifier(obj):
     return obj.modifiers.get(MODIFIER_NAME) if obj else None
+
+
+def _push_element(self, context):
+    """Switch the material: push the new element's physics to the solver (E5-S1).
+
+    The shader swap lands in E8; for now the physics parameters change
+    atomically so the behaviour matches the chosen element immediately.
+    """
+    obj = self.id_data
+    obj[PROP_ELEMENT] = self.element
+    md = _domain_modifier(obj)
+    if not md:
+        return
+    ed = emod.defaults(self.element)
+    modifier_io.set_input(md, gsim.IN_REPOSE, ed.repose_rad, tag=False)
+    modifier_io.set_input(md, gsim.IN_COHESION, ed.cohesion, tag=False)
+    modifier_io.set_input(md, gsim.IN_FLOW, ed.flow_rate, tag=False)
+    modifier_io.set_input(md, gsim.IN_BOW_WAVE, ed.bow_wave, tag=True)
 
 
 def _push_material_height(self, context):
@@ -74,7 +93,7 @@ class GroundFXObjectSettings(bpy.types.PropertyGroup):
         description="Set on a proxy object; points at the collider it stands in for")
 
     element: bpy.props.EnumProperty(
-        name="Element", items=_element_items,
+        name="Element", items=_element_items, update=_push_element,
         description="Material type this domain simulates")
 
     quality: bpy.props.EnumProperty(

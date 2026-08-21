@@ -2,7 +2,7 @@
 
 **Letzte Aktualisierung:** 2026-08-20
 **Aktueller Meilenstein:** M3 (Workflow) — E7 in Arbeit (E4/M2-Kern fertig)
-**Tests:** 65/65 grün (Blender 5.2.0 LTS, headless)
+**Tests:** 71/71 grün (Blender 5.2.0 LTS, headless)
 
 > Diese Datei ist der Wiedereinstiegspunkt. Wer den Kontext geleert hat, liest
 > `STATUS.md` → `PLAN.md` → `BACKLOG.md` → `API_NOTES.md` und ist wieder im Bild.
@@ -62,7 +62,10 @@ sind nicht bindend, nur optionale Hilfe fürs spätere Preset-Fine-Tuning.
   Auto-Freeze, Photo-Setup (Hero-Contact + Cycles + dichtere Relaxation). Test: Ruhe erkannt @Frame 46.
 - **E7-S1 Bake/Free** ✅ fertig — `ops/op_bake.py` (Bake / Bake All / Free / Free All),
   API in `compat.py` gekapselt (`simulation_nodes_cache_bake` / `..._delete`). Panel-Sektion „Cache".
-- E7-S2 Cache-Info (Größe/Hash/veraltet, `.blend`-Warnung, eigene Framerange) — offen.
+- E7-S2 Cache-Info (Größe/Hash/veraltet, `.blend`-Warnung, eigene Framerange) — offen
+  (unter Memory-Bake geringer Wert; zurückgestellt).
+- **E5-S1 Elementwechsel (Physik)** ✅ — Update-Callback am `element`-Enum pusht die Element-Physik
+  atomar in den Solver; Material-Swap folgt mit E8. Nächstes: E5-S2 Presets (JSON), E8 Shader.
 
 ## Danach
 
