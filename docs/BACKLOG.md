@@ -289,10 +289,10 @@ groben Proxy).
 - [ ] E6-T7 Optionale Distance-LOD-Ausdünnung für die Anzeige
 - [ ] E6-T8 „Solo Sim"-Modus: Shading vereinfachen während des Scrubbings
 
-### E6-S3 — Als User will ich Messwerte statt Bauchgefühl. `M` ✅ (E6-T10 Doku-Tabelle offen)
+### E6-S3 — Als User will ich Messwerte statt Bauchgefühl. `M` ✅
 
 - [x] E6-T9 Benchmark-Operator `groundfx.benchmark`: misst Median-ms/Frame über N Frames, schreibt `measured_ms` auf die Domain, Panel-Button „Measure" + Anzeige
-- [ ] E6-T10 Ergebnisse der vier Stufen in der Doku festhalten
+- [x] E6-T10 Ergebnisse der vier Stufen in STATUS.md (Performance-Tabelle) festgehalten
 - [x] E6-T11 Warnung (Report + rotes Icon), wenn gemessen > 2× Budget der Qualitätsstufe
 
 ### E6-S4 — Als User will ich große Szenen abdecken, ohne eine riesige Domain zu bauen. `L` `P3`

@@ -91,6 +91,26 @@ M4 (E10 Spray, E13 Reifenprofil, E14 Anhaftung, E15 Schneefall, E11 QA/Doku).
 
 ---
 
+## Performance je Qualitätsstufe (E6-T10)
+
+Gemessen headless (`groundfx.benchmark` / `measure_ms`), Sand-Domain 2 m, Collider
+gezogen, Median über 6 Frames:
+
+| Stufe  | Auflösung | Verts   | Relax | Sub | gemessen | Schätzung |
+|--------|-----------|---------|-------|-----|----------|-----------|
+| Low    | 64²       | 4 225   | 2     | 1   | ~23 ms   | 0.5–2 ms  |
+| Medium | 128²      | 16 641  | 4     | 1   | ~23 ms   | 3–6 ms    |
+| High   | 256²      | 66 049  | 6     | 2   | ~36 ms   | 10–20 ms  |
+| Ultra  | 512²      | 263 169 | 10    | 3   | ~94 ms   | 40–120 ms |
+
+**Caveat:** headless enthält ~20 ms Fixkosten pro `frame_set` (Depsgraph-Rebuild,
+keine warme Viewport-Eval), daher wirken Low/Medium gleich — im echten Viewport
+sind die unteren Stufen deutlich schneller. Aussagekräftig ist die *Skalierung*
+(Medium→High→Ultra ≈ 23→36→94 ms) und dass Ultra im geschätzten Budget liegt.
+Der „Measure"-Button im Panel misst die reale Zeit in der jeweiligen Szene.
+
+---
+
 ## Wie testen / bauen
 
 ```
