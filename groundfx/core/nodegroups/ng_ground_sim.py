@@ -26,7 +26,7 @@ from . import ng_relax
 from . import ng_deposit
 from ..constants import (
     NG_GROUND_SIM, ATTR_HEIGHT, ATTR_BASE, ATTR_CARVE, ATTR_CARVE_PREV,
-    ATTR_PILE, ATTR_COMP, DEFAULT_MATERIAL_HEIGHT,
+    ATTR_OCC, ATTR_OCC_PREV, ATTR_PILE, ATTR_COMP, DEFAULT_MATERIAL_HEIGHT,
 )
 
 # Group input socket names (also used by the property/socket mapping).
@@ -43,10 +43,16 @@ IN_CELL_SIZE = "Cell Size"
 IN_GRID_N = "Grid N"
 IN_DISPLACE_RATIO = "Displacement Ratio"
 IN_DEPOSIT_ITERS = "Deposit Iterations"
+IN_DEPOSIT_SPREAD = "Deposit Spread"
+IN_DEPOSIT_RATE = "Deposit Rate"
 IN_BOW_WAVE = "Bow Wave"
 OUT_GEOMETRY = "Geometry"
 
 _RAY_LENGTH = 10.0  # metres; ample for the close-up domain scale
+
+# Tolerance for "the collider is touching this cell" (metres). Large enough to
+# survive the raycast's own precision, far below anything visible.
+_CONTACT_EPS = 1e-4
 
 
 def _store_float(b, geo_socket_node, geo_key, name, value_node, value_key):
@@ -95,6 +101,13 @@ def build(name: str = NG_GROUND_SIM) -> bpy.types.GeometryNodeTree:
             description="Share of carved material that heaps up (rest compacts)")
     b.input(IN_DEPOSIT_ITERS, "NodeSocketInt", default=6, min=0, max=64,
             description="Iterations spreading displaced material to the rim")
+    b.input(IN_DEPOSIT_SPREAD, "NodeSocketFloat", default=0.5, min=0.0, max=1.0,
+            description="Share of a cell's displaced material that moves on per "
+                        "deposit step (lower = more local berm). 1.0 decouples "
+                        "the grid into a comb of one-cell teeth")
+    b.input(IN_DEPOSIT_RATE, "NodeSocketFloat", default=0.5, min=0.01, max=1.0,
+            description="Share of the material a free cell lays down as height "
+                        "per deposit step (lower = wider, softer rim ramp)")
     b.input(IN_BOW_WAVE, "NodeSocketFloat", default=0.6, min=0.0, max=1.0,
             description="How strongly displaced material heaps up ahead of a "
                         "moving collider (0 = isotropic rim, 1 = full bow wave)")
@@ -118,10 +131,11 @@ def build(name: str = NG_GROUND_SIM) -> bpy.types.GeometryNodeTree:
     zero.outputs[0].default_value = 0.0
     init_pile = _store_float(b, init_h, "Geometry", ATTR_PILE, zero, "Value")
     init_comp = _store_float(b, init_pile, "Geometry", ATTR_COMP, zero, "Value")
+    init_occ = _store_float(b, init_comp, "Geometry", ATTR_OCC, zero, "Value")
 
     # -- simulation zone (geometry state carries the attributes) ------------
     zone = make_simulation_zone(b, state_items=[])
-    b.link(init_comp, "Geometry", zone.input, "Geometry")
+    b.link(init_occ, "Geometry", zone.input, "Geometry")
 
     sim_geo = zone.input  # geometry available at the zone's input node output
 
@@ -172,7 +186,14 @@ def build(name: str = NG_GROUND_SIM) -> bpy.types.GeometryNodeTree:
     b.link(cell_aa, "Value", half, 0)
 
     def _sample(oxm, oym):
-        """One up-ray at vertex XY offset by (oxm,oym)*half; return its surface."""
+        """One up-ray at vertex XY offset by (oxm,oym)*half.
+
+        Returns ``(surface, covered)``: the surface this sample allows, and 1.0
+        if the collider's underside sits at or below the old surface here, i.e.
+        the collider *stands on* this spot. Averaging the five coverages gives
+        a sub-cell coverage fraction, which is what the deposit and relaxation
+        masks want — a footprint that does not flicker between frames.
+        """
         if oxm == 0 and oym == 0:
             sx, sxk, sy, syk = sep2, "X", sep2, "Y"
         else:
@@ -211,25 +232,45 @@ def build(name: str = NG_GROUND_SIM) -> bpy.types.GeometryNodeTree:
         ns = b.add("ShaderNodeMath", operation="MAXIMUM", label="max(_, base)")
         b.link(low, "Value", ns, 0)
         b.link(read_base, "Attribute", ns, 1)
-        return ns
+        # covered = hit AND underside <= old surface (+ a hair of tolerance)
+        surf_tol = b.add("ShaderNodeMath", operation="ADD",
+                         inputs={1: _CONTACT_EPS}, label="surface + eps")
+        b.link(surface_old, "Value", surf_tol, 0)
+        below = b.add("ShaderNodeMath", operation="LESS_THAN",
+                      label="underside <= surface")
+        b.link(hz, "Value", below, 0)
+        b.link(surf_tol, "Value", below, 1)
+        covered = b.add("GeometryNodeSwitch", input_type="FLOAT",
+                        inputs={"False": 0.0}, label="covered")
+        b.link(ray, "Is Hit", covered, "Switch")
+        b.link(below, "Value", covered, "True")
+        return ns, covered
 
     samples = [_sample(0, 0), _sample(1, 1), _sample(1, -1),
                _sample(-1, 1), _sample(-1, -1)]
-    sum_a = b.add("ShaderNodeMath", operation="ADD")
-    b.link(samples[0], "Value", sum_a, 0)
-    b.link(samples[1], "Value", sum_a, 1)
-    sum_b = b.add("ShaderNodeMath", operation="ADD")
-    b.link(samples[2], "Value", sum_b, 0)
-    b.link(samples[3], "Value", sum_b, 1)
-    sum_ab = b.add("ShaderNodeMath", operation="ADD")
-    b.link(sum_a, "Value", sum_ab, 0)
-    b.link(sum_b, "Value", sum_ab, 1)
-    sum_all = b.add("ShaderNodeMath", operation="ADD", label="sum 5 samples")
-    b.link(sum_ab, "Value", sum_all, 0)
-    b.link(samples[4], "Value", sum_all, 1)
-    new_surface = b.add("ShaderNodeMath", operation="DIVIDE", inputs={1: 5.0},
-                        label="new_surface = avg")
-    b.link(sum_all, "Value", new_surface, 0)
+
+    def _avg5(nodes, keys, label):
+        a = b.add("ShaderNodeMath", operation="ADD")
+        b.link(nodes[0], keys[0], a, 0)
+        b.link(nodes[1], keys[1], a, 1)
+        c = b.add("ShaderNodeMath", operation="ADD")
+        b.link(nodes[2], keys[2], c, 0)
+        b.link(nodes[3], keys[3], c, 1)
+        ac = b.add("ShaderNodeMath", operation="ADD")
+        b.link(a, "Value", ac, 0)
+        b.link(c, "Value", ac, 1)
+        total = b.add("ShaderNodeMath", operation="ADD", label="sum 5 samples")
+        b.link(ac, "Value", total, 0)
+        b.link(nodes[4], keys[4], total, 1)
+        avg = b.add("ShaderNodeMath", operation="DIVIDE", inputs={1: 5.0},
+                    label=label)
+        b.link(total, "Value", avg, 0)
+        return avg
+
+    new_surface = _avg5([s[0] for s in samples], ["Value"] * 5,
+                        "new_surface = avg")
+    occupancy = _avg5([s[1] for s in samples], ["Output"] * 5,
+                      "coverage = avg")
 
     # new_h = new_surface - base ; carve = surface_old - new_surface
     new_h = b.add("ShaderNodeMath", operation="SUBTRACT", label="new_h")
@@ -275,7 +316,16 @@ def build(name: str = NG_GROUND_SIM) -> bpy.types.GeometryNodeTree:
                                     prev_carve, "Attribute")
     store_carve = _store_float(b, store_carve_prev, "Geometry", ATTR_CARVE,
                                carve, "Value")
-    store_pile = _store_float(b, store_carve, "Geometry", ATTR_PILE,
+    # Same shift for the coverage mask: occ_prev := last frame's occ, captured
+    # before occ is overwritten. The deposit reads both to get the collider's
+    # motion from the footprint's centroid shift.
+    prev_occ = b.add("GeometryNodeInputNamedAttribute", data_type="FLOAT",
+                     inputs={"Name": ATTR_OCC})
+    store_occ_prev = _store_float(b, store_carve, "Geometry", ATTR_OCC_PREV,
+                                  prev_occ, "Attribute")
+    store_occ = _store_float(b, store_occ_prev, "Geometry", ATTR_OCC,
+                             occupancy, "Value")
+    store_pile = _store_float(b, store_occ, "Geometry", ATTR_PILE,
                               acc_pile, "Value")
     store_comp = _store_float(b, store_pile, "Geometry", ATTR_COMP,
                               acc_comp, "Value")
@@ -289,6 +339,8 @@ def build(name: str = NG_GROUND_SIM) -> bpy.types.GeometryNodeTree:
             "grid_n": (gin, IN_GRID_N),
             "cell_size": (gin, IN_CELL_SIZE),
             "bow_wave": (gin, IN_BOW_WAVE),
+            "spread": (gin, IN_DEPOSIT_SPREAD),
+            "rate": (gin, IN_DEPOSIT_RATE),
         },
     )
 

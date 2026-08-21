@@ -74,6 +74,43 @@ resultierende Fläche mitteln → Sub-Zell-Deckung, Kante folgt der Kontur. Spre
 also keine Mehrkosten im Normalfall. Verifiziert: gedrehter flach-unterseitiger Cube, 0 → 88
 partielle Kantenzellen bei gleicher Abdrucktiefe. Kein Repeat-Zone-Overhead (entrollt).
 
+**Odd-even-Entkopplung / Schachbrett-Kamm (B2, der Kern der „Zacken“):** Eine Transport-Stufe,
+die nur über die **vier Nachbarn** mittelt (`P_neu = 0.25·ΣP_Nachbar`, ohne Selbst-Term), ist auf
+dem bipartiten Gitter *odd-even-entkoppelt*: der Pile springt pro Iteration von einem Schachbrett-
+Untergitter aufs andere. Nach N Iterationen hat nur jede zweite Zelle überhaupt etwas bekommen —
+numerisch nachgerechnet (Delta-Impuls, 6 Iterationen): `0.2 0.0 8.8 0.0 54.9 0.0 97.7 …`, also
+**exakt 0** dazwischen. Genau das ist der Zahn-Kamm auf dem Berm. Fix: Selbst-Term behalten
+(`w_self = 1 - spread`, je Nachbar `spread/4`) → gleicher Impuls wird `1.1 7.2 30.2 76.5 108.7 …`.
+Gemessen am Feld: Schachbrett-Amplitude 0.174 mm → 0.002 mm. Nebeneffekt: die Ablage wird
+*lokaler* (σ ≈ sqrt(iters·spread/2) Zellen statt 1 Zelle pro Iteration), was den langsamen
+Berm-Schwanz und den Dauer-Churn aus B2(b) gleich mit erledigt.
+
+**Masken nie auf einen Pro-Frame-Delta stützen (B2):** `gfx_carve` ist der Schnitt *dieses Frames*
+— unter einem Collider, der pro Frame einen Bruchteil einer Zelle weiterrückt, ist er nur am
+Vorderrand ≠ 0 und flackert zellweise. Masken, die darauf gebaut waren (Relaxation blockt besetzte
+Zellen, Deposit unterscheidet frei/besetzt), haben deshalb den Graben geriffelt: Sohle
+`20 27 20 28 20 29 …`. Neu: `gfx_occ` = **Deckung 0..1** aus demselben Quincunx-Raycast
+(`Is Hit AND Unterseite <= alte Oberfläche + eps`, über die 5 Samples gemittelt). Bleibt 1, solange
+der Collider steht, ist sub-zellular und flackert nicht → Sohle danach exakt flach. `gfx_occ_prev`
+(gleicher Shift wie `carve_prev`) liefert außerdem den Bewegungsvektor als Schwerpunkt-Verschiebung
+des *ganzen* Fußabdrucks statt nur des frisch geschnittenen Streifens.
+
+**Advektion als Gather-Gewicht, nicht als additiver Term (B2):** Die Bugwellen-Korrektur additiv
+aufzuschlagen und danach `max(s,0)` zu clampen **erfindet Masse** — jede Zelle, deren Zwischenwert
+negativ wäre, wird auf 0 angehoben. Bei schwacher Advektion fällt das nicht auf; dreht man die
+Transportweite hoch, explodiert das Feld (gemessen: 2.8 m Materialhöhe auf 0.08 m Schicht). Fix:
+den Bias in **dieselbe normierte Gather-Maske** legen — der Upwind-Nachbar bekommt Zusatzgewicht
+(`bias·bow_wave·max(±v,0)`), alle Gewichte durch ihre Summe geteilt. Damit ist die Stufe per
+Konstruktion nicht-negativ, monoton und massenerhaltend; der Clamp entfällt. Zentrale Differenzen
+sind hier ohnehin falsch: sie sehen die Ein-Zell-Mode gar nicht, der Kamm wächst frei mit.
+
+**Zeitliche Unterabtastung bleibt übrig (→ E3-S5 Substeps):** Pile entsteht nur dort, wo der
+Collider *in diesem Frame* schneidet. Rückt er mehrere Zellen pro Frame, legt er pro Frame einen
+Klumpen ab. Gemessen: Riffel-Periode = Weg pro Frame, 1.9 Zellen → Periode 2, 2.9 → 3, 3.8 → 4.
+Kein räumliches Nachglätten hilft (ein Verschmieren längs der Bahn hat die Amplitude sogar
+*erhöht*, 10 mm → 16 mm, weil es zusätzlich Material in den Graben trägt). Das braucht echte
+Substeps.
+
 **Field-Re-Evaluation (wichtiger GN-Fallstrick, E3-S3):** Named-Attribute-Felder
 (`InputNamedAttribute`) werden gegen **die Geometrie neu ausgewertet, durch die sie fließen** —
 nicht einmalig eingefroren. Wenn man `gfx_h` speichert und danach ein Wert, der `gfx_h` liest

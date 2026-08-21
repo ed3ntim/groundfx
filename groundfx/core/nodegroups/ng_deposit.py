@@ -6,26 +6,58 @@ The carve step converts removed height into a ``gfx_pile`` buffer (scaled by
 that pile out of the collider footprint to the free cells around it, forming a
 berm — which the subsequent relaxation smooths to the repose angle.
 
-The transport is a mass-conserving diffusion of the pile buffer with a
-reflecting boundary at the collider: each cell sends a quarter of its pile to
-every valid neighbour, so a cell's pile after one step is the average inflow
-from its neighbours. Free cells (not under the collider) convert their incoming
-pile into height; collider cells keep it as pile to relay further out. Over a
-few iterations the pile walks to the rim and deposits.
+The transport is a mass-conserving **lazy** diffusion of the pile buffer with a
+reflecting boundary at the collider: a cell keeps ``1 - spread`` of its pile and
+sends ``spread/4`` to each valid neighbour. The self term matters more than it
+looks: a pure 4-neighbour average (no self term) is *odd-even decoupled* — on
+the bipartite grid the pile hops from one checkerboard sublattice to the other
+every iteration, so after N steps only cells of one parity have received
+anything and the berm comes out as a one-cell comb of teeth (B2 "spiky").
+Keeping part of the pile in place couples both sublattices, and as a bonus keeps
+the deposit local (spread ~ sqrt(iters * spread / 2) cells instead of one cell
+per iteration), which is what stops a held collider churning material out across
+the whole domain.
 
-On top of that isotropic diffusion, a directional bias (E4-S3) advects the pile
-toward the collider's motion so material heaps up ahead as a bow wave. The
-motion direction is read from the gradient of ``dcarve = carve - carve_prev``
-(positive at the leading edge, negative at the trailing one) and its strength is
-the ``bow_wave`` input (0 = pure isotropic rim). Verified against Blender 5.2.
+Free cells (not under the collider) convert a ``deposit_rate`` share of their
+pile into height and relay the rest; collider cells keep all of it to relay
+further out. A deadband dumps a pile too small to matter instead of letting it
+crawl forever, so the field actually settles.
+
+The same stencil carries the bow wave (E4-S3): the neighbour the material comes
+from is given extra weight, so the heap drifts toward the collider's motion.
+The direction is read from the centroid shift of ``gfx_occ`` vs ``gfx_occ_prev``
+and the strength is the ``bow_wave`` input (0 = pure isotropic rim). Biasing the
+gather **upwind** matters: the centred difference this used to use cannot see
+the one-cell mode at all, so a sawtooth grew freely along the bow wave.
+Verified against Blender 5.2.
+
+Note what this *cannot* fix: pile is only created where the collider cuts in a
+given frame, so a collider crossing three cells per frame drops one lump every
+three cells along the rim, whatever the transport does with it afterwards
+(measured: the ripple period equals the per-frame travel, exactly). That residue
+is temporal undersampling and needs substeps (E3-S5); smearing the transport
+along the path only spreads the lumps around without removing them.
 """
 from __future__ import annotations
 
 from ..ng_builder import NodeTreeBuilder
 from ..ng_zones import make_repeat_zone
-from ..constants import ATTR_HEIGHT, ATTR_PILE, ATTR_CARVE, ATTR_CARVE_PREV
+from ..constants import ATTR_HEIGHT, ATTR_PILE, ATTR_OCC, ATTR_OCC_PREV
 
-_FREE_EPS = 1e-5  # a cell with carve below this is "free" (not under collider)
+# Coverage above this counts as "the collider stands here" for the centroid
+# that gives the motion direction.
+_COVERED_EPS = 0.5
+
+# A pile below this (in metres) is dumped where it stands instead of being
+# relayed on: without it the tail of the diffusion creeps outward forever and
+# the surface never comes to rest (B2 "permanent churn").
+_PILE_DEADBAND = 2e-5
+
+# Strength of the upwind bias, per cell of per-frame motion, at bow_wave = 1.
+# It is an extra *gather weight* on the upwind neighbour rather than a separate
+# correction term, so it can never make a weight negative however fast the
+# collider moves.
+_ADVECT_BIAS = 1.0
 
 
 def _sample_neighbour(b, geo_node, attr_name, nidx_node, nidx_key, valid_node):
@@ -46,7 +78,9 @@ def _sample_neighbour(b, geo_node, attr_name, nidx_node, nidx_key, valid_node):
 def add_deposit(b: NodeTreeBuilder, geo_node, geo_key, refs):
     """Append the pile-transport Repeat zone; return (out_node, out_key).
 
-    ``refs`` maps: 'iterations' (deposit steps), 'grid_n'.
+    ``refs`` maps: 'iterations' (deposit steps), 'grid_n', 'cell_size',
+    'bow_wave', 'spread' (share of a pile that moves per step) and 'rate'
+    (share a free cell lays down as height per step).
     """
     zone = make_repeat_zone(b, repeat_items=[("GEOMETRY", "Geometry")])
     b.link(geo_node, geo_key, zone.input, "Geometry")
@@ -102,49 +136,40 @@ def add_deposit(b: NodeTreeBuilder, geo_node, geo_key, refs):
     idx_py = add_idx(offset_node=(grid_n_node, grid_n_key), sign=1.0)
     idx_my = add_idx(offset_node=(grid_n_node, grid_n_key), sign=-1.0)
 
-    # Sum of neighbour piles (masked at borders).
+    # Neighbour piles (masked at borders) and this cell's own pile.
     s_px = _sample_neighbour(b, it_geo, ATTR_PILE, idx_px, "Value", valid_px)
     s_mx = _sample_neighbour(b, it_geo, ATTR_PILE, idx_mx, "Value", valid_mx)
     s_py = _sample_neighbour(b, it_geo, ATTR_PILE, idx_py, "Value", valid_py)
     s_my = _sample_neighbour(b, it_geo, ATTR_PILE, idx_my, "Value", valid_my)
-    sum1 = b.add("ShaderNodeMath", operation="ADD")
-    b.link(s_px, "Value", sum1, 0)
-    b.link(s_mx, "Value", sum1, 1)
-    sum2 = b.add("ShaderNodeMath", operation="ADD")
-    b.link(s_py, "Value", sum2, 0)
-    b.link(s_my, "Value", sum2, 1)
-    nsum = b.add("ShaderNodeMath", operation="ADD", label="neighbour pile sum")
-    b.link(sum1, "Value", nsum, 0)
-    b.link(sum2, "Value", nsum, 1)
-    # s = 0.25 * neighbour sum (mass-conserving average inflow)
-    s = b.add("ShaderNodeMath", operation="MULTIPLY", inputs={1: 0.25},
-              label="inflow s")
-    b.link(nsum, "Value", s, 0)
+    p_self = b.add("GeometryNodeInputNamedAttribute", data_type="FLOAT",
+                   inputs={"Name": ATTR_PILE})
 
-    # free = carve <= eps  ->  1 for cells not under the collider
-    carve = b.add("GeometryNodeInputNamedAttribute", data_type="FLOAT",
-                  inputs={"Name": ATTR_CARVE})
-    free = b.add("ShaderNodeMath", operation="LESS_THAN", inputs={1: _FREE_EPS},
-                 label="free = carve<eps")
-    b.link(carve, "Attribute", free, 0)
+    # free = 1 - coverage: how much of this cell is *not* under the collider.
+    # Continuous, so a rim cell the collider half covers lays down half its
+    # material instead of flipping between all and nothing between frames.
+    occ = b.add("GeometryNodeInputNamedAttribute", data_type="FLOAT",
+                inputs={"Name": ATTR_OCC})
+    free = b.add("ShaderNodeMath", operation="SUBTRACT", label="free = 1-occ")
+    b.set_default(free, 0, 1.0)
+    b.link(occ, "Attribute", free, 1)
 
     # --- bow wave: advect the pile toward the collider's motion (E4-T10) ----
     # The motion direction is the shift of the footprint's *centroid* between
-    # frames: centroid(carve>0) - centroid(carve_prev>0). This is a single
-    # translation vector for the whole footprint, so it is genuinely zero for a
-    # stationary (merely deepening) collider -- unlike a per-cell carve gradient,
-    # which points radially inward around any footprint and would choke the rim.
+    # frames: centroid(occ) - centroid(occ_prev). This is a single translation
+    # vector for the whole footprint, so it is genuinely zero for a stationary
+    # (merely deepening) collider -- unlike a per-cell carve gradient, which
+    # points radially inward around any footprint and would choke the rim.
     # Biasing each free cell's inflow along that vector heaps material up ahead.
     bw_node, bw_key = refs["bow_wave"]
     cell_node, cell_key = refs["cell_size"]
-    carve_prev = b.add("GeometryNodeInputNamedAttribute", data_type="FLOAT",
-                       inputs={"Name": ATTR_CARVE_PREV})
+    occ_prev = b.add("GeometryNodeInputNamedAttribute", data_type="FLOAT",
+                     inputs={"Name": ATTR_OCC_PREV})
     mask_now = b.add("ShaderNodeMath", operation="GREATER_THAN",
-                     inputs={1: _FREE_EPS}, label="carve>0")
-    b.link(carve, "Attribute", mask_now, 0)
+                     inputs={1: _COVERED_EPS}, label="covered now")
+    b.link(occ, "Attribute", mask_now, 0)
     mask_prev = b.add("ShaderNodeMath", operation="GREATER_THAN",
-                      inputs={1: _FREE_EPS}, label="carve_prev>0")
-    b.link(carve_prev, "Attribute", mask_prev, 0)
+                      inputs={1: _COVERED_EPS}, label="covered before")
+    b.link(occ_prev, "Attribute", mask_prev, 0)
     pos = b.add("GeometryNodeInputPosition")
     sepp = b.add("ShaderNodeSeparateXYZ")
     b.link(pos, "Position", sepp, "Vector")
@@ -183,54 +208,151 @@ def add_deposit(b: NodeTreeBuilder, geo_node, geo_key, refs):
     b.link(vy_raw, "Value", vym, 0)
     b.link(inv_cell, "Value", vym, 1)
     b.link(vym, "Value", vy, "Value")
-    # Directional correction: s_dir = 0.25*beta*(vx*(P_mx-P_px)+vy*(P_my-P_py)).
-    diff_x = b.add("ShaderNodeMath", operation="SUBTRACT", label="P_mx-P_px")
-    b.link(s_mx, "Value", diff_x, 0)
-    b.link(s_px, "Value", diff_x, 1)
-    diff_y = b.add("ShaderNodeMath", operation="SUBTRACT", label="P_my-P_py")
-    b.link(s_my, "Value", diff_y, 0)
-    b.link(s_py, "Value", diff_y, 1)
-    tx = b.add("ShaderNodeMath", operation="MULTIPLY")
-    b.link(vx, "Result", tx, 0)
-    b.link(diff_x, "Value", tx, 1)
-    ty = b.add("ShaderNodeMath", operation="MULTIPLY")
-    b.link(vy, "Result", ty, 0)
-    b.link(diff_y, "Value", ty, 1)
-    term = b.add("ShaderNodeMath", operation="ADD", label="v . dP")
-    b.link(tx, "Value", term, 0)
-    b.link(ty, "Value", term, 1)
-    s_dir = b.add("ShaderNodeMath", operation="MULTIPLY", inputs={1: 0.25},
-                  label="0.25 * term")
-    b.link(term, "Value", s_dir, 0)
-    s_dir_bw = b.add("ShaderNodeMath", operation="MULTIPLY", label="* bow wave")
-    b.link(s_dir, "Value", s_dir_bw, 0)
-    b.link(bw_node, bw_key, s_dir_bw, 1)
-    # s_total = max(s + s_dir, 0): clamp so a strong bias can't drive pile < 0.
-    s_sum = b.add("ShaderNodeMath", operation="ADD", label="s + s_dir")
-    b.link(s, "Value", s_sum, 0)
-    b.link(s_dir_bw, "Value", s_sum, 1)
-    s_total = b.add("ShaderNodeMath", operation="MAXIMUM", inputs={1: 0.0},
-                    label="max(s_total,0)")
-    b.link(s_sum, "Value", s_total, 0)
 
-    # Free cells convert inflow to height; collider cells keep it as pile.
+    # --- transport stencil --------------------------------------------------
+    # One normalised gather does both jobs. Every cell uses the same weights
+    # (the motion vector is global), so whatever a cell gathers from a
+    # neighbour is exactly what that neighbour gives away: mass is conserved,
+    # and because no weight can go negative the transport is monotone -- there
+    # is no way for a grid-scale sawtooth to grow out of it.
+    #
+    #   w_self = 1 - spread          material that stays put
+    #   w_axis = spread/4            isotropic share per neighbour
+    #   the upwind neighbour gets a further bias * bow_wave * |v|
+    #
+    # Gathering *more* from the cell behind is what shifts the heap forward,
+    # i.e. the bow wave. Doing it this way instead of adding a signed advection
+    # term also removes the clamp that used to be needed to stop a strong bias
+    # driving the pile negative -- and that clamp could invent mass.
+    spread_node, spread_key = refs["spread"]
+    bw_node, bw_key = refs["bow_wave"]
+    w_base = b.add("ShaderNodeMath", operation="MULTIPLY", inputs={1: 0.25},
+                   label="spread/4")
+    b.link(spread_node, spread_key, w_base, 0)
+    w_self = b.add("ShaderNodeMath", operation="SUBTRACT", label="1-spread")
+    b.set_default(w_self, 0, 1.0)
+    b.link(spread_node, spread_key, w_self, 1)
+
+    def _upwind_extra(v_node, v_key, sign, label):
+        """bias * bow_wave * max(sign*v, 0) for the neighbour material comes from."""
+        signed = b.add("ShaderNodeMath", operation="MULTIPLY",
+                       inputs={1: float(sign)})
+        b.link(v_node, v_key, signed, 0)
+        amount = b.add("ShaderNodeMath", operation="MAXIMUM", inputs={1: 0.0},
+                       label=f"upwind {label}")
+        b.link(signed, "Value", amount, 0)
+        scaled = b.add("ShaderNodeMath", operation="MULTIPLY",
+                       inputs={1: _ADVECT_BIAS})
+        b.link(amount, "Value", scaled, 0)
+        biased = b.add("ShaderNodeMath", operation="MULTIPLY",
+                       label=f"* bow wave {label}")
+        b.link(scaled, "Value", biased, 0)
+        b.link(bw_node, bw_key, biased, 1)
+        return biased
+
+    def _weight(v_node, v_key, sign, label):
+        extra = _upwind_extra(v_node, v_key, sign, label)
+        w = b.add("ShaderNodeMath", operation="ADD", label=f"w {label}")
+        b.link(w_base, "Value", w, 0)
+        b.link(extra, "Value", w, 1)
+        return w
+
+    # Moving +x means the material arrives from -x, so -x is the upwind side.
+    w_mx = _weight(vx, "Result", 1.0, "-x")
+    w_px = _weight(vx, "Result", -1.0, "+x")
+    w_my = _weight(vy, "Result", 1.0, "-y")
+    w_py = _weight(vy, "Result", -1.0, "+y")
+
+    def _term(p_node, p_key, w_node, label):
+        t = b.add("ShaderNodeMath", operation="MULTIPLY", label=label)
+        b.link(p_node, p_key, t, 0)
+        b.link(w_node, "Value", t, 1)
+        return t
+
+    terms = [
+        _term(p_self, "Attribute", w_self, "kept"),
+        _term(s_mx, "Value", w_mx, "from -x"),
+        _term(s_px, "Value", w_px, "from +x"),
+        _term(s_my, "Value", w_my, "from -y"),
+        _term(s_py, "Value", w_py, "from +y"),
+    ]
+    weights = [w_self, w_mx, w_px, w_my, w_py]
+
+    def _sum5(nodes, keys, label):
+        a = b.add("ShaderNodeMath", operation="ADD")
+        b.link(nodes[0], keys[0], a, 0)
+        b.link(nodes[1], keys[1], a, 1)
+        c = b.add("ShaderNodeMath", operation="ADD")
+        b.link(nodes[2], keys[2], c, 0)
+        b.link(nodes[3], keys[3], c, 1)
+        ac = b.add("ShaderNodeMath", operation="ADD")
+        b.link(a, "Value", ac, 0)
+        b.link(c, "Value", ac, 1)
+        total = b.add("ShaderNodeMath", operation="ADD", label=label)
+        b.link(ac, "Value", total, 0)
+        b.link(nodes[4], keys[4], total, 1)
+        return total
+
+    gathered = _sum5(terms, ["Value"] * 5, "gathered")
+    denom = _sum5(weights, ["Value"] * 5, "weight sum")
+    denom_safe = b.add("ShaderNodeMath", operation="MAXIMUM", inputs={1: 1e-6})
+    b.link(denom, "Value", denom_safe, 0)
+    s_total = b.add("ShaderNodeMath", operation="DIVIDE", label="transported pile")
+    b.link(gathered, "Value", s_total, 0)
+    b.link(denom_safe, "Value", s_total, 1)
+
+    # --- lay down / relay ---------------------------------------------------
+    # A free cell converts ``rate`` of its pile into height and relays the rest,
+    # so a berm builds as a ramp over several cells instead of a one-cell wall
+    # at the footprint edge. ``keep`` is additionally capped by the deadband, so
+    # a pile too small to see is dumped rather than relayed forever.
+    rate_node, rate_key = refs["rate"]
+    keep_frac = b.add("ShaderNodeMath", operation="SUBTRACT", label="1-rate")
+    b.set_default(keep_frac, 0, 1.0)
+    b.link(rate_node, rate_key, keep_frac, 1)
+    keep_a = b.add("ShaderNodeMath", operation="MULTIPLY", label="(1-rate)*s")
+    b.link(s_total, "Value", keep_a, 0)
+    b.link(keep_frac, "Value", keep_a, 1)
+    keep_b = b.add("ShaderNodeMath", operation="SUBTRACT",
+                   inputs={1: _PILE_DEADBAND}, label="s - deadband")
+    b.link(s_total, "Value", keep_b, 0)
+    keep_b0 = b.add("ShaderNodeMath", operation="MAXIMUM", inputs={1: 0.0})
+    b.link(keep_b, "Value", keep_b0, 0)
+    keep = b.add("ShaderNodeMath", operation="MINIMUM", label="kept pile")
+    b.link(keep_a, "Value", keep, 0)
+    b.link(keep_b0, "Value", keep, 1)
+    give = b.add("ShaderNodeMath", operation="SUBTRACT", label="laid down")
+    b.link(s_total, "Value", give, 0)
+    b.link(keep, "Value", give, 1)
+
     read_h = b.add("GeometryNodeInputNamedAttribute", data_type="FLOAT",
                    inputs={"Name": ATTR_HEIGHT})
-    free_s = b.add("ShaderNodeMath", operation="MULTIPLY", label="free*s")
-    b.link(free, "Value", free_s, 0)
-    b.link(s_total, "Value", free_s, 1)
-    new_h = b.add("ShaderNodeMath", operation="ADD", label="h + free*s")
+    free_give = b.add("ShaderNodeMath", operation="MULTIPLY", label="free*give")
+    b.link(free, "Value", free_give, 0)
+    b.link(give, "Value", free_give, 1)
+    new_h = b.add("ShaderNodeMath", operation="ADD", label="h + free*give")
     b.link(read_h, "Attribute", new_h, 0)
-    b.link(free_s, "Value", new_h, 1)
+    b.link(free_give, "Value", new_h, 1)
 
+    # New pile: free cells hold back ``keep``; collider cells relay everything.
     one_minus_free = b.add("ShaderNodeMath", operation="SUBTRACT",
                            label="1-free")
     b.set_default(one_minus_free, 0, 1.0)
     b.link(free, "Value", one_minus_free, 1)
-    new_pile = b.add("ShaderNodeMath", operation="MULTIPLY", label="new pile")
-    b.link(one_minus_free, "Value", new_pile, 0)
-    b.link(s_total, "Value", new_pile, 1)
+    occupied_pile = b.add("ShaderNodeMath", operation="MULTIPLY",
+                          label="occupied relays all")
+    b.link(one_minus_free, "Value", occupied_pile, 0)
+    b.link(s_total, "Value", occupied_pile, 1)
+    free_pile = b.add("ShaderNodeMath", operation="MULTIPLY",
+                      label="free keeps rest")
+    b.link(free, "Value", free_pile, 0)
+    b.link(keep, "Value", free_pile, 1)
+    new_pile = b.add("ShaderNodeMath", operation="ADD", label="new pile")
+    b.link(occupied_pile, "Value", new_pile, 0)
+    b.link(free_pile, "Value", new_pile, 1)
 
+    # gfx_h is stored first so the pile expression above still reads the
+    # pre-iteration pile through the untouched attribute.
     store_h = b.add("GeometryNodeStoreNamedAttribute", data_type="FLOAT",
                     domain="POINT", inputs={"Name": ATTR_HEIGHT})
     b.link(it_geo, "Geometry", store_h, "Geometry")

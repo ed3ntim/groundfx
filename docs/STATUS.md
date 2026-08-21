@@ -1,8 +1,8 @@
 # GroundFX — Projektstatus
 
-**Letzte Aktualisierung:** 2026-08-20
+**Letzte Aktualisierung:** 2026-08-21
 **Aktueller Meilenstein:** M3 (Workflow) — E7 in Arbeit (E4/M2-Kern fertig)
-**Tests:** 78/78 grün (Blender 5.2.0 LTS, headless)
+**Tests:** 85/85 grün (Blender 5.2.0 LTS, headless)
 
 > Diese Datei ist der Wiedereinstiegspunkt. Wer den Kontext geleert hat, liest
 > `STATUS.md` → `PLAN.md` → `BACKLOG.md` → `API_NOTES.md` und ist wieder im Bild.
@@ -68,7 +68,15 @@ sind nicht bindend, nur optionale Hilfe fürs spätere Preset-Fine-Tuning.
   atomar in den Solver; Material-Swap folgt mit E8.
 - **E5-S2 Presets** ✅ — 12 benannte Presets (4×Sand/Snow/Mud) als Datentabelle `data/presets.py`,
   Apply-Operator + Panel-Dropdown; wechselt auch das Element. JSON-Format + User-Presets (E5-T4/T9)
-  aufgeschoben. Nächstes sinnvoll: E8 Shader (macht Look/Frozen-Meshes fotoreal).
+  aufgeschoben.
+- **B2 Zacken/Spikes** ✅ größtenteils — drei Ursachen gefunden, einzeln nachgemessen, NG-Version 8:
+  (1) Pile-Transport war odd-even-entkoppelt (4-Nachbar-Mittel ohne Selbst-Term) → jede zweite Zelle
+  bekam exakt nichts = der Zahn-Kamm; (2) Relaxations-/Deposit-Masken lagen auf `gfx_carve`
+  (Pro-Frame-Delta) und flackerten → neues Deckungs-Attribut `gfx_occ`; (3) additive Advektion +
+  `max(s,0)`-Clamp erfand Masse. Neue Inputs `Deposit Spread` / `Deposit Rate`,
+  `tests/test_deposit.py` hält beides fest. **Offen:** ein Collider, der mehrere Zellen pro Frame
+  weiterrückt, legt pro Frame einen Klumpen ab (Riffel-Periode = Weg pro Frame) → braucht E3-S5
+  Substeps. Nächstes sinnvoll: E3-S5 Substeps oder E8 Shader.
 
 ## Danach
 
@@ -110,8 +118,8 @@ groundfx/
     modifier_io.py       Modifier-Inputs per Socket-NAME (5.2-API gekapselt!)
     nodegroups/
       ng_ground_sim.py   Solver-Toplevel: Init → Carve → Deposit → Relax → SetPos
-      ng_relax.py        Böschungswinkel-Toppling (Repeat-Zone)
-      ng_deposit.py      Pile-Transport + gerichtete Bugwelle (Repeat-Zone)
+      ng_relax.py        Böschungswinkel-Toppling (Repeat-Zone), Maske auf gfx_occ
+      ng_deposit.py      Pile-Transport + Bugwelle als eine normierte Gather-Maske
       ng_collider_proxy.py  Low-Poly-Stand-in (BBox/Convex Hull) via Object Info
   data/
     prefs.py             AddonPreferences (Debug-Schalter)
@@ -121,7 +129,8 @@ groundfx/
   ui/panels.py           N-Panel: Add-Buttons + Domain-Panel + Collider-UIList
   ops/op_add.py          Add-Operator (numpy-Grid, headless-fest)
   ops/op_collider.py     Mark/Unmark-Collider, Auto-Collider-Collection (E4-S1)
-tests/                   harness + test_smoke/test_builder/test_domain/test_collider
+tests/                   harness + test_smoke/test_builder/test_domain/test_collider/
+                         test_relax/test_deposit/test_freeze/test_presets/test_elements
 dev/                     build.py, verify_install.py, run_tests.ps1, probe_*.py
 docs/                    PLAN, BACKLOG, OPEN_QUESTIONS, API_NOTES, STATUS
 ```
@@ -137,3 +146,9 @@ docs/                    PLAN, BACKLOG, OPEN_QUESTIONS, API_NOTES, STATUS
 - **Field-Re-Evaluation:** `InputNamedAttribute` wird gegen die durchfließende
   Geometrie neu ausgewertet. Ein Attribut, das gelesen UND geschrieben wird
   (`gfx_h`), immer ZULETZT speichern (carve/pile/comp davor).
+- **Kein 4-Nachbar-Mittel ohne Selbst-Term** — das ist odd-even-entkoppelt und
+  liefert garantiert einen Ein-Zell-Kamm (B2).
+- **Masken nie auf einen Pro-Frame-Delta bauen** (`gfx_carve`) — sie flackern
+  unter einem langsam wandernden Collider. Dafür gibt es `gfx_occ`.
+- **Clamps in Transport-Stufen erfinden Masse.** Bias lieber als Gewicht in eine
+  normierte Gather-Maske legen, dann braucht es keinen Clamp.

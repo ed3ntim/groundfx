@@ -18,7 +18,8 @@ ADDON_NAME = "GroundFX"
 # v5 (E4-S3): carve_prev + bow-wave (directional deposit) input.
 # v6 (E4-S4): supersampled contact carve (Contact AA) for hero silhouettes.
 # v7 (B1): cohesion scales with cell size (extra-slope yield), so walls relax.
-NODEGROUP_VERSION = 7
+# v8 (B2): lazy pile diffusion + upwind bow wave + Deposit Spread/Rate inputs.
+NODEGROUP_VERSION = 8
 
 # --- UI ---------------------------------------------------------------------
 PANEL_CATEGORY = "GroundFX"     # N-panel tab label
@@ -52,6 +53,12 @@ ATTR_HEIGHT = "gfx_h"           # material height above base (the "mass")
 ATTR_BASE = "gfx_base"          # static ground height sampled from terrain
 ATTR_CARVE = "gfx_carve"        # collider penetration this frame
 ATTR_CARVE_PREV = "gfx_carve_prev"   # previous frame's carve (velocity source)
+# Coverage 0..1: how much of the cell the collider currently *stands on*. Unlike
+# gfx_carve (a per-frame delta that is only non-zero where material was cut this
+# frame) this stays 1 while a collider rests, so the masks built on it don't
+# flicker cell by cell as the collider advances a fraction of a cell per frame.
+ATTR_OCC = "gfx_occ"
+ATTR_OCC_PREV = "gfx_occ_prev"  # previous frame's coverage (velocity source)
 ATTR_PILE = "gfx_pile"          # displaced volume awaiting deposition
 ATTR_COMP = "gfx_comp"          # compaction 0..1 -> shader
 ATTR_WET = "gfx_wet"            # wetness 0..1 -> cohesion & shader

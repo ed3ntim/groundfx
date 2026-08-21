@@ -22,13 +22,15 @@ from __future__ import annotations
 
 from ..ng_builder import NodeTreeBuilder
 from ..ng_zones import make_repeat_zone
-from ..constants import ATTR_HEIGHT, ATTR_BASE, ATTR_SURFACE, ATTR_CARVE
+from ..constants import ATTR_HEIGHT, ATTR_BASE, ATTR_SURFACE, ATTR_OCC
 
-# A neighbour with carve above this is occupied by the collider: material may
-# not flow into it (the collider fills that space). Blocking it lets a berm
-# build at the rim instead of draining back into the hole and being scraped
-# away (B1 "no piling").
-_OCCUPIED_EPS = 1e-5
+# Cells the collider stands on are blocked: material may not flow into them
+# (the collider fills that space) and they don't relax themselves. That is what
+# lets a berm build at the rim instead of draining back into the hole and being
+# scraped away (B1 "no piling"). The mask is the *coverage* gfx_occ, not the
+# per-frame cut gfx_carve: a cut is only non-zero where material was removed
+# this frame, so under a collider advancing a fraction of a cell per frame it
+# flickers cell by cell and corrugates the trench (B2 "spiky").
 
 # Stability factor: fraction of the computed excess moved per iteration. Below
 # 0.25 the 4-neighbour sum can't overshoot into oscillation.
@@ -113,17 +115,21 @@ def _neighbour_flow(b, sample_geo_node, self_surface, index_node,
 
 
 def _neighbour_free(b, geo_node, nidx_node, nidx_key):
-    """1.0 if the neighbour at ``nidx`` is *not* under the collider."""
+    """How free the neighbour at ``nidx`` is: 1 = open, 0 = under the collider.
+
+    Coverage is continuous, so a half-covered rim cell blocks half the flow
+    rather than switching the whole flux on and off across a frame.
+    """
     sample = b.add("GeometryNodeSampleIndex", data_type="FLOAT", domain="POINT",
                    clamp=True)
-    carve_attr = b.add("GeometryNodeInputNamedAttribute", data_type="FLOAT",
-                       inputs={"Name": ATTR_CARVE})
+    occ_attr = b.add("GeometryNodeInputNamedAttribute", data_type="FLOAT",
+                     inputs={"Name": ATTR_OCC})
     b.link(geo_node, "Geometry", sample, "Geometry")
-    b.link(carve_attr, "Attribute", sample, "Value")
+    b.link(occ_attr, "Attribute", sample, "Value")
     b.link(nidx_node, nidx_key, sample, "Index")
-    free = b.add("ShaderNodeMath", operation="LESS_THAN",
-                 inputs={1: _OCCUPIED_EPS}, label="neighbour free")
-    b.link(sample, "Value", free, 0)
+    free = b.add("ShaderNodeMath", operation="SUBTRACT", label="neighbour free")
+    b.set_default(free, 0, 1.0)
+    b.link(sample, "Value", free, 1)
     return free
 
 
@@ -275,11 +281,11 @@ def add_relaxation(b: NodeTreeBuilder, geo_node, geo_key, refs):
     # An occupied cell (under the collider) doesn't relax — its height is the
     # carved surface. Masking its delta keeps mass conserved with the blocked
     # inflow from free neighbours (no phantom fill in the hole).
-    self_carve = b.add("GeometryNodeInputNamedAttribute", data_type="FLOAT",
-                       inputs={"Name": ATTR_CARVE})
-    self_free = b.add("ShaderNodeMath", operation="LESS_THAN",
-                      inputs={1: _OCCUPIED_EPS}, label="self free")
-    b.link(self_carve, "Attribute", self_free, 0)
+    self_occ = b.add("GeometryNodeInputNamedAttribute", data_type="FLOAT",
+                     inputs={"Name": ATTR_OCC})
+    self_free = b.add("ShaderNodeMath", operation="SUBTRACT", label="self free")
+    b.set_default(self_free, 0, 1.0)
+    b.link(self_occ, "Attribute", self_free, 1)
     delta_m = b.add("ShaderNodeMath", operation="MULTIPLY", label="* self free")
     b.link(delta_f, "Value", delta_m, 0)
     b.link(self_free, "Value", delta_m, 1)

@@ -12,10 +12,23 @@ Meilenstein-Zuordnung: M1 = E0–E2, M2 = E3–E4, M3 = E5–E9, M4 = E10, E13�
   (Steigungs-Yield statt absoluter Höhe) → Wände slumpen auf ~34° statt 62°; (2) Relaxation blockt
   Fluss in vom Collider besetzte Zellen → Berm bleibt stehen statt ins Loch zu rinnen. NG-Version 7.
   Verifiziert: nach Abheben max|dh|≈0.0096 (≈34°), Berm-Höhe hält. Details in API_NOTES.
-- [ ] **B2 Bugwelle spiky / Anti-Kriechen** — zwei zusammenhängende Punkte: (a) die gerichtete
-  Advektion (E4-S3) kann zacken; (b) ein *gehaltener* Collider settelt kaum, weil der Deposit den
-  Pile zu weit über die Domain verteilt (langsamer Schwanz, Dauer-Churn am Rand). Nächster Schritt:
-  lokalere Ablage + Kriech-Deadband (koppelt an E7-T14). (User-Hinweis: evtl. mit Shader besser.)
+- [x] **B2 Bugwelle spiky / Anti-Kriechen** — größtenteils GELÖST, drei Ursachen gefunden und
+  einzeln nachgemessen (Details in API_NOTES):
+  1. **Schachbrett-Kamm:** Der Pile-Transport mittelte nur über die 4 Nachbarn ohne Selbst-Term →
+     odd-even-entkoppelt, jede zweite Zelle bekam **exakt nichts**. Das war der Zahn-Kamm.
+     Fix: `Deposit Spread` (Selbst-Anteil bleibt liegen). Schachbrett 0.174 mm → 0.002 mm.
+  2. **Flackernde Maske:** Relaxation und Deposit maskierten über `gfx_carve` (Pro-Frame-Delta) →
+     riffelte die Grabensohle (`20 27 20 28 …`). Fix: neues `gfx_occ` (Deckung 0..1 aus dem
+     Quincunx-Raycast). Sohle danach exakt flach.
+  3. **Massen-Erfindung:** additive Advektion + `max(s,0)`-Clamp erzeugte Material (Feld explodierte
+     auf 2.8 m bei höherer Transportweite). Fix: Bias als Gewicht in der normierten Gather-Maske,
+     Clamp entfällt. Test `test_carving_never_creates_material` hält das fest.
+  Neue Group-Inputs: `Deposit Spread`, `Deposit Rate`. NG-Version 8. Tests: 85/85.
+- [ ] **B2-Rest: Klumpen pro Frame bei schnellem Collider** — Pile entsteht nur, wo der Collider *in
+  diesem Frame* schneidet; bei mehreren Zellen Weg pro Frame legt er pro Frame einen Klumpen ab.
+  Gemessen: Riffel-Periode = Weg pro Frame (1.9 Zellen → 2, 2.9 → 3, 3.8 → 4), Amplitude ~±5 mm bei
+  15.6 mm Zellen. Rein zeitliche Unterabtastung — räumliches Glätten hilft nachweislich nicht
+  (Verschmieren längs der Bahn hat die Amplitude erhöht). → braucht **E3-S5 Substeps**.
 - [x] **B3 Collider per Picker hinzufügen** — Objekt-Auswahlfeld (Pipette) im Panel statt nur über
   Selektion. → umgesetzt (`collider_pick`).
 - [x] **B4 Presets nach Element vorfiltern** — Preset-Dropdown zeigt nur Presets des aktiven Elements.
