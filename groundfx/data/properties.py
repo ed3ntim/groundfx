@@ -218,6 +218,10 @@ class GroundFXObjectSettings(bpy.types.PropertyGroup):
         name="Active Collider", default=0,
         description="Selected row in the collider list")
 
+    measured_ms: bpy.props.FloatProperty(
+        name="Measured ms/frame", default=-1.0,
+        description="Last benchmark result (negative = not measured yet)")
+
     collider_pick: bpy.props.PointerProperty(
         name="Add Collider", type=bpy.types.Object, update=_pick_collider,
         description="Pick an object to add it to this domain's colliders")

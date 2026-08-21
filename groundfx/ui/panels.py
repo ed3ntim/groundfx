@@ -69,7 +69,13 @@ class GFX_PT_domain(bpy.types.Panel):
         box.label(text=f"Cell size: {cs * 100:.1f} cm",
                   icon=_LIGHT_ICON.get(light, "DOT"))
         box.label(text=f"~{prof.target_ms[0]:.0f}–{prof.target_ms[1]:.0f} "
-                       f"ms/frame")
+                       f"ms/frame (est.)")
+        row = box.row(align=True)
+        row.operator(f"{OP_PREFIX}.benchmark", text="Measure", icon="TIME")
+        if st.measured_ms >= 0.0:
+            over = st.measured_ms > 2.0 * prof.target_ms[1]
+            row.label(text=f"{st.measured_ms:.1f} ms",
+                      icon="ERROR" if over else "CHECKMARK")
 
         col = layout.column()
         col.prop(st, "domain_size")
