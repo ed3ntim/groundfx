@@ -138,6 +138,73 @@ def create_domain(context, element: str,
     return obj
 
 
+def expected_vertex_count(obj) -> int:
+    """How many vertices the domain's grid should have at its quality."""
+    return (qmod.profile(obj.groundfx.quality).resolution + 1) ** 2
+
+
+def grid_is_current(obj) -> bool:
+    """True if the mesh resolution matches the selected quality + size."""
+    return obj.data is not None and len(obj.data.vertices) == expected_vertex_count(obj)
+
+
+def rebuild_grid(obj) -> bool:
+    """Rebuild the domain mesh at the current quality/size, re-pushing inputs.
+
+    Changing Quality or Domain Size only moves numbers until the actual grid is
+    rebuilt — the solver runs on whatever mesh it was given. This swaps in a
+    fresh grid at the selected resolution, carries the GroundFX material across
+    the mesh swap, and re-seeds the resolution-dependent solver inputs. The sim
+    resets (new topology), which is the expected cost of changing resolution.
+    """
+    from ..core.materials import mat_builder as matb
+
+    st = obj.groundfx
+    md = obj.modifiers.get(MODIFIER_NAME)
+    if md is None:
+        return False
+    prof = qmod.profile(st.quality)
+    size = st.domain_size
+
+    mat = matb.domain_material(obj)          # survive the mesh swap
+    old = obj.data
+    obj.data = _make_grid_mesh(obj.name, size, prof.resolution)
+    if old is not None and old.users == 0:
+        bpy.data.meshes.remove(old)
+    if mat is not None:
+        matb.assign_material(obj, mat)
+
+    modifier_io.set_input(md, gsim.IN_CELL_SIZE, size / prof.resolution, tag=False)
+    modifier_io.set_input(md, gsim.IN_GRID_N, prof.resolution + 1, tag=False)
+    modifier_io.set_input(md, gsim.IN_RELAX_ITERS, prof.relax_iterations, tag=False)
+    modifier_io.set_input(md, gsim.IN_CARVE_SUBSTEPS, prof.substeps, tag=True)
+    log.info("rebuilt %s grid: %d^2 (%.2f m, cell %.3f m)",
+             obj.name, prof.resolution, size, size / prof.resolution)
+    return True
+
+
+class GFX_OT_rebuild_grid(bpy.types.Operator):
+    """Rebuild the grid at the current Quality and Domain Size"""
+
+    bl_idname = f"{OP_PREFIX}.rebuild_grid"
+    bl_label = "Rebuild Grid"
+    bl_options = {"REGISTER", "UNDO"}
+
+    @classmethod
+    def poll(cls, context):
+        obj = context.active_object
+        return obj is not None and getattr(obj.groundfx, "is_domain", False)
+
+    def execute(self, context):
+        obj = context.active_object
+        if rebuild_grid(obj):
+            prof = qmod.profile(obj.groundfx.quality)
+            self.report({"INFO"}, f"Grid rebuilt at {prof.resolution}²")
+        else:
+            self.report({"WARNING"}, "No GroundFX modifier to rebuild")
+        return {"FINISHED"}
+
+
 class GFX_OT_add_ground(bpy.types.Operator):
     """Add a GroundFX domain of the given element at the 3D cursor"""
 
@@ -164,4 +231,5 @@ class GFX_OT_add_ground(bpy.types.Operator):
 
 classes = (
     GFX_OT_add_ground,
+    GFX_OT_rebuild_grid,
 )

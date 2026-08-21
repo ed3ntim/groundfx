@@ -77,6 +77,15 @@ class GFX_PT_domain(bpy.types.Panel):
             row.label(text=f"{st.measured_ms:.1f} ms",
                       icon="ERROR" if over else "CHECKMARK")
 
+        # Quality/Size only take effect once the grid is rebuilt to match.
+        from ..ops.op_add import grid_is_current
+        if not grid_is_current(context.active_object):
+            warn = box.row(align=True)
+            warn.alert = True
+            warn.label(text="Grid outdated", icon="ERROR")
+            warn.operator(f"{OP_PREFIX}.rebuild_grid", text="Rebuild",
+                          icon="FILE_REFRESH")
+
         col = layout.column()
         col.prop(st, "domain_size")
         col.prop(st, "material_height")

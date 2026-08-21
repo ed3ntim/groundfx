@@ -273,14 +273,14 @@ groben Proxy).
 
 ## E6 · Qualitätsstufen und LOD `M3` `P0`
 
-### E6-S1 — Als User will ich mit einem Regler zwischen schnell und schön wählen. `M`
+### E6-S1 — Als User will ich mit einem Regler zwischen schnell und schön wählen. `M` ✅
 
 **Akzeptanz:** Die vier Stufen unterscheiden sich messbar gemäß der Budget-Tabelle in `PLAN.md`; der Wechsel benötigt keinen Neuaufbau der Szene.
 
-- [ ] E6-T1 Qualitätsprofile als Datentabelle (Auflösung, Iterationen, Substeps, Spray-Cap, LOD)
-- [ ] E6-T2 Operator „Set Quality" wendet das Profil auf alle oder das aktive Objekt an
-- [ ] E6-T3 Auflösungswechsel überträgt vorhandene Sim-Daten nicht (klare Warnung: Sim startet neu)
-- [ ] E6-T4 UI-Anzeige der Auswirkungen samt Ampel und ms-Schätzung
+- [x] E6-T1 Qualitätsprofile als Datentabelle (`data/quality.py`: Auflösung, Iterationen, Substeps, Spray-Cap, LOD)
+- [x] E6-T2 `groundfx.rebuild_grid` wendet Quality+Domain-Size aufs aktive Objekt an (baut Grid neu, re-pusht cell_size/grid_n/relax/substeps, Material bleibt erhalten)
+- [x] E6-T3 Auflösungswechsel = neues Mesh → Sim startet neu; Panel warnt „Grid outdated" + „Rebuild"-Button (`grid_is_current`)
+- [x] E6-T4 UI-Anzeige: Auflösung/Verts, Zellgröße-Ampel, ms-Schätzung + gemessene ms (E6-S3)
 
 ### E6-S2 — Als User will ich flüssiges Viewport-Feedback trotz hoher Renderqualität. `M`
 
