@@ -222,6 +222,93 @@ def rebuild_grid(obj) -> bool:
     return True
 
 
+def push_all_inputs(obj) -> bool:
+    """Re-seed every solver input on ``obj`` from its current settings.
+
+    Used by the repair path: after a node group is rebuilt (or a modifier
+    recreated) the inputs need re-pushing. Physics with no per-object property
+    (repose/cohesion/flow/bow) resets to the element defaults — a broken setup
+    has no values to preserve, so element defaults are the sane recovery.
+    """
+    from ..core.materials import mat_builder as matb
+
+    md = obj.modifiers.get(MODIFIER_NAME)
+    if md is None or md.node_group is None:
+        return False
+    st = obj.groundfx
+    prof = qmod.profile(st.quality)
+    size = st.domain_size
+    ed = emod.defaults(st.element)
+    coh = min(1.0, ed.cohesion + 0.4 * st.wetness)  # wetness coupling (E8-T7)
+
+    set = modifier_io.set_input
+    set(md, gsim.IN_MATERIAL_HEIGHT, st.material_height, tag=False)
+    set(md, gsim.IN_REPOSE, ed.repose_rad, tag=False)
+    set(md, gsim.IN_COHESION, coh, tag=False)
+    set(md, gsim.IN_FLOW, ed.flow_rate, tag=False)
+    set(md, gsim.IN_RELAX_ITERS, prof.relax_iterations, tag=False)
+    set(md, gsim.IN_CELL_SIZE, size / prof.resolution, tag=False)
+    set(md, gsim.IN_GRID_N, prof.resolution + 1, tag=False)
+    set(md, gsim.IN_DISPLACE_RATIO, 0.7, tag=False)
+    set(md, gsim.IN_DEPOSIT_ITERS, 6, tag=False)
+    set(md, gsim.IN_CARVE_SUBSTEPS, prof.substeps, tag=False)
+    set(md, gsim.IN_STICKINESS, st.stickiness, tag=False)
+    set(md, gsim.IN_RECOVERY, ed.recovery, tag=False)
+    set(md, gsim.IN_BOW_WAVE, ed.bow_wave, tag=False)
+    set(md, gsim.IN_CONTACT_AA, 1.0 if st.hero_contact else 0.0, tag=False)
+    if st.collider_collection is not None:
+        set(md, gsim.IN_COLLIDER_COLLECTION, st.collider_collection, tag=True)
+    return True
+
+
+def repair_domain(obj, context) -> bool:
+    """Rebuild the node group and re-wire the modifier for a domain (E1-T9).
+
+    Fixes the common breakages: a modifier whose node group was deleted, an
+    out-of-date group (rebuilt by ``ensure_node_group``), or a missing modifier.
+    """
+    from ..core.materials import mat_builder as matb
+
+    tree = ensure_node_group(gsim.NG_GROUND_SIM, gsim.build)
+    modifier_io.invalidate(tree.name)
+    md = obj.modifiers.get(MODIFIER_NAME)
+    if md is None:
+        md = obj.modifiers.new(MODIFIER_NAME, "NODES")
+    md.node_group = tree
+    push_all_inputs(obj)
+    # A domain with no GroundFX material gets one back (unless the user has
+    # their own material in the slot).
+    if matb.domain_material(obj) is None and not obj.material_slots:
+        matb.assign_material(obj, matb.build_material(obj.groundfx.element))
+    return True
+
+
+class GFX_OT_repair(bpy.types.Operator):
+    """Rebuild broken or outdated GroundFX node setups"""
+
+    bl_idname = f"{OP_PREFIX}.repair"
+    bl_label = "Repair Node Setup"
+    bl_options = {"REGISTER", "UNDO"}
+
+    all_domains: bpy.props.BoolProperty(name="All Domains", default=False)
+
+    def execute(self, context):
+        if self.all_domains:
+            domains = [o for o in context.scene.objects
+                       if getattr(o.groundfx, "is_domain", False)]
+        else:
+            obj = context.active_object
+            domains = [obj] if obj and getattr(obj.groundfx, "is_domain", False) \
+                else []
+        if not domains:
+            self.report({"WARNING"}, "No GroundFX domain to repair")
+            return {"CANCELLED"}
+        for obj in domains:
+            repair_domain(obj, context)
+        self.report({"INFO"}, f"Repaired {len(domains)} domain(s)")
+        return {"FINISHED"}
+
+
 class GFX_OT_rebuild_grid(bpy.types.Operator):
     """Rebuild the grid at the current Quality and Domain Size"""
 
@@ -271,4 +358,5 @@ class GFX_OT_add_ground(bpy.types.Operator):
 classes = (
     GFX_OT_add_ground,
     GFX_OT_rebuild_grid,
+    GFX_OT_repair,
 )

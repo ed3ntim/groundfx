@@ -102,7 +102,7 @@ nur Einweg-Kollision · UI und Code Englisch, Doku Deutsch · Nahaufnahme-Maßst
 - [ ] E1-T6 Versionsstempel als Custom Property auf jeder Node-Group
 - [ ] E1-T7 `ensure_node_group()`: vorhanden und aktuell → wiederverwenden, sonst neu bauen
 - [ ] E1-T8 Migration: Parameterwerte beim Rebuild über Namen (nicht Index) retten
-- [ ] E1-T9 Operator „Node-Setups reparieren / neu aufbauen" für Notfälle
+- [x] E1-T9 `groundfx.repair` (Panel-Button „Repair Node Setup"): baut Node-Group neu (ensure_node_group), legt fehlenden Modifier an, re-pusht alle Inputs (`push_all_inputs`). Aktiv oder alle Domains
 
 ---
 

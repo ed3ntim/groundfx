@@ -33,6 +33,10 @@ class GFX_PT_main(bpy.types.Panel):
                               text=ELEMENT_LABELS[elem])
             op.element = elem
 
+        layout.separator()
+        layout.operator(f"{OP_PREFIX}.repair", text="Repair Node Setup",
+                        icon="FILE_REFRESH").all_domains = True
+
 
 class GFX_PT_domain(bpy.types.Panel):
     """Per-domain settings, shown when a GroundFX domain is active."""
