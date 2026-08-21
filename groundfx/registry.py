@@ -16,6 +16,7 @@ from .data import properties
 from .ops import op_add
 from .ops import op_collider
 from .ops import op_freeze
+from .ops import op_bake
 from .ui import panels
 
 # Order matters: PropertyGroups before the panels/operators that reference
@@ -26,6 +27,7 @@ _MODULES = (
     op_add,
     op_collider,
     op_freeze,
+    op_bake,
     panels,
 )
 

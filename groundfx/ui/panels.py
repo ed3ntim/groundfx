@@ -129,6 +129,32 @@ class GFX_PT_colliders(bpy.types.Panel):
                                   text="Mark as Collider", icon="ADD")
 
 
+class GFX_PT_cache(bpy.types.Panel):
+    """Bake / free the simulation cache."""
+
+    bl_label = "Cache"
+    bl_idname = "GFX_PT_cache"
+    bl_space_type = "VIEW_3D"
+    bl_region_type = "UI"
+    bl_category = PANEL_CATEGORY
+    bl_parent_id = "GFX_PT_domain"
+    bl_options = {"DEFAULT_CLOSED"}
+
+    @classmethod
+    def poll(cls, context):
+        obj = context.active_object
+        return obj is not None and getattr(obj.groundfx, "is_domain", False)
+
+    def draw(self, context):
+        layout = self.layout
+        row = layout.row(align=True)
+        row.operator(f"{OP_PREFIX}.bake", icon="PHYSICS")
+        row.operator(f"{OP_PREFIX}.free", icon="TRASH")
+        row = layout.row(align=True)
+        row.operator(f"{OP_PREFIX}.bake_all")
+        row.operator(f"{OP_PREFIX}.free_all")
+
+
 class GFX_PT_photo(bpy.types.Panel):
     """Settle & Freeze workflow for hero / product shots."""
 
@@ -158,5 +184,6 @@ classes = (
     GFX_PT_domain,
     GFX_UL_colliders,
     GFX_PT_colliders,
+    GFX_PT_cache,
     GFX_PT_photo,
 )

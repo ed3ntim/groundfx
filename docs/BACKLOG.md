@@ -253,10 +253,11 @@ wenn doch größere Szenen dazukommen.*
 
 **Akzeptanz:** Bake über die Szenen-Framerange, danach Wiedergabe in Echtzeit; nach `Free` läuft wieder die Live-Sim.
 
-- [ ] E7-T1 Bake-Operator für das aktive Objekt (API-Abstraktion in `compat.py`)
-- [ ] E7-T2 Bake All für alle GroundFX-Objekte, mit Fortschrittsanzeige
-- [ ] E7-T3 Free / Free All
-- [ ] E7-T4 Eigener Cache-Pfad, standardmäßig relativ zur `.blend`
+- [x] E7-T1 Bake-Operator (aktives Objekt) — `ops/op_bake.py`, API gekapselt in `compat.py`
+  (`simulation_nodes_cache_bake`)
+- [x] E7-T2 Bake All für alle GroundFX-Domains (Fortschrittsanzeige später)
+- [x] E7-T3 Free / Free All — `simulation_nodes_cache_delete` (Operator heißt `_delete`, nicht `_free`)
+- [~] E7-T4 Cache-Pfad relativ zur `.blend` — aktuell Memory-Bake; Disk-Cache-Pfad aufgeschoben
 
 ### E7-S2 — Als User will ich sehen, was mein Cache kostet und ob er noch gültig ist. `M`
 

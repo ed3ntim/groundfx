@@ -91,6 +91,31 @@ def test_settle_and_freeze():
     bpy.data.objects.remove(cube, do_unlink=True)
 
 
+def test_bake_and_free():
+    """E7-S1: bake and free the simulation cache without error."""
+    _reset()
+    from groundfx.ops.op_add import create_domain
+
+    scene = bpy.context.scene
+    scene.frame_start = 1
+    scene.frame_end = 12
+
+    obj = create_domain(bpy.context, ELEM_SAND)
+    cube = _press_collider(scene, obj, 6)
+    bpy.context.view_layer.objects.active = obj
+
+    r = bpy.ops.groundfx.bake()
+    harness.check("bake finished", r == {"FINISHED"}, f"{r}")
+    r = bpy.ops.groundfx.free()
+    harness.check("free finished", r == {"FINISHED"}, f"{r}")
+    r = bpy.ops.groundfx.bake_all()
+    harness.check("bake all finished", r == {"FINISHED"}, f"{r}")
+    r = bpy.ops.groundfx.free_all()
+    harness.check("free all finished", r == {"FINISHED"}, f"{r}")
+
+    bpy.data.objects.remove(cube, do_unlink=True)
+
+
 def test_photo_setup():
     """E7-T11: photo setup turns on hero contact and Cycles."""
     _reset()

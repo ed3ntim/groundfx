@@ -63,7 +63,8 @@ def bake_geometry_nodes(objects) -> bool:
     """
     if not objects:
         return False
-    override = {"selected_objects": list(objects),
+    objects = list(objects)
+    override = {"selected_objects": objects,
                 "active_object": objects[0],
                 "object": objects[0]}
     try:
@@ -74,6 +75,21 @@ def bake_geometry_nodes(objects) -> bool:
         return False
 
 
-# NOTE: freeing caches is implemented in E7 once the exact operator + modifier
-# bake-target wiring is probed against 5.2. Deliberately not stubbed with a
-# guessed operator name here.
+def free_geometry_nodes(objects) -> bool:
+    """Free (delete) geometry-node simulation caches for ``objects``.
+
+    Uses ``simulation_nodes_cache_delete`` (5.2; the operator is *_delete*, not
+    *_free* — verified via dev/probe). Returns True on success.
+    """
+    if not objects:
+        return False
+    objects = list(objects)
+    override = {"selected_objects": objects,
+                "active_object": objects[0],
+                "object": objects[0]}
+    try:
+        with bpy.context.temp_override(**override):
+            bpy.ops.object.simulation_nodes_cache_delete(selected=True)
+        return True
+    except Exception:  # noqa: BLE001 -- surfaced to the user by the operator
+        return False

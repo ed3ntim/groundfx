@@ -20,7 +20,7 @@ Gegen **Blender 5.2.0 LTS / Python 3.13.13** headless geprüft am 2026-08-20
 | Grid-Primitive | **`GeometryNodeMeshGrid`** — nicht `GeometryNodeInputMeshGrid` (existiert nicht!). |
 | Subdivide / Set Position / Switch | `GeometryNodeSubdivideMesh`, `GeometryNodeSetPosition`, `GeometryNodeSwitch` vorhanden. |
 | Bake (Node) | `bpy.ops.object.geometry_node_bake_single()` — bakt einen einzelnen Bake-Node im Modifier. Dazu `..._delete_single`, `..._pack_single`, `..._unpack_single`. |
-| Bake (Sim-Cache) | `bpy.ops.object.simulation_nodes_cache_bake()` — bakt alle Simulation Zones der Szene/Objekte. |
+| Bake (Sim-Cache) | Bake: `bpy.ops.object.simulation_nodes_cache_bake(selected=True)`. **Free heißt `simulation_nodes_cache_delete`** (nicht `_free`!). Beide brauchen `temp_override(selected_objects=…, active_object=…, object=…)`. Memory-Bake läuft auch bei ungespeicherter `.blend`. Achtung: `hasattr(bpy.ops.object, name)` ist IMMER True (Stub) — Operatornamen nur per `dir(bpy.ops.object)` prüfen. Gekapselt in `utils/compat.py`. |
 | **Modifier-Inputs setzen** | ⚠️ **Wichtige 5.2-Änderung!** Der alte Weg `modifier["Socket_N"] = wert` ist **weg** (`TypeError: id properties not supported`). Neu: `modifier.properties.inputs.<Socket_N>` ist ein Sub-Struct mit `.value` (Wert), `.type` (`VALUE`/`ATTRIBUTE`) und `.attribute_name`. Setzen: `modifier.properties.inputs.Socket_1.value = 0.08`. **Danach `object.update_tag()`**, sonst propagiert der Wert nicht in die Auswertung. `modifier.properties.inputs.Socket_1` selbst ist read-only (liefert das Sub-Struct, nicht den Wert). Gekapselt in `core/modifier_io.py`. |
 
 ## Solver-Erkenntnisse

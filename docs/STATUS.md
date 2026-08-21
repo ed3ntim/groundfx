@@ -2,7 +2,7 @@
 
 **Letzte Aktualisierung:** 2026-08-20
 **Aktueller Meilenstein:** M3 (Workflow) — E7 in Arbeit (E4/M2-Kern fertig)
-**Tests:** 61/61 grün (Blender 5.2.0 LTS, headless)
+**Tests:** 65/65 grün (Blender 5.2.0 LTS, headless)
 
 > Diese Datei ist der Wiedereinstiegspunkt. Wer den Kontext geleert hat, liest
 > `STATUS.md` → `PLAN.md` → `BACKLOG.md` → `API_NOTES.md` und ist wieder im Bild.
@@ -60,7 +60,9 @@ sind nicht bindend, nur optionale Hilfe fürs spätere Preset-Fine-Tuning.
 - **E7-S3 Freeze-to-Mesh + E7-S4 Settle & Freeze** ✅ fertig — `ops/op_freeze.py`: Freeze-to-Mesh
   (statisches Objekt, `gfx_*`+Material erhalten), Settle-Erkennung (max |Δgfx_h| < Schwelle) mit
   Auto-Freeze, Photo-Setup (Hero-Contact + Cycles + dichtere Relaxation). Test: Ruhe erkannt @Frame 46.
-- E7-S1 Bake/Free · E7-S2 Cache-Info — offen (nächster Schritt in E7).
+- **E7-S1 Bake/Free** ✅ fertig — `ops/op_bake.py` (Bake / Bake All / Free / Free All),
+  API in `compat.py` gekapselt (`simulation_nodes_cache_bake` / `..._delete`). Panel-Sektion „Cache".
+- E7-S2 Cache-Info (Größe/Hash/veraltet, `.blend`-Warnung, eigene Framerange) — offen.
 
 ## Danach
 
