@@ -88,21 +88,21 @@ LOOKS = {
     ELEM_SAND: LookDefaults(
         base_color=(0.64, 0.50, 0.31), wet_color=(0.33, 0.22, 0.11),
         roughness=0.95, detail=1.0, base_wetness=0.0,
-        grain_scale=520.0, subsurface=0.0, ripple=0.6,
-        sparkle=0.7, macro_scale=6.0, crevice=0.6,
-        rough_var=0.18, mottle=0.14, sparkle_scale=900.0, disp_scale=0.0035),
+        grain_scale=42.0, subsurface=0.0, ripple=0.6,
+        sparkle=0.7, macro_scale=5.0, crevice=0.6,
+        rough_var=0.18, mottle=0.16, sparkle_scale=220.0, disp_scale=0.012),
     ELEM_SNOW: LookDefaults(
         base_color=(0.90, 0.93, 0.98), wet_color=(0.72, 0.78, 0.90),
         roughness=0.42, detail=0.7, base_wetness=0.1,
-        grain_scale=150.0, subsurface=0.18, ripple=0.25,
-        sparkle=0.95, macro_scale=9.0, crevice=0.6,
-        rough_var=0.22, mottle=0.05, sparkle_scale=520.0, disp_scale=0.008),
+        grain_scale=22.0, subsurface=0.9, ripple=0.25,
+        sparkle=1.0, macro_scale=4.5, crevice=0.6,
+        rough_var=0.22, mottle=0.06, sparkle_scale=150.0, disp_scale=0.022),
     ELEM_MUD: LookDefaults(
         base_color=(0.21, 0.15, 0.10), wet_color=(0.07, 0.05, 0.03),
         roughness=0.62, detail=0.6, base_wetness=0.6,
-        grain_scale=90.0, subsurface=0.0, ripple=0.15,
-        sparkle=0.2, macro_scale=14.0, crevice=0.7,
-        rough_var=0.16, mottle=0.12, sparkle_scale=700.0, disp_scale=0.005),
+        grain_scale=16.0, subsurface=0.0, ripple=0.15,
+        sparkle=0.0, macro_scale=7.0, crevice=0.7,
+        rough_var=0.16, mottle=0.12, sparkle_scale=280.0, disp_scale=0.03),
 }
 
 
@@ -123,6 +123,17 @@ def _noise(b, P, scale, detail=2.0, roughness=0.5):
               inputs={"Scale": scale, "Detail": detail, "Roughness": roughness})
     b.link(P[0], P[1], n, "Vector")
     return n
+
+
+def _gabor(b, P, scale, anisotropy=0.6, frequency=2.0):
+    """Gabor noise: streaky, directional grain — reads as sand far better than
+    isotropic noise. Returns the node; use its 'Value' (relief) or 'Intensity'.
+    """
+    g = b.add("ShaderNodeTexGabor",
+              inputs={"Scale": scale, "Frequency": frequency,
+                      "Anisotropy": anisotropy})
+    b.link(P[0], P[1], g, "Vector")
+    return g
 
 
 def _voronoi(b, P, scale, feature="F1", randomness=1.0, smoothness=1.0):
@@ -206,42 +217,42 @@ def _structure(b, element, look, P, det_eff, n_wet):
     relief = None          # 0..1 height for TRUE displacement (Cycles hero)
 
     if element == ELEM_SAND:
-        grain = _voronoi(b, P, look.grain_scale, "F1", randomness=1.0)
-        grain_h = (grain, "Distance")
+        # Fine grain lives in the NORMAL (Gabor = streaky, directional grain),
+        # NOT in the geometry: displacing the grain makes egg-carton pillows.
+        # Only a gentle broad ripple (macro) actually displaces.
+        gab = _gabor(b, P, look.grain_scale * 2.2, anisotropy=0.7)
         layers = [
-            (macro, "Factor", 0.35, 0.03),
-            (grain_h[0], grain_h[1], _math(b, "MULTIPLY", det_eff, 0.9), 0.004),
-            (micro, "Factor", _math(b, "MULTIPLY", det_eff, 0.4), 0.0015),
+            (macro, "Factor", 0.28, 0.05),
+            (gab, "Value", _math(b, "MULTIPLY", det_eff, 0.7), 0.004),
+            (micro, "Factor", _math(b, "MULTIPLY", det_eff, 0.45), 0.0015),
         ]
-        crevice = grain_h
-        # displacement relief: grains, with a touch of micro dune
+        crevice = (micro, "Factor")
+        # displacement: gentle dune ripple (broad, low amplitude) + a touch of
+        # fine grain — never the mid-scale cells that pillow up.
         relief = _math(b, "ADD",
-                       _math(b, "MULTIPLY", grain_h, 0.8),
-                       _math(b, "MULTIPLY", (micro, "Factor"), 0.2),
+                       _math(b, "MULTIPLY", (macro, "Factor"), 0.7),
+                       _math(b, "MULTIPLY", (micro, "Factor"), 0.3),
                        label="sand relief")
-        # per-grain *brightness* jitter (grayscale, not coloured, or the grains
-        # turn into rainbow confetti). Luminance of the Voronoi cell colour ->
-        # a scalar in ~0.85..1.12 that lightens/darkens each grain.
-        lum = b.add("ShaderNodeVectorMath", operation="DOT_PRODUCT",
-                    label="grain luma")
-        b.link(grain, "Color", lum, 0)
-        lum.inputs[1].default_value = (0.33, 0.33, 0.33)
-        tint = _math(b, "MULTIPLY_ADD", (lum, "Value"), 0.3, label="grain bright")
-        b.set_default(tint[0], 2, 0.85)
+        # per-grain brightness from the Gabor intensity (grayscale ~0.9..1.15)
+        tint = _math(b, "MULTIPLY_ADD", (gab, "Intensity"), 0.25,
+                     label="grain bright")
+        b.set_default(tint[0], 2, 0.9)
 
     elif element == ELEM_SNOW:
         clump = _voronoi(b, P, look.macro_scale * 2.4, "SMOOTH_F1",
                          randomness=1.0, smoothness=1.0)
         crystal = _voronoi(b, P, look.grain_scale, "F1", randomness=0.9)
         layers = [
-            (clump, "Distance", 0.6, 0.03),
+            (clump, "Distance", 0.5, 0.03),
             (crystal, "Distance", _math(b, "MULTIPLY", det_eff, 0.6), 0.005),
-            (micro, "Factor", _math(b, "MULTIPLY", det_eff, 0.35), 0.0015),
+            (micro, "Factor", _math(b, "MULTIPLY", det_eff, 0.45), 0.0015),
         ]
         crevice = (clump, "Distance")
+        # Break the smooth voronoi domes with fine noise so it reads as granular
+        # snow, not bubble wrap; the clump gives gentle undulation.
         relief = _math(b, "ADD",
-                       _math(b, "MULTIPLY", (clump, "Distance"), 0.6),
-                       _math(b, "MULTIPLY", (crystal, "Distance"), 0.4),
+                       _math(b, "MULTIPLY", (clump, "Distance"), 0.5),
+                       _math(b, "MULTIPLY", (micro, "Factor"), 0.5),
                        label="snow relief")
 
     else:  # MUD
