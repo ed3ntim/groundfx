@@ -14,7 +14,9 @@ depth. On top of that:
 
 * Sand — Voronoi grains with per-grain colour jitter and a faint quartz sparkle.
 * Snow — Voronoi clumps and crystal facets, a strong ice sparkle (roughness
-  dips to near-mirror on scattered cells), subsurface, and a Fresnel edge sheen.
+  dips to near-mirror on scattered cells), a very-high-frequency crystal-facet
+  micro-normal that shatters each fleck into individually twinkling ice
+  crystals, subsurface, and a Fresnel edge sheen.
 * Mud — lumps, wet Fresnel gloss, and dry cracks (Voronoi edges) that appear as
   the wetness drops.
 
@@ -61,12 +63,13 @@ class LookDefaults:
     __slots__ = ("base_color", "wet_color", "roughness", "detail",
                  "base_wetness", "grain_scale", "subsurface", "ripple",
                  "sparkle", "macro_scale", "crevice", "rough_var", "mottle",
-                 "sparkle_scale", "disp_scale")
+                 "sparkle_scale", "disp_scale", "facet", "facet_scale")
 
     def __init__(self, base_color, wet_color, roughness, detail,
                  base_wetness, grain_scale, subsurface, ripple=0.0,
                  sparkle=0.0, macro_scale=8.0, crevice=0.5, rough_var=0.12,
-                 mottle=0.1, sparkle_scale=600.0, disp_scale=0.004):
+                 mottle=0.1, sparkle_scale=600.0, disp_scale=0.004,
+                 facet=0.0, facet_scale=320.0):
         self.base_color = base_color      # dry albedo (RGB)
         self.wet_color = wet_color        # albedo at full wetness (RGB)
         self.roughness = roughness        # dry roughness 0..1
@@ -82,6 +85,8 @@ class LookDefaults:
         self.mottle = mottle              # fine albedo brightness variation
         self.sparkle_scale = sparkle_scale  # glint fleck density
         self.disp_scale = disp_scale      # true-displacement amplitude, metres
+        self.facet = facet                # crystal-facet micro-normal strength
+        self.facet_scale = facet_scale    # crystal-facet frequency (per unit)
 
 
 LOOKS = {
@@ -96,7 +101,8 @@ LOOKS = {
         roughness=0.42, detail=0.7, base_wetness=0.1,
         grain_scale=22.0, subsurface=0.9, ripple=0.25,
         sparkle=1.0, macro_scale=4.5, crevice=0.6,
-        rough_var=0.22, mottle=0.06, sparkle_scale=150.0, disp_scale=0.022),
+        rough_var=0.22, mottle=0.06, sparkle_scale=150.0, disp_scale=0.022,
+        facet=0.85, facet_scale=300.0),
     ELEM_MUD: LookDefaults(
         base_color=(0.21, 0.15, 0.10), wet_color=(0.07, 0.05, 0.03),
         roughness=0.62, detail=0.6, base_wetness=0.6,
@@ -324,6 +330,17 @@ def build_material(element: str, look: LookDefaults | None = None,
 
     layers, macro, crevice, tint, extra_dark, relief = _structure(
         b, element, look, P, det_eff, n_wet)
+
+    # crystal facets (E8): a very high-frequency cellular micro-relief that
+    # shatters each near-mirror sparkle fleck into many tiny ice facets, so a
+    # sharp sun flashes off *individual* crystals (the twinkle of fresh snow)
+    # rather than glinting off one smooth glossy patch. Normal-only (never the
+    # geometry — displacing cells this fine pillows into bubble-wrap); wetness
+    # melts it (det_eff already folds in the wetness knock-down).
+    if look.facet > 0.0:
+        facet = _voronoi(b, P, look.facet_scale, "F1", randomness=1.0)
+        facet_str = _math(b, "MULTIPLY", det_eff, look.facet, label="facet")
+        layers.append((facet, "Distance", facet_str, 0.0016))
 
     # -- base colour: two-tone macro shading + variation --------------------
     tone_dark = _scale_color(b, (n_base, "Color"), 0.7, "tone dark")

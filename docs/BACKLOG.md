@@ -352,6 +352,7 @@ erkennt den Stillstand und friert automatisch auf ein rendfertiges High-Res-Mesh
 - [x] E8-T1 `mat_builder`: gemeinsame Bausteine (Object-Coords-Noise, Wetness-Mix, Detail-Bump, Track-Darken) — eine Principled-Kette, Elemente unterscheiden sich nur in `LOOKS`-Tabelle
 - [x] E8-T2 Sand: Körnung + Farbvariation (zwei Töne über Noise) + **Track-Ripples** transversal zu `gfx_flow`, per `gfx_comp` auf die Spur maskiert (docs/ripples.png)
 - [x] E8-T3 Schnee: hell, leicht bläuliche Nass-/Track-Farbe, Subsurface-Weight, **Sparkle** (hochfrequentes Voronoi senkt die Roughness in winzigen Facetten → Glitzern unter hartem Licht; Cycles + EEVEE, docs/snow_sparkle.png). Bläue-in-Senken (braucht `gfx_h`-Auswertung) später
+- [x] E8-T3b **Kristallfacetten** (User-Wunsch „Kristallisierung einzelner Schneeflocken sehen"): sehr hochfrequente Voronoi-Mikronormale (`facet`/`facet_scale` in LOOKS, Normal-only) zerbricht jeden Near-Mirror-Sparkle-Fleck in viele winzige Eisfacetten → unter scharfer Sonne blitzen *einzelne* Kristalle diskret auf (Frischschnee-Funkeln) statt eines glatten Glanzflecks. Wetness schmilzt es (über `det_eff`). Generisch für alle Elemente (Default nur Snow >0). Cycles-Nahaufnahme: docs/snow_crystal.png
 - [x] E8-T4 Schlamm: nasser Glanz (Specular ↑, Roughness ↓ mit Wetness), dunkel. Pfützen-in-Senken + Trockenrisse aufgeschoben (brauchen `gfx_h`/`gfx_wet`-Felder → E3-S4)
 
 ### E8-S2 — Als User will ich, dass der Shader auf die Physik reagiert. `M` ✅ (gfx_comp; Rest → E3-S4)
