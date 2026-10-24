@@ -6,6 +6,25 @@
 
 Meilenstein-Zuordnung: M1 = E0–E2, M2 = E3–E4, M3 = E5–E9, M4 = E10, E13–E15, E11, E12 offen.
 
+## v2 (2026-10-24)
+
+Erledigt:
+
+- [x] Solver v2: 8-Nachbar-Paarfluss, Multiskalen-Relaxation, Fließgrenze, Scatter-Verdrängung, Swept-Collider
+- [x] Zwei-Schicht-Kopplung: Material bleibt auf Collidern liegen und fährt mit
+- [x] Look v2 für Sand, Schnee und Schlamm in echter Korngröße
+- [x] Kornebene Sand (`groundfx.grain_layer`)
+- [x] Dateisatz README/CONTEXT/DECISIONS, Marktrecherche `docs/MARKET.md`
+
+Offen, nach Priorität:
+
+- [ ] **V1** Seitliches Haften: Schlamm und nasser Schnee an senkrechten Flächen. Idee: Haft-Schicht als Attribut auf dem Collider-Mesh.
+- [ ] **V2** Boden unter schwebenden Objekten ist eingefroren. Nur Zellen mit echtem Kontakt sollen gesperrt werden.
+- [ ] **V3** Schlamm-Makro: Der Body braucht mehr Struktur (Poren, Luftblasen), und der Himmelsreflex muss gedämpft werden.
+- [ ] **V4** Kornebene für Schnee mit facettierten Eiskristallen und für Schlamm mit Grit.
+- [ ] **V5** Ultra-Performance: Strides adaptiv, Relaxation nur in aktiven Kacheln.
+- [ ] **V6** Lizenzentscheidung durch ed3n (GPL-3.0 gegenüber der Standardlizenz).
+
 ## Offene Beobachtungen / Solver-Qualität (User-Feedback 2026-08-21)
 
 - [x] **B1 Senkrechte Wände am Collider** — GELÖST: (1) Kohäsion skaliert jetzt mit der Zellgröße

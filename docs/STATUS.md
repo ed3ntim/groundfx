@@ -1,11 +1,42 @@
 # GroundFX — Projektstatus
 
-**Letzte Aktualisierung:** 2026-08-21
+**Letzte Aktualisierung:** 2026-10-24
 **Aktueller Meilenstein:** M3 (Workflow) — E7 in Arbeit (E4/M2-Kern fertig)
-**Tests:** 171/171 grün (Blender 5.2.0 LTS, headless)
+**Tests:** 167/167 grün (Blender 5.2.0 LTS, headless)
 
 > Diese Datei ist der Wiedereinstiegspunkt. Wer den Kontext geleert hat, liest
 > `STATUS.md` → `PLAN.md` → `BACKLOG.md` → `API_NOTES.md` und ist wieder im Bild.
+
+---
+
+## Stand 2026-10-24: Solver v2 und Look v2
+
+Der alte Toppling- und Deposit-Solver wurde durch **Solver v2** ersetzt. Die Gründe stehen in `../DECISIONS.md`, die Architektur und die Fallstricke in `../CONTEXT.md`.
+
+**Physik (Solver v2):**
+- Massenerhaltung ist exakt.
+- Die Haufen stellen sich auf den Böschungswinkel ein (p90 28-40°).
+- Im Ruhezustand kriecht nichts.
+- Pflügen: Haufen vor dem Objekt, Graben mit Wällen dahinter, und der Haufen bleibt nach dem Stopp liegen.
+- **Material auf dem Objekt** (Top-Schicht) fährt mit und rutscht über Kanten ab.
+
+**Look v2:** Shader in echter Korngröße.
+- Sand: `docs/v2_sand_*.png`
+- Schnee: `docs/v2_snow_*.png`
+- Schlamm: `docs/v2_mud_*.png`
+
+**Kornebene:** `groundfx.grain_layer` (Sand) erzeugt 3D-Körner im Kamera-Frustum, Beleg `docs/v2_sand_micro_grains.png`.
+
+**Performance in ms/Frame (headless):**
+
+| Quality | ms/Frame |
+|---|---|
+| Low | 9 |
+| Medium | 21 |
+| High | 45 |
+| Ultra | 194 |
+
+Die Abschnitte darunter beschreiben den Stand vor v2 und dienen als Historie.
 
 ---
 

@@ -5,7 +5,7 @@ id = "groundfx"
 version = "0.1.0"
 name = "GroundFX"
 tagline = "Deformable sand, snow and mud that reacts to your objects"
-maintainer = "GroundFX"
+maintainer = "ed3n"
 type = "add-on"
 
 # --- Compatibility ---------------------------------------------------------
