@@ -97,15 +97,15 @@ LOOKS = {
         sparkle=0.7, macro_scale=5.0, crevice=0.6,
         rough_var=0.18, mottle=0.16, sparkle_scale=220.0, disp_scale=0.012),
     ELEM_SNOW: LookDefaults(
-        base_color=(0.90, 0.93, 0.98), wet_color=(0.72, 0.78, 0.90),
-        roughness=0.42, detail=0.7, base_wetness=0.1,
+        base_color=(1.0, 1.0, 1.0), wet_color=(0.72, 0.78, 0.90),
+        roughness=0.55, detail=0.7, base_wetness=0.1,
         grain_scale=22.0, subsurface=0.9, ripple=0.25,
         sparkle=1.0, macro_scale=4.5, crevice=0.6,
         rough_var=0.22, mottle=0.06, sparkle_scale=150.0, disp_scale=0.022,
         facet=0.85, facet_scale=300.0),
     ELEM_MUD: LookDefaults(
-        base_color=(0.21, 0.15, 0.10), wet_color=(0.07, 0.05, 0.03),
-        roughness=0.62, detail=0.6, base_wetness=0.6,
+        base_color=(1.0, 1.0, 1.0), wet_color=(0.07, 0.05, 0.03),
+        roughness=0.6, detail=0.6, base_wetness=0.8,
         grain_scale=16.0, subsurface=0.0, ripple=0.15,
         sparkle=0.0, macro_scale=7.0, crevice=0.7,
         rough_var=0.16, mottle=0.12, sparkle_scale=280.0, disp_scale=0.03),
@@ -320,10 +320,13 @@ def build_material(element: str, look: LookDefaults | None = None,
     n_wet = b.add("ShaderNodeValue", name=MAT_CTRL_WETNESS, label="Wetness")
     n_wet.outputs[0].default_value = wet0
 
-    if element == ELEM_SAND:  # look v2: grain-scale physical shader
-        from . import mat_sand
-        mat_sand.build(tree, {"base": n_base, "rough": n_rough,
-                              "detail": n_detail, "wet": n_wet})
+    # look v2: physically grounded, grain-scale shaders per element
+    from . import mat_sand, mat_snow, mat_mud
+    v2 = {ELEM_SAND: mat_sand.build, ELEM_SNOW: mat_snow.build,
+          ELEM_MUD: mat_mud.build}.get(element)
+    if v2 is not None:
+        v2(tree, {"base": n_base, "rough": n_rough, "detail": n_detail,
+                  "wet": n_wet})
         try:
             mat.displacement_method = "BOTH"
         except (AttributeError, TypeError):

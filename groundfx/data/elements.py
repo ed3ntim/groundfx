@@ -60,9 +60,9 @@ DEFAULTS = {
         bow_wave=0.5, stickiness=0.6, yield_m=0.0, compact_deg=35.0,
         displace=0.35),
     ELEM_MUD: ElementDefaults(
-        ELEM_MUD, "Mud", repose_deg=8.0, cohesion=0.0, flow_rate=0.35,
+        ELEM_MUD, "Mud", repose_deg=10.0, cohesion=0.0, flow_rate=0.7,
         density=1750.0, wetness=0.6, compaction=0.0, recovery=0.0,
-        bow_wave=0.5, stickiness=0.8, yield_m=0.006, compact_deg=4.0,
+        bow_wave=0.5, stickiness=0.8, yield_m=0.003, compact_deg=4.0,
         displace=1.0),
 }
 
