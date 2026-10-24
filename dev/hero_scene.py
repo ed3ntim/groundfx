@@ -122,6 +122,7 @@ def make_box(size=0.2):
 
 def setup_camera(scene, kind, target):
     cam_data = bpy.data.cameras.new("GFX_Cam")
+    cam_data.clip_start = 0.002  # macro: subject is a few cm away
     cam = bpy.data.objects.new("GFX_Cam", cam_data)
     scene.collection.objects.link(cam)
     scene.camera = cam
@@ -135,9 +136,17 @@ def setup_camera(scene, kind, target):
         tx, ty, tz = target
         cam.location = (tx + 0.10, ty - 0.15, tz + 0.06)
         cam_data.lens = 100
+    elif kind == "micro":
+        # ~1:2 reproduction on the sunlit slope of the bow-wave heap
+        target = (tx + 0.33, ty - 0.04, tz + 0.03)
+        tx, ty, tz = target
+        cam.location = (tx + 0.02, ty - 0.045, tz + 0.06)
+        cam_data.lens = 100
     else:  # close
         cam.location = (tx + 0.25, ty - 0.55, tz + 0.22)
         cam_data.lens = 50
+    if kind in ("macro", "micro"):
+        cam["gfx_offset"] = [cam.location[k] - (tx, ty, tz)[k] for k in range(3)]
     tgt = bpy.data.objects.new("GFX_CamTarget", None)
     scene.collection.objects.link(tgt)
     tgt.location = target
@@ -147,7 +156,7 @@ def setup_camera(scene, kind, target):
     con.up_axis = "UP_Y"
     cam_data.dof.use_dof = kind != "wide"
     cam_data.dof.focus_object = tgt
-    cam_data.dof.aperture_fstop = 8.0 if kind == "macro" else 5.6
+    cam_data.dof.aperture_fstop = {"macro": 8.0, "micro": 11.0}.get(kind, 5.6)
     return cam
 
 
@@ -188,12 +197,11 @@ def build(element="SAND", quality="HIGH", size=1.2, cam="close", grains=False):
             kp.interpolation = "BEZIER"
             kp.easing = "AUTO"
 
+    setup_world(scene)
+    setup_camera(scene, cam, (0.0, 0.0, h))
     if grains:
         from groundfx.ops import op_grains
         op_grains.add_grain_layer(bpy.context, domain)
-
-    setup_world(scene)
-    setup_camera(scene, cam, (0.0, 0.0, h))
     return domain, box
 
 
@@ -210,6 +218,28 @@ def _fcurves(obj):
             for bag in strip.channelbags:
                 out.extend(bag.fcurves)
     return out
+
+
+def apply_res(scene, res):
+    scene.render.resolution_x, scene.render.resolution_y = (
+        int(v) for v in res.lower().split("x"))
+    scene.render.resolution_percentage = 100
+
+
+def snap_to_surface(scene):
+    """Macro cameras: put the target on the simulated surface, keep offset."""
+    cam = scene.camera
+    if cam is None or "gfx_offset" not in cam:
+        return
+    tgt = bpy.data.objects.get("GFX_CamTarget")
+    deps = bpy.context.evaluated_depsgraph_get()
+    from mathutils import Vector
+    origin = Vector((tgt.location.x, tgt.location.y, 5.0))
+    hit, loc, _n, _i, ob, _m = scene.ray_cast(deps, origin, Vector((0, 0, -1)))
+    if hit:
+        tgt.location.z = loc.z
+        off = cam["gfx_offset"]
+        cam.location = (loc.x + off[0], loc.y + off[1], loc.z + off[2])
 
 
 def render(scene, out_dir, frames, samples, res, tag):
@@ -231,6 +261,7 @@ def render(scene, out_dir, frames, samples, res, tag):
     for f in range(scene.frame_start, last + 1):
         scene.frame_set(f)  # step the simulation in order
         if f in frames:
+            snap_to_surface(scene)
             scene.render.filepath = os.path.join(out_dir, f"{tag}_f{f:03d}.png")
             bpy.ops.render.render(write_still=True)
             print(f"RENDERED {scene.render.filepath} on {dev}", flush=True)
@@ -238,13 +269,18 @@ def render(scene, out_dir, frames, samples, res, tag):
 
 def main():
     a = _args()
+    apply_res(bpy.context.scene, a.res)  # grain layer reads the resolution
     domain, _box = build(a.element, a.quality, a.size, a.cam, a.grains)
     scene = bpy.context.scene
     frames = [int(f) for f in a.frames.split(",")]
+    if a.grains:
+        deps = bpy.context.evaluated_depsgraph_get()
+        n_inst = sum(1 for i in deps.object_instances if i.is_instance)
+        print(f"INSTANCES {n_inst}", flush=True)
     if a.save:
         bpy.ops.wm.save_as_mainfile(filepath=os.path.abspath(a.save))
     if not a.noderender:
-        tag = f"{a.element.lower()}_{a.cam}"
+        tag = f"{a.element.lower()}_{a.cam}" + ("_grains" if a.grains else "")
         render(scene, a.out, frames, a.samples, a.res, tag)
 
 

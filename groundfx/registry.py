@@ -20,6 +20,7 @@ from .ops import op_bake
 from .ops import op_preset
 from .ops import op_live
 from .ops import op_bench
+from .ops import op_grains
 from .ui import panels
 
 # Order matters: PropertyGroups before the panels/operators that reference
@@ -34,6 +35,7 @@ _MODULES = (
     op_preset,
     op_live,
     op_bench,
+    op_grains,
     panels,
 )
 
