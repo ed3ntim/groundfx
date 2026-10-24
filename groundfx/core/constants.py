@@ -24,7 +24,7 @@ ADDON_NAME = "GroundFX"
 # v11 (E3-S4): gfx_comp recovery + gfx_age + gfx_flow fields, Recovery input.
 # v20 (solver v2): pairwise 8-neighbour relax, exact scatter displacement,
 #      per-vertex collider velocity + swept sub-frame copies, Yield input.
-NODEGROUP_VERSION = 20
+NODEGROUP_VERSION = 21
 
 # --- UI ---------------------------------------------------------------------
 PANEL_CATEGORY = "GroundFX"     # N-panel tab label
@@ -69,7 +69,13 @@ ATTR_COMP = "gfx_comp"          # compaction 0..1 -> shader
 ATTR_WET = "gfx_wet"            # wetness 0..1 -> cohesion & shader
 ATTR_FLOW = "gfx_flow"          # last displacement direction (vector) -> shader
 ATTR_AGE = "gfx_age"            # frames since last disturbance
-ATTR_SURFACE = "gfx_surface"    # base + h, cached for neighbour sampling in relax
+ATTR_SURFACE = "gfx_surface"
+# Two-layer collider coupling (solver v2): a column is *covered* when a
+# collider spans it; gfx_zhi is the collider's top there and gfx_top the
+# material lying on it, which rides along with the collider.
+ATTR_COV = "gfx_cov"
+ATTR_ZHI = "gfx_zhi"
+ATTR_TOP = "gfx_top"    # base + h, cached for neighbour sampling in relax
 
 # --- Collider proxy modes ---------------------------------------------------
 # How a collider is presented to the raycast: the original mesh, or a cheap

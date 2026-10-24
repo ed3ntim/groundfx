@@ -43,7 +43,8 @@ from ..ng_expr import make, V
 from ..ng_zones import make_simulation_zone, make_repeat_zone
 from ..constants import (
     NG_GROUND_SIM, ATTR_HEIGHT, ATTR_BASE, ATTR_OCC, ATTR_COMP, ATTR_AGE,
-    ATTR_FLOW, ATTR_CARVE, DEFAULT_MATERIAL_HEIGHT,
+    ATTR_FLOW, ATTR_CARVE, ATTR_COV, ATTR_ZHI, ATTR_TOP,
+    DEFAULT_MATERIAL_HEIGHT,
 )
 
 # Group input socket names (also used by the property/socket mapping).
@@ -73,6 +74,7 @@ _RAY_DROP = 1.0       # rays start this far under the base (metres)
 _RAY_LENGTH = 50.0
 _CONTACT_EPS = 0.0015  # collider within this of the surface = occupied
 _PAIR_RATE = 0.12      # explicit flux factor; 8 pairs * 0.12 < 1 -> stable
+_TOP_HIDE = 0.0004     # thinner layers on a collider stay invisible (no z-fight)
 _SQRT2 = math.sqrt(2.0)
 # (d_col, d_row, distance in cells) for the four directions a cell owns.
 _DIRS = ((1, 0, 1.0), (0, 1, 1.0), (1, 1, _SQRT2), (-1, 1, _SQRT2))
@@ -166,15 +168,23 @@ def _grid_helpers(g, n):
 
 
 def _relax(g, b, geo, inp):
-    """Repeat zone: pairwise 8-neighbour avalanche toward the repose angle.
+    """Repeat zone of pairwise 8-neighbour avalanching toward the repose angle.
 
-    Multi-scale: the first iterations of every frame exchange between cells 4
-    and then 2 apart (threshold scaled by distance), so a tall heap spreads
-    over many cells in a few iterations; the rest work on direct neighbours
-    and shape the final slope. A long pair only trades if the cell halfway is
-    neither occupied nor higher than both ends - mass never tunnels through a
-    berm or a thin collider. Every pair flux is owned by one cell and read
-    back by its partner, so mass is conserved exactly.
+    Every column *exposes* one surface: free columns their ground
+    (base + h), columns a collider spans the collider's top plus the material
+    lying on it (``gfx_zhi + gfx_top``). Colliders are therefore not walls of
+    infinite height: a bow wave that grows past an object's top spills onto
+    it, material on a tilted or overloaded object slides off its edges, and
+    material under a collider is never touched. The available mass is ``h``
+    or ``gfx_top`` accordingly.
+
+    Each cell owns its E, N, NE, NW pairs and computes their flux once; the
+    partner reads it back, so mass is conserved exactly whatever the
+    threshold. Multi-scale: the first iterations of a frame trade between
+    cells 4 and then 2 apart (threshold scaled by distance) so a tall heap
+    spreads in a few iterations; a long pair only trades if the cell halfway
+    is not covered and not higher than both ends (no tunnelling through a
+    berm or a thin collider).
     """
     rz = make_repeat_zone(b, [("GEOMETRY", "Geometry")])
     g.feed(rz.input, "Iterations", inp["iters"])
@@ -187,17 +197,18 @@ def _relax(g, b, geo, inp):
     n, cell = inp["n"], inp["cell"]
     i, col, row = _grid_helpers(g, n)
     h = g.attr(ATTR_HEIGHT)
-    base = g.attr(ATTR_BASE)
-    occ = g.attr(ATTR_OCC)
     comp = g.attr(ATTR_COMP)
-    s = base + h
-    packed = g.vec(s, h, occ)
+    cov = g.attr(ATTR_COV)
+    covered = cov.gt(0.5)
+    top = g.attr(ATTR_TOP)
+    s = g.switch(covered, g.attr(ATTR_BASE) + h, g.attr(ATTR_ZHI) + top)
+    m = g.switch(covered, h, top)
+    packed = g.vec(s, m, cov)
 
     tan_eff = g.math("TANGENT",
                      (inp["repose"] + comp * inp["compact"]).min(math.radians(85)))
     slope_ok = tan_eff + inp["cohesion"]
     rate = inp["flow"] * _PAIR_RATE
-    free_i = 1.0 - occ
 
     fluxes = []
     for dc, dr, dist in _DIRS:
@@ -208,17 +219,21 @@ def _relax(g, b, geo, inp):
                     (row + stride * dr).lt(n - 0.5))
         nb = g.sample_index(geo, packed, i + stride * step, kind="FLOAT_VECTOR")
         mid = g.sample_index(geo, packed, i + half * step, kind="FLOAT_VECTOR")
-        s_j, h_j, occ_j = nb.x, nb.y, nb.z
-        path_ok = g.math("MULTIPLY", mid.x.lt(s.max(s_j) + 1e-6),
-                         mid.z.lt(0.5))
+        s_j, m_j, cov_j = nb.x, nb.y, nb.z
+        # Long pairs stay on open ground: no collider at either end or
+        # halfway, and no ridge in between. Direct neighbours always trade.
+        long_ok = g.math("MULTIPLY", mid.x.lt(s.max(s_j) + 1e-6),
+                         (mid.z + cov.max(cov_j)).lt(0.5))
+        path_ok = g.math("MAXIMUM", stride.lt(1.5), long_ok)
+        # sticky material clings to an object's surface
+        stick = inp["stick"] * 1.5 * cov.max(cov_j)
         diff = s - s_j
-        h_pair = ((h + h_j) * 0.5).max(1e-4)
-        stable = (slope_ok + inp["yield"] / h_pair) * (cell * dist * stride)
+        m_pair = ((m + m_j) * 0.5).max(1e-4)
+        stable = (slope_ok + stick + inp["yield"] / m_pair) * (cell * dist * stride)
         over = (diff.abs() - stable).max(0.0) * rate
-        h_src = g.switch(diff.gt(0.0), h_j, h)
-        mag = over.min(h_src * 0.125)
-        f = diff.sign() * mag * ok * path_ok * free_i * (1.0 - occ_j)
-        fluxes.append(f)
+        m_src = g.switch(diff.gt(0.0), m_j, m)
+        mag = over.min(m_src * 0.125)
+        fluxes.append(diff.sign() * mag * ok * path_ok)
 
     cap_geo, caps = g.capture(geo, fluxes)
     out_sum = caps[0] + caps[1] + caps[2] + caps[3]
@@ -227,10 +242,56 @@ def _relax(g, b, geo, inp):
         src = i - stride * (dc + dr * n)
         val = g.sample_index(cap_geo, fcap, src)
         inflow = val if inflow is None else inflow + val
-    h_new = (g.attr(ATTR_HEIGHT) - out_sum + inflow).max(0.0)
-    geo2 = g.store(cap_geo, ATTR_HEIGHT, h_new)
+    delta = inflow - out_sum
+    cov2 = g.attr(ATTR_COV).gt(0.5)
+    geo2 = g.store(cap_geo, ATTR_TOP, (g.attr(ATTR_TOP) + delta * cov2).max(0.0))
+    geo2 = g.store(geo2, ATTR_HEIGHT,
+                   (g.attr(ATTR_HEIGHT) + delta * (1.0 - cov2)).max(0.0))
     g.feed(rz.output, "Geometry", geo2)
     return V(g, rz.output.outputs["Geometry"])
+
+
+def _scatter(g, geo, amount, target):
+    """Exact scatter: return a field with, per grid vertex i, the sum of
+    ``amount`` over all vertices whose ``target`` index is i.
+
+    Grid points (amount 0, group = own index) and source points (group =
+    target) are joined and summed per group with Accumulate Field; the grid
+    points keep indices 0..N-1 because Join puts the LAST linked input first.
+    """
+    i = g.index()
+    geo = g.store(geo, "gfx_s_amt", amount)
+    geo = g.store(geo, "gfx_s_tgt", target)
+    amt = g.attr("gfx_s_amt")
+    src = g.out(g.node("GeometryNodeMeshToPoints",
+                       {"Mesh": geo, "Selection": amt.gt(1e-9)}), 0)
+    grid_pts = g.out(g.node("GeometryNodeMeshToPoints", {"Mesh": geo}), 0)
+    grid_pts = g.store(grid_pts, "gfx_s_tgt", i)
+    grid_pts = g.store(grid_pts, "gfx_s_amt", 0.0)
+    join = g.b.add("GeometryNodeJoinGeometry")
+    g.feed(join, 0, src)
+    g.feed(join, 0, grid_pts)
+    joined = g.out(join, 0)
+    acc = g.node("GeometryNodeAccumulateField",
+                 {"Value": g.attr("gfx_s_amt"),
+                  "Group ID": g.attr("gfx_s_tgt").round()},
+                 data_type="FLOAT", domain="POINT")
+    return geo, g.sample_index(joined, g.out(acc, "Total"), i)
+
+
+def _advect_top(g, geo, inp):
+    """Carry the material lying on colliders along with them (last frame's
+    collider velocity per cell), exactly mass-conserving."""
+    n, cell = inp["n"], inp["cell"]
+    i, col, row = _grid_helpers(g, n)
+    v = g.attr("gfx_vel", "FLOAT_VECTOR")
+    c2 = (col + v.x / cell).round()
+    r2 = (row + v.y / cell).round()
+    inside = g.math("MULTIPLY",
+                    g.math("MULTIPLY", c2.gt(-0.5), c2.lt(n - 0.5)),
+                    g.math("MULTIPLY", r2.gt(-0.5), r2.lt(n - 0.5)))
+    tgt = g.switch(inside, i, r2 * n + c2)
+    return _scatter(g, geo, g.attr(ATTR_TOP), tgt)
 
 
 def _displace(g, geo, inp, pushed, vel):
@@ -254,10 +315,8 @@ def _displace(g, geo, inp, pushed, vel):
     # Sources: one point per cell that lost material this frame.
     geo = g.store(geo, "gfx_push", pushed)
     geo = g.store(geo, "gfx_vh", vel, kind="FLOAT_VECTOR")
-    push_a = g.attr("gfx_push")
-    src = g.node("GeometryNodeMeshToPoints",
-                 {"Mesh": geo, "Selection": push_a.gt(1e-7)})
-    src = g.out(src, 0)
+    # Target per grid vertex: the ring cell nearest to a query point nudged
+    # along the collider motion (bow wave) and jittered over a few cells.
     v = g.attr("gfx_vh", "FLOAT_VECTOR")
     vh = g.vec(v.x, v.y, 0.0)
     speed = vh.length()
@@ -268,22 +327,9 @@ def _displace(g, geo, inp, pushed, vel):
                           {"Geometry": ring, "Sample Position": q},
                           domain="POINT"), 0)
     tgt = g.sample_index(ring, g.attr("gfx_src_i"), near_i)
-    src = g.store(src, "gfx_grp", tgt)
-    src = g.store(src, "gfx_amt", push_a)
 
-    grid_pts = g.out(g.node("GeometryNodeMeshToPoints", {"Mesh": geo}), 0)
-    grid_pts = g.store(grid_pts, "gfx_grp", i)
-    grid_pts = g.store(grid_pts, "gfx_amt", 0.0)
-    join = g.b.add("GeometryNodeJoinGeometry")
-    g.feed(join, 0, src)       # Join puts the LAST linked input first:
-    g.feed(join, 0, grid_pts)  # grid points keep indices 0..N-1.
-    joined = g.out(join, 0)
-    acc = g.node("GeometryNodeAccumulateField",
-                 {"Value": g.attr("gfx_amt"),
-                  "Group ID": g.attr("gfx_grp").round()},
-                 data_type="FLOAT", domain="POINT")
-    arrive = g.sample_index(joined, g.out(acc, "Total"), i)
-    return geo, arrive
+    geo = g.store(geo, "gfx_tgt", tgt, selection=g.attr("gfx_push").gt(1e-9))
+    return _scatter(g, geo, g.attr("gfx_push"), g.attr("gfx_tgt"))
 
 
 def build(name: str = NG_GROUND_SIM):
@@ -300,6 +346,7 @@ def build(name: str = NG_GROUND_SIM):
         "cohesion": I(IN_COHESION), "yield": I(IN_YIELD),
         "compact": I(IN_COMPACT_ANGLE), "flow": I(IN_FLOW),
         "iters": I(IN_RELAX_ITERS), "bow": I(IN_BOW_WAVE),
+        "stick": I(IN_STICKINESS),
     }
 
     # ---- initial state ------------------------------------------------------
@@ -307,10 +354,11 @@ def build(name: str = NG_GROUND_SIM):
     geo0 = g.store(geo0, ATTR_BASE, g.position().z)
     # Optional painted start layer (gfx_init) on top of the uniform height.
     geo0 = g.store(geo0, ATTR_HEIGHT, I(IN_MATERIAL_HEIGHT) + g.attr("gfx_init"))
-    for a in (ATTR_OCC, ATTR_COMP, ATTR_CARVE):
+    for a in (ATTR_OCC, ATTR_COMP, ATTR_CARVE, ATTR_COV, ATTR_ZHI, ATTR_TOP):
         geo0 = g.store(geo0, a, 0.0)
     geo0 = g.store(geo0, ATTR_AGE, 1000.0)
     geo0 = g.store(geo0, ATTR_FLOW, g.vec(), kind="FLOAT_VECTOR")
+    geo0 = g.store(geo0, "gfx_vel", g.vec(), kind="FLOAT_VECTOR")
 
     sim = make_simulation_zone(b, [("GEOMETRY", STATE_PREV)])
     g.feed(sim.input, "Geometry", geo0)
@@ -321,6 +369,10 @@ def build(name: str = NG_GROUND_SIM):
     # ---- 1. colliders -------------------------------------------------------
     cur = _colliders(g, gin)
     swept, cur = _swept(g, cur, prev, I(IN_CARVE_SUBSTEPS))
+
+    # ---- 1b. material riding on colliders moves with them -------------------
+    geo, arrive_top = _advect_top(g, geo, inp)
+    geo = g.store(geo, ATTR_TOP, arrive_top)
 
     # ---- 2. carve -------------------------------------------------------------
     pos = g.position()
@@ -336,11 +388,26 @@ def build(name: str = NG_GROUND_SIM):
     hit = g.out(ray, "Is Hit")
     lo = g.switch(hit, 1e6, g.out(ray, "Hit Position").z)
     vel = g.switch(hit, g.vec(), g.out(ray, "Attribute"), kind="VECTOR")
+    # Top of the collider over this column, for material lying on it.
+    ray_top = g.node("GeometryNodeRaycast",
+                     {"Target Geometry": cur,
+                      "Source Position": g.vec(pos.x, pos.y, base + _RAY_LENGTH * 0.5),
+                      "Ray Direction": (0.0, 0.0, -1.0),
+                      "Ray Length": _RAY_LENGTH},
+                     data_type="FLOAT")
+    zhi = g.out(ray_top, "Hit Position").z
+    covered = g.math("MULTIPLY", hit, g.out(ray_top, "Is Hit"))
     surf = base + h
     occ = lo.lt(surf + _CONTACT_EPS)
     removed = (surf - lo).max(0.0).min(h)
-    geo, caps = g.capture(geo, [occ, removed, vel])
-    occ, removed, vel = caps
+    geo, caps = g.capture(geo, [occ, removed, vel, covered, zhi])
+    occ, removed, vel, covered, zhi = caps
+    # Material on a collider that has left this column falls to the ground.
+    top = g.attr(ATTR_TOP)
+    geo = g.store(geo, ATTR_HEIGHT, g.attr(ATTR_HEIGHT) + top * (1.0 - covered))
+    geo = g.store(geo, ATTR_TOP, top * covered)
+    geo = g.store(geo, ATTR_COV, covered)
+    geo = g.store(geo, ATTR_ZHI, zhi)
     geo = g.store(geo, ATTR_OCC, occ)
     geo = g.store(geo, ATTR_CARVE, removed)
     geo = g.store(geo, "gfx_vel", vel, kind="FLOAT_VECTOR")
@@ -351,7 +418,7 @@ def build(name: str = NG_GROUND_SIM):
     geo, arrive = _displace(g, geo, inp, pushed, vel)
     geo = g.store(geo, ATTR_HEIGHT, g.attr(ATTR_HEIGHT) + arrive)
 
-    # ---- 4. relax ---------------------------------------------------------------
+    # ---- 4. relax: ground avalanches, then spill onto / off colliders --------
     geo = _relax(g, b, geo, inp)
 
     # ---- 5. fields ----------------------------------------------------------------
@@ -374,7 +441,35 @@ def build(name: str = NG_GROUND_SIM):
     p = g.position()
     out_pos = g.vec(p.x, p.y, g.attr(ATTR_BASE) + g.attr(ATTR_HEIGHT))
     sp = g.node("GeometryNodeSetPosition", {"Geometry": geo, "Position": out_pos})
-    g.feed(gout, OUT_GEOMETRY, g.out(sp, 0))
+    ground = g.out(sp, 0)
+
+    # Material lying on colliders: the covered part of the grid lifted to the
+    # collider top + layer. Kept as an instance so the domain's mesh stays the
+    # plain simulation grid (bake/freeze/readers rely on that).
+    # The sheet reaches half a cell past the collider's edge and closes down
+    # onto the collider's top plane there, so it never shows an open edge.
+    cov = g.attr(ATTR_COV)
+    t_vis = (g.attr(ATTR_TOP) - _TOP_HIDE).max(0.0) * cov
+    cw = g.out(g.node("GeometryNodeBlurAttribute",
+                      {"Value": cov, "Iterations": 1}, data_type="FLOAT"), 0)
+    zw = g.out(g.node("GeometryNodeBlurAttribute",
+                      {"Value": g.attr(ATTR_ZHI) * cov, "Iterations": 1},
+                      data_type="FLOAT"), 0)
+    z_edge = g.switch(cov.gt(0.5), zw / cw.max(1e-6), g.attr(ATTR_ZHI))
+    geo_t = g.store(geo, "gfx_zt", z_edge + t_vis - _TOP_HIDE)
+    geo_t = g.store(geo_t, "gfx_tv", t_vis)
+    keep = g.math("MULTIPLY", g.attr("gfx_tv").gt(0.0), cw.gt(1e-3))
+    dele = g.node("GeometryNodeDeleteGeometry",
+                  {"Geometry": geo_t, "Selection": keep.lt(1e-3)},
+                  domain="FACE", mode="ALL")
+    top_pos = g.vec(p.x, p.y, g.attr("gfx_zt"))
+    tsp = g.node("GeometryNodeSetPosition",
+                 {"Geometry": g.out(dele, 0), "Position": top_pos})
+    inst = g.node("GeometryNodeGeometryToInstance", {0: g.out(tsp, 0)})
+    join = b.add("GeometryNodeJoinGeometry")
+    g.feed(join, 0, g.out(inst, 0))
+    g.feed(join, 0, ground)
+    g.feed(gout, OUT_GEOMETRY, g.out(join, 0))
 
     b.layout()
     return tree

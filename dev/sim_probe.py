@@ -27,7 +27,7 @@ def stats(domain):
         out = np.zeros(n, dtype=np.float32)
         a.data.foreach_get("value", out)
         return out
-    return arr("gfx_h"), arr("gfx_occ"), arr("gfx_carve")
+    return arr("gfx_h"), arr("gfx_occ"), arr("gfx_carve"), arr("gfx_top")
 
 
 def main():
@@ -58,14 +58,16 @@ def main():
     for f in range(1, frames + 1):
         t = time.perf_counter()
         scene.frame_set(f)
-        h, occ, carve = stats(domain)
+        h, occ, carve, top = stats(domain)
         dt = (time.perf_counter() - t) * 1000
         if h is None:
             print(f"f{f}: no gfx_h")
             continue
+        top = top if top is not None else np.zeros_like(h)
         if h0 is None:
-            h0 = h.sum()
-        print(f"f{f:3d} {dt:6.0f}ms mass {h.sum() / h0:7.4f} "
+            h0 = h.sum() + top.sum()
+        print(f"f{f:3d} {dt:6.0f}ms mass {(h.sum() + top.sum()) / h0:7.4f} "
+              f"top {top.sum():.3f}/{top.max() * 1000:.1f}mm "
               f"min {h.min():.4f} max {h.max():.4f} occ {int((occ > 0.5).sum())} "
               f"carve {carve.sum():.3f} nan {int(np.isnan(h).sum())}")
 
