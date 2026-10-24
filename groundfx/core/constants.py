@@ -22,7 +22,9 @@ ADDON_NAME = "GroundFX"
 # v9 (E3-S5): swept carve along collider motion + Carve Substeps input.
 # v10 (P1): static-friction hold in relaxation + Stickiness input.
 # v11 (E3-S4): gfx_comp recovery + gfx_age + gfx_flow fields, Recovery input.
-NODEGROUP_VERSION = 11
+# v20 (solver v2): pairwise 8-neighbour relax, exact scatter displacement,
+#      per-vertex collider velocity + swept sub-frame copies, Yield input.
+NODEGROUP_VERSION = 20
 
 # --- UI ---------------------------------------------------------------------
 PANEL_CATEGORY = "GroundFX"     # N-panel tab label

@@ -29,3 +29,4 @@ desktop.ini
 .idea/
 dist/
 groundfx/**/__pycache__/
+dev/_renders/

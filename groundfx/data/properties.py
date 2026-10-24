@@ -62,9 +62,7 @@ def _push_element(self, context):
         return
     ed = emod.defaults(self.element)
     look = matb.look_defaults(self.element)
-    modifier_io.set_input(md, gsim.IN_REPOSE, ed.repose_rad, tag=False)
-    modifier_io.set_input(md, gsim.IN_FLOW, ed.flow_rate, tag=False)
-    modifier_io.set_input(md, gsim.IN_BOW_WAVE, ed.bow_wave, tag=False)
+    emod.push_physics(md, ed, tag=False)
 
     # Reset the Look to the new element's defaults (snow should look like snow),
     # then rebuild the material from those — but only if the domain still wears

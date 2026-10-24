@@ -41,16 +41,16 @@ class QualityProfile:
 
 PROFILES = {
     QUALITY_LOW: QualityProfile(
-        QUALITY_LOW, "Low", resolution=64, relax_iterations=2, substeps=1,
+        QUALITY_LOW, "Low", resolution=64, relax_iterations=4, substeps=1,
         spray_cap=0, display_subdiv=0, detail_displace=False, target_ms=(0.5, 2.0)),
     QUALITY_MEDIUM: QualityProfile(
-        QUALITY_MEDIUM, "Medium", resolution=128, relax_iterations=4, substeps=1,
+        QUALITY_MEDIUM, "Medium", resolution=128, relax_iterations=8, substeps=2,
         spray_cap=5000, display_subdiv=1, detail_displace=False, target_ms=(3.0, 6.0)),
     QUALITY_HIGH: QualityProfile(
-        QUALITY_HIGH, "High", resolution=256, relax_iterations=6, substeps=2,
+        QUALITY_HIGH, "High", resolution=256, relax_iterations=14, substeps=3,
         spray_cap=20000, display_subdiv=1, detail_displace=True, target_ms=(10.0, 20.0)),
     QUALITY_ULTRA: QualityProfile(
-        QUALITY_ULTRA, "Ultra", resolution=512, relax_iterations=10, substeps=3,
+        QUALITY_ULTRA, "Ultra", resolution=512, relax_iterations=24, substeps=4,
         spray_cap=80000, display_subdiv=2, detail_displace=True, target_ms=(40.0, 120.0)),
 }
 

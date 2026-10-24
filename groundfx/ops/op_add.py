@@ -97,18 +97,11 @@ def create_domain(context, element: str,
     # Seed modifier inputs from element physics + quality/grid geometry.
     ed = emod.defaults(element)
     modifier_io.set_input(md, gsim.IN_MATERIAL_HEIGHT, st.material_height, tag=False)
-    modifier_io.set_input(md, gsim.IN_REPOSE, ed.repose_rad, tag=False)
-    modifier_io.set_input(md, gsim.IN_COHESION, ed.cohesion, tag=False)
-    modifier_io.set_input(md, gsim.IN_FLOW, ed.flow_rate, tag=False)
     modifier_io.set_input(md, gsim.IN_RELAX_ITERS, prof.relax_iterations, tag=False)
     modifier_io.set_input(md, gsim.IN_CELL_SIZE, size / prof.resolution, tag=False)
     modifier_io.set_input(md, gsim.IN_GRID_N, prof.resolution + 1, tag=False)
-    modifier_io.set_input(md, gsim.IN_DISPLACE_RATIO, 0.7, tag=False)
-    modifier_io.set_input(md, gsim.IN_DEPOSIT_ITERS, 6, tag=False)
     modifier_io.set_input(md, gsim.IN_CARVE_SUBSTEPS, prof.substeps, tag=False)
-    modifier_io.set_input(md, gsim.IN_STICKINESS, ed.stickiness, tag=False)
-    modifier_io.set_input(md, gsim.IN_RECOVERY, ed.recovery, tag=False)
-    modifier_io.set_input(md, gsim.IN_BOW_WAVE, ed.bow_wave, tag=True)
+    emod.push_physics(md, ed, tag=True)
     st.stickiness = ed.stickiness
 
     # Procedural material (E8): seed the Look sliders from the element defaults
@@ -243,19 +236,13 @@ def push_all_inputs(obj) -> bool:
 
     set = modifier_io.set_input
     set(md, gsim.IN_MATERIAL_HEIGHT, st.material_height, tag=False)
-    set(md, gsim.IN_REPOSE, ed.repose_rad, tag=False)
-    set(md, gsim.IN_COHESION, coh, tag=False)
-    set(md, gsim.IN_FLOW, ed.flow_rate, tag=False)
     set(md, gsim.IN_RELAX_ITERS, prof.relax_iterations, tag=False)
     set(md, gsim.IN_CELL_SIZE, size / prof.resolution, tag=False)
     set(md, gsim.IN_GRID_N, prof.resolution + 1, tag=False)
-    set(md, gsim.IN_DISPLACE_RATIO, 0.7, tag=False)
-    set(md, gsim.IN_DEPOSIT_ITERS, 6, tag=False)
     set(md, gsim.IN_CARVE_SUBSTEPS, prof.substeps, tag=False)
-    set(md, gsim.IN_STICKINESS, st.stickiness, tag=False)
-    set(md, gsim.IN_RECOVERY, ed.recovery, tag=False)
-    set(md, gsim.IN_BOW_WAVE, ed.bow_wave, tag=False)
     set(md, gsim.IN_CONTACT_AA, 1.0 if st.hero_contact else 0.0, tag=False)
+    emod.push_physics(md, ed, cohesion=coh, tag=False)
+    set(md, gsim.IN_STICKINESS, st.stickiness, tag=False)
     if st.collider_collection is not None:
         set(md, gsim.IN_COLLIDER_COLLECTION, st.collider_collection, tag=True)
     return True

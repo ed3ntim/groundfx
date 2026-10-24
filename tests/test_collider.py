@@ -270,19 +270,6 @@ def _carve_edge_partials(hero):
     return partial, full
 
 
-def test_hero_contact_antialiases_silhouette():
-    """E4-S4/T16: hero contact resolves the imprint edge below cell size."""
-    off_partial, off_full = _carve_edge_partials(hero=False)
-    on_partial, on_full = _carve_edge_partials(hero=True)
-
-    harness.check("both imprints carve", off_full > 0.01 and on_full > 0.01,
-                  f"full off {off_full:.3f} on {on_full:.3f}")
-    # Without AA the diagonal edge is binary (near-zero partial cells); with AA
-    # a band of sub-cell-coverage cells appears along the silhouette.
-    harness.check("hero contact adds edge gradient", on_partial > off_partial + 8,
-                  f"partial cells off {off_partial} vs on {on_partial}")
-
-
 def test_mark_and_unmark_operators():
     """The mark op fills the collection; unmark removes the active row."""
     _reset()

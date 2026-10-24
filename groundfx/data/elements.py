@@ -19,10 +19,11 @@ from ..core.constants import ELEM_SAND, ELEM_SNOW, ELEM_MUD
 class ElementDefaults:
     __slots__ = ("key", "label", "repose_deg", "cohesion", "flow_rate",
                  "density", "wetness", "compaction", "recovery", "bow_wave",
-                 "stickiness")
+                 "stickiness", "yield_m", "compact_deg", "displace")
 
     def __init__(self, key, label, repose_deg, cohesion, flow_rate, density,
-                 wetness, compaction, recovery, bow_wave, stickiness=0.0):
+                 wetness, compaction, recovery, bow_wave, stickiness=0.0,
+                 yield_m=0.0, compact_deg=12.0, displace=0.95):
         self.key = key
         self.label = label
         self.repose_deg = repose_deg      # angle of repose, degrees
@@ -33,7 +34,14 @@ class ElementDefaults:
         self.compaction = compaction      # how readily it packs 0..1
         self.recovery = recovery          # how fast compaction relaxes 0..1
         self.bow_wave = bow_wave          # directional heaping ahead 0..1
-        self.stickiness = stickiness      # static-friction margin 0..1 (P1)
+        self.stickiness = stickiness      # clings to colliders 0..1 (coat)
+        self.yield_m = yield_m            # Bingham yield as a length (mud)
+        self.compact_deg = compact_deg    # packed material holds this steeper
+        self.displace = displace          # share pushed aside, rest compacts
+
+    @property
+    def compact_rad(self) -> float:
+        return math.radians(self.compact_deg)
 
     @property
     def repose_rad(self) -> float:
@@ -42,19 +50,40 @@ class ElementDefaults:
 
 DEFAULTS = {
     ELEM_SAND: ElementDefaults(
-        ELEM_SAND, "Sand", repose_deg=34.0, cohesion=0.02, flow_rate=0.8,
-        density=1600.0, wetness=0.0, compaction=0.3, recovery=0.1,
-        bow_wave=0.7, stickiness=0.05),
+        ELEM_SAND, "Sand", repose_deg=34.0, cohesion=0.02, flow_rate=1.0,
+        density=1600.0, wetness=0.0, compaction=0.05, recovery=0.1,
+        bow_wave=0.7, stickiness=0.15, yield_m=0.0, compact_deg=5.0,
+        displace=0.95),
     ELEM_SNOW: ElementDefaults(
-        ELEM_SNOW, "Snow", repose_deg=40.0, cohesion=0.10, flow_rate=0.5,
-        density=80.0, wetness=0.1, compaction=0.6, recovery=0.02,
-        bow_wave=0.6, stickiness=0.25),
+        ELEM_SNOW, "Snow", repose_deg=40.0, cohesion=0.25, flow_rate=0.6,
+        density=150.0, wetness=0.1, compaction=0.65, recovery=0.0,
+        bow_wave=0.5, stickiness=0.6, yield_m=0.0, compact_deg=35.0,
+        displace=0.35),
     ELEM_MUD: ElementDefaults(
-        ELEM_MUD, "Mud", repose_deg=18.0, cohesion=0.45, flow_rate=0.3,
-        density=1750.0, wetness=0.6, compaction=0.2, recovery=0.05,
-        bow_wave=0.45, stickiness=0.4),
+        ELEM_MUD, "Mud", repose_deg=8.0, cohesion=0.0, flow_rate=0.35,
+        density=1750.0, wetness=0.6, compaction=0.0, recovery=0.0,
+        bow_wave=0.5, stickiness=0.8, yield_m=0.006, compact_deg=4.0,
+        displace=1.0),
 }
 
 
 def defaults(key: str) -> ElementDefaults:
     return DEFAULTS[key]
+
+
+def push_physics(md, ed: ElementDefaults, *, cohesion=None, tag=True) -> None:
+    """Push one element's full physics set into a solver modifier."""
+    from ..core import modifier_io
+    from ..core.nodegroups import ng_ground_sim as gsim
+
+    set_ = modifier_io.set_input
+    set_(md, gsim.IN_REPOSE, ed.repose_rad, tag=False)
+    set_(md, gsim.IN_COHESION, ed.cohesion if cohesion is None else cohesion,
+         tag=False)
+    set_(md, gsim.IN_YIELD, ed.yield_m, tag=False)
+    set_(md, gsim.IN_COMPACT_ANGLE, ed.compact_rad, tag=False)
+    set_(md, gsim.IN_DISPLACE_RATIO, ed.displace, tag=False)
+    set_(md, gsim.IN_FLOW, ed.flow_rate, tag=False)
+    set_(md, gsim.IN_BOW_WAVE, ed.bow_wave, tag=False)
+    set_(md, gsim.IN_RECOVERY, ed.recovery, tag=False)
+    set_(md, gsim.IN_STICKINESS, ed.stickiness, tag=tag)

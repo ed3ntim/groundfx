@@ -91,8 +91,8 @@ class LookDefaults:
 
 LOOKS = {
     ELEM_SAND: LookDefaults(
-        base_color=(0.64, 0.50, 0.31), wet_color=(0.33, 0.22, 0.11),
-        roughness=0.95, detail=1.0, base_wetness=0.0,
+        base_color=(1.0, 1.0, 1.0), wet_color=(0.33, 0.22, 0.11),
+        roughness=0.92, detail=1.0, base_wetness=0.0,
         grain_scale=42.0, subsurface=0.0, ripple=0.6,
         sparkle=0.7, macro_scale=5.0, crevice=0.6,
         rough_var=0.18, mottle=0.16, sparkle_scale=220.0, disp_scale=0.012),
@@ -319,6 +319,16 @@ def build_material(element: str, look: LookDefaults | None = None,
     n_detail.outputs[0].default_value = det0
     n_wet = b.add("ShaderNodeValue", name=MAT_CTRL_WETNESS, label="Wetness")
     n_wet.outputs[0].default_value = wet0
+
+    if element == ELEM_SAND:  # look v2: grain-scale physical shader
+        from . import mat_sand
+        mat_sand.build(tree, {"base": n_base, "rough": n_rough,
+                              "detail": n_detail, "wet": n_wet})
+        try:
+            mat.displacement_method = "BOTH"
+        except (AttributeError, TypeError):
+            pass
+        return mat
 
     tex = b.add("ShaderNodeTexCoord")
     P = (tex, "Object")
