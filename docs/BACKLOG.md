@@ -23,7 +23,7 @@ Offen, nach Priorität:
 - [ ] **V3** Schlamm-Makro: Der Body braucht mehr Struktur (Poren, Luftblasen), und der Himmelsreflex muss gedämpft werden.
 - [ ] **V4** Kornebene für Schnee mit facettierten Eiskristallen und für Schlamm mit Grit.
 - [ ] **V5** Ultra-Performance: Strides adaptiv, Relaxation nur in aktiven Kacheln.
-- [ ] **V6** Lizenzentscheidung durch ed3n (GPL-3.0 gegenüber der Standardlizenz).
+- [ ] **V6** Manifest und SPDX-Header an `LICENSE.md` (PolyForm NC) angleichen, nach Klärung der bpy-GPL-Frage.
 
 ## Offene Beobachtungen / Solver-Qualität (User-Feedback 2026-08-21)
 

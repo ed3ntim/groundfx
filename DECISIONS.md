@@ -3,11 +3,11 @@
 Kurzer Log: was, warum. Neueste oben. Ältere Detailentscheidungen stehen in
 `docs/OPEN_QUESTIONS.md` und `docs/PLAN.md`.
 
-## 2026-10-24 Lizenz nicht umgestellt
+## 2026-10-24 Lizenz: PolyForm Noncommercial (ed3n)
 
-Standard wäre PolyForm Noncommercial. Blender-Addons importieren `bpy` und
-gelten damit als GPL-abgeleitet; ein Wechsel kollidiert mit fremden Rechten.
-Deshalb bleibt GPL-3.0-or-later, bis ed3n entscheidet.
+ed3n hat PolyForm Noncommercial 1.0.0 festgelegt. Manifest und SPDX-Header
+(noch GPL-3.0) sind nicht angeglichen. Offen ist, ob GPL-Implikationen von
+`bpy` und der Vertrieb über extensions.blender.org dagegen sprechen.
 
 ## 2026-10 Solver v2 statt Toppling plus Deposit
 

@@ -79,7 +79,8 @@ Kompaktionsanteil `1 - displace` verschwindet bewusst.
 
 ## Lizenz
 
-Manifest und SPDX-Header stehen auf GPL-3.0-or-later. Blender-Addons, die `bpy`
-importieren, gelten nach Blender-Foundation-Auslegung als GPL-abgeleitet. Die
-Standardlizenz (PolyForm Noncommercial) wurde deshalb **nicht** eingesetzt;
-Entscheidung durch ed3n offen.
+Repo-Lizenz ist PolyForm Noncommercial 1.0.0 (`LICENSE.md`, `COMMERCIAL.md`,
+festgelegt von ed3n). Inkonsistent ist noch: `blender_manifest.toml` und rund
+65 SPDX-Header stehen auf GPL-3.0-or-later. Angleichen erst nach
+Entscheidung, weil Blender-Addons über `bpy` als GPL-abgeleitet gelten und
+extensions.blender.org nur GPL-kompatible Lizenzen annimmt.
