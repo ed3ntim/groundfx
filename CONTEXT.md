@@ -63,6 +63,59 @@ Die Stufe ist opt-in (`obj.groundfx.surface_detail`). `create_domain` liefert
 ohne `surface=True` das nackte Sim-Gitter, darauf verlassen sich Tests, Bake
 und Freeze. Die UI-Operatoren schalten sie ein.
 
+## Gen 4: fliegendes Material (`ng_ejecta.py`, `ng_spray.py`, seit 2026-11-12)
+
+Auslöser: Vergleich mit Hurricane (BeFX, XPBD-Partikel) und realen Aufnahmen.
+Ein Höhenfeld kann Material nur seitlich von Zelle zu Zelle schieben. Was
+Sand im Film echt macht, ist die Phase in der Luft: Schleier, Strähnen,
+einzelne Körner. Die fehlte komplett. GroundFX hat jetzt drei Zustände:
+Bett (`gfx_h`), Top-Schicht (`gfx_top`), Luft (Partikel).
+
+Solver (`ng_ejecta`, zweiter Simulationszustand `Ejecta`, eine Punktwolke):
+
+- **Start.** Das Volumen, das die Verdrängung auf den Ring legen würde, wird
+  nach der Geschwindigkeit des nächsten belegten Collider-Punkts geteilt:
+  unter 0,25 m/s bleibt alles im Bett, ab 2,2 m/s fliegt der Anteil `Spray`.
+  Startgeschwindigkeit: Collider-Geschwindigkeit (0,45 bis 1,0), dazu ein
+  Anteil nach außen und nach oben, alles gestreut. Zufälliger Startzeitpunkt
+  innerhalb des Frames, sonst stroboskopiert der Schleier.
+- **Flug.** Schwerkraft plus quadratischer Luftwiderstand, halb-implizit.
+  Kleine Partikel bremsen stärker (Regel von DNEG für *Dune*).
+- **Landung.** Unter der Bettoberfläche oder auf der Oberseite eines
+  Colliders: Volumen geht per Accumulate-Scatter exakt zurück in `gfx_h`
+  bzw. `gfx_top`. Trifft ein Partikel eine Flanke, fährt es mit der Fläche
+  mit und fällt daneben herunter.
+- Gelandete Partikel bleiben 4 Frames als Geist (Volumen 0), damit die
+  Körner der Anzeige zu Ende fallen können.
+
+Anzeige (`ng_spray`, Modifier `GroundFX Spray`, letzte Stufe, ohne Zustand):
+Jedes Partikel wird zu so vielen Körnern, wie sein Volumen enthält (mal
+`Detail`, Deckel `Max Grains`). Jedes Korn sitzt einen zufälligen Bruchteil
+eines Frames zurück auf der Bahn und hat eine eigene kleine
+Geschwindigkeitsabweichung, die Wolke wächst also mit der Flugzeit. Körner
+unter dem sichtbaren Boden werden entfernt (Raycast). Punkte mit
+`velocity`-Attribut, Cycles rendert sie als Kugeln mit Motion Blur.
+
+Gemessen (Box 20 cm, 1,5 m/s, Quality Medium): Spitze rund 700 Partikel und
+1,7 l in der Luft. Im 6-m-Feld bleibt die Summe aus Bett und Luft nach dem
+Stopp exakt gleich. Im 2-m-Feld fehlt, was über den Rand fliegt.
+
+Nur für Sand, und nur wo der volle Look verlangt ist (`surface=True` bzw.
+UI): `create_domain` ohne das bleibt bei `spray = 0`. Der Solver-Eingang
+`Spray` hat den Standard 0.
+
+Fallstricke:
+
+- **Attribute Domain Size** stürzt in 5.2 auf einer Punktwolke ab, deren
+  letzter Punkt gerade gelöscht wurde. Zählen über Attribute Statistic.
+- **Remove Named Attribute**: `Pattern Mode` ist ein Menü-Socket
+  ("Wildcard"), keine Node-Property.
+- Punkte aus Mesh to Points erben alle Gitter-Attribute. Vor dem Speichern
+  der Partikel-Attribute mit `gfx_*` entfernen, sonst vervielfacht die
+  Anzeige jedes davon mit der Kornzahl.
+- `evaluated_geometry()` in Python: das GeometrySet in einer Variable
+  halten, sonst ist `pointcloud` sofort ungültig.
+
 ## Schlamm Gen 3
 
 Profil der Surface-Stufe für Schlamm:
@@ -188,6 +241,11 @@ stand als Wand über dem Objekt.
 
 ## Bekannte Grenzen
 
+- Fliegendes Material: kein Staub (feine Schwebfraktion), Körner stoßen
+  nicht untereinander und prallen nicht ab, nur Sand. Staub als Volumen
+  braucht additive Dichte aus Punkten: in 5.2 nicht vorhanden, 5.3 bringt
+  laut Release Notes "Rasterize Points" (ungeprüft, 5.3 ist hier nicht
+  installiert).
 - Boden unter schwebenden (bedeckten, aber nicht berührenden) Objekten ist
   eingefroren.
 - Seitliches Haften an senkrechten Flächen (Schlamm an Reifenflanken) fehlt.

@@ -3,6 +3,26 @@
 Kurzer Log: was, warum. Neueste oben. Ältere Detailentscheidungen stehen in
 `docs/OPEN_QUESTIONS.md` und `docs/PLAN.md`.
 
+## 2026-11-12 Gen 4: Hybrid aus Höhenfeld und Partikeln, kein Partikel-Solver
+
+Hurricane simuliert das ganze Bett als XPBD-Partikel in nativem Code. Das
+ergibt echte 3D-Dynamik, kostet aber Auflösung: Ein Bett aus Partikeln hat
+nie Korngröße, und im Viewport läuft es nicht flüssig. GroundFX bleibt beim
+Höhenfeld für die Masse und nimmt Partikel nur für das, was das Höhenfeld
+nicht kann: Material in der Luft. Das ist das Muster der Filmproduktion
+(Bett als Feld, Partikel an der Interaktion, Vervielfachung für den Render).
+
+- Partikel leben im Solver, nicht in der Anzeige, weil die Kopplung in
+  beide Richtungen massengenau sein soll: Was fliegt, fehlt im Bett, und
+  was landet, lawiniert weiter.
+- Wenige Partikel (tausende) mit Volumen, die Körner entstehen analytisch
+  in der Anzeige. So bleibt die Simulation viewport-tauglich und der Render
+  bekommt trotzdem die reale Kornzahl.
+- Die Startregel hängt an der Collider-Geschwindigkeit. Langsamer Kontakt
+  verhält sich exakt wie Solver v2, deshalb bleiben alle alten Tests grün.
+- Standard aus für geskriptete Domains, an für die UI-Operatoren, wie bei
+  der Surface-Stufe.
+
 ## 2026-11-12 Gen 3: Anzeige-Stufe getrennt vom Solver
 
 Die Lücke zwischen Simulationszelle (rund 5 mm) und Korn (0,4 mm) war der

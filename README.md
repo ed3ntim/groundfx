@@ -16,6 +16,7 @@ Autor: ed3n
 |---|---|
 | Solver v2 | 2,5D-Höhenfeld, exakt massenerhaltender 8-Nachbar-Fluss, Multiskalen-Relaxation auf den Böschungswinkel, Bingham-Fließgrenze (Schlamm), Volumenverdrängung mit Bugwelle, Swept-Collider mit Sub-Frames |
 | Zwei-Schicht-Kopplung | Material auf Collider-Oberseiten (`gfx_top`) wird mit dem Objekt advektiert und rutscht über Kanten ab |
+| Sand Gen 4 | Fliegendes Material: schneller Kontakt wirft Sand als Partikel aus dem Höhenfeld, sie fliegen ballistisch, landen massengenau wieder und werden im Render zu Körnern mit Motion Blur. Belege: `docs/g4_sand_*.png` |
 | Sand Gen 3 | Surface-Stufe nach dem Solver: Windrippel, Relief und Krümel als echte Geometrie, feuchter Sand aus der Tiefe, optionale Umgebung bis zum Horizont. Belege: `docs/g3_sand_*.png` |
 | Schlamm Gen 3 | Unebene Schlammfläche mit echten Pfützen, die auch jede Spur füllen, gequetschte Wülste, fleckiger Wasserfilm. Belege: `docs/g3_mud_*.png` |
 | Look v2 | Schnee 0,8 mm (SSS, Kristallfacetten) |
@@ -47,8 +48,10 @@ Ausgabe endet mit `TEST:SUMMARY:<bestanden>/<gesamt>`.
 
 | Skript | Zweck |
 |---|---|
-| `dev/hero_scene.py` | Testszene (Box pflügt und stoppt), rendert nach `dev/_renders/`. Optionen `--element SAND|SNOW|MUD --cam close|wide|macro|micro --frames --samples --quality --grains --save` |
+| `dev/hero_scene.py` | Testszene (Box pflügt und stoppt), rendert nach `dev/_renders/`. Optionen `--element SAND|SNOW|MUD --cam close|wide|macro|micro --action plough|skid --mblur --frames --samples --quality --grains --save` |
 | `dev/sim_probe.py` | ms/Frame, Masse, Höhen pro Frame |
+| `dev/probe_ejecta.py` | Partikelzahl und Massenbilanz der Flugphase pro Frame |
+| `dev/probe_nodes.py` | Sockets und Properties von Nodes der laufenden Blender-Version |
 | `dev/probe_scatter.py` | prüft Join-Reihenfolge und Accumulate-Scatter |
 
 Beispiel:
