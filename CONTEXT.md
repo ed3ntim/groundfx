@@ -1,6 +1,6 @@
 # GroundFX - Kontext
 
-Was Context-Clears überleben muss. Stand: 2026-10-24.
+Was Context-Clears überleben muss. Stand: 2026-11-12.
 
 ## Ziel (User)
 
@@ -31,6 +31,35 @@ Simulation Zone:
 
 Massenerhaltung ist exakt (Paarfluss, Scatter per Accumulate Field), nur der
 Kompaktionsanteil `1 - displace` verschwindet bewusst.
+
+## Gen 3: Surface-Stufe (`core/nodegroups/ng_surface.py`)
+
+Zweiter Geometry-Nodes-Modifier `GroundFX Surface` direkt nach dem Solver,
+reine Anzeige ohne Rückwirkung auf die Simulation. Bisher nur für Sand
+(`ops/op_surface.SURFACE_ELEMENTS`).
+
+1. Top-Schicht realisieren, `gfx_dist`/`gfx_damp` weichzeichnen.
+2. Catmull-Clark-Subdivision: Viewport Level 0, Render Level nach Quality
+   (256² ergibt Level 2, rund 1 Mio. Vertices).
+3. Versatz in Z: Windrippel auf ungestörtem Boden, Klumpenrelief wo
+   `gfx_dist` gesetzt ist, flach wo `gfx_comp` gesetzt ist.
+4. Krümel: 1 bis 5 mm große, verformte Icosphären als echte Meshes, nur auf
+   aufgewühltem Boden.
+5. Umgebung (optional): feiner Ring (3x Domain) mit denselben Rippeln, dann
+   Fernfeld mit Dünen (rund 100x Domain).
+
+`core/surface_fn.py` enthält Rippel- und Klumpenfunktion als Feldmathematik,
+die in Geometry- und Shader-Bäumen identisch läuft. Der Sand-Shader sortiert
+damit dunkle Körner in die Rippeltäler und bumpt das Fernfeld (`gfx_geo` sagt,
+wo die Rippel schon Geometrie sind).
+
+Neue Solver-Felder (nur Look): `gfx_dist` wächst, wo sich die Höhe ändert, und
+bleibt. `gfx_damp` skaliert mit dem Abstand zur Ruhehöhe (3 cm = voll feucht)
+und trocknet mit `Drying` pro Frame.
+
+Die Stufe ist opt-in (`obj.groundfx.surface_detail`). `create_domain` liefert
+ohne `surface=True` das nackte Sim-Gitter, darauf verlassen sich Tests, Bake
+und Freeze. Die UI-Operatoren schalten sie ein.
 
 ## Element-Kennwerte (`data/elements.py`)
 
@@ -63,8 +92,17 @@ Kompaktionsanteil `1 - displace` verschwindet bewusst.
 - **ColorRamp** sortiert beim Setzen der Positionen um: `mat_sand.set_ramp`
   nutzen.
 - **Makro-Kameras**: Clip-Start auf 2 mm, sonst schwarzes Bild.
-- Lichtkalibrierung der Testszene: Sonne 3.2, Nishita-Himmel 0.08, AgX. Mehr
-  Himmel gibt Blaustich.
+- Lichtkalibrierung der Testszene: Himmel "Multiple Scattering" mit eigener
+  Sonnenscheibe, Stärke 0.06, Sonne 22° hoch, AgX. Keine separate Sonnenlampe
+  mehr, das Verhältnis Sonne zu Himmel stimmt so von selbst.
+- **Generierte Meshes in Geometry Nodes haben kein Material** und rendern
+  weiß. Umgebung und Krümel brauchen Set Material mit dem Domain-Material.
+- **Menu-Sockets** (Subdivision Surface, Boundary Smooth) nehmen den
+  Anzeigenamen als String, z. B. "Keep Corners".
+- **Noise minus 0.5** streut nur etwa ±0.15. Amplituden danach kalibrieren,
+  nicht nach dem theoretischen Bereich ±0.5.
+- Bash-Heredocs mit Python-Code voller Anführungszeichen brechen hier. Dateien
+  mit dem Write-Tool anlegen.
 
 ## Bekannte Grenzen
 
@@ -76,6 +114,9 @@ Kompaktionsanteil `1 - displace` verschwindet bewusst.
 - Schnee-Mikro: Körner lesen sich, wirken aber leicht kunststoffartig.
   Echte Facettengeometrie (Kornebene für Schnee) wäre der nächste Schritt.
 - Kornebene gibt es bisher nur für Sand.
+- Surface-Stufe (Gen 3) gibt es bisher nur für Sand.
+- Sandflecken auf der Collider-Oberseite in der Hero-Szene, Ursache offen.
+- Haufen haben flache Plateaus statt eines Grats.
 
 ## Lizenz
 

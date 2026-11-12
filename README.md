@@ -16,7 +16,8 @@ Autor: ed3n
 |---|---|
 | Solver v2 | 2,5D-Höhenfeld, exakt massenerhaltender 8-Nachbar-Fluss, Multiskalen-Relaxation auf den Böschungswinkel, Bingham-Fließgrenze (Schlamm), Volumenverdrängung mit Bugwelle, Swept-Collider mit Sub-Frames |
 | Zwei-Schicht-Kopplung | Material auf Collider-Oberseiten (`gfx_top`) wird mit dem Objekt advektiert und rutscht über Kanten ab |
-| Look v2 | Sand 0,4 mm (Mineralpalette, Glints), Schnee 0,8 mm (SSS, Kristallfacetten), Schlamm (Wasserfilm, viskose Falten, Grit) |
+| Sand Gen 3 | Surface-Stufe nach dem Solver: Windrippel, Relief und Krümel als echte Geometrie, feuchter Sand aus der Tiefe, optionale Umgebung bis zum Horizont. Belege: `docs/g3_sand_*.png` |
+| Look v2 | Schnee 0,8 mm (SSS, Kristallfacetten), Schlamm (Wasserfilm, viskose Falten, Grit) |
 | Kornebene | instanzierte Körner nur im Kamera-Frustum (`groundfx.grain_layer`), im Viewport aus |
 | Workflow | Add-Menü, Presets, Collider-Collection, Live-Sculpt, Bake, Freeze-to-Mesh, Photo-Setup |
 
@@ -61,4 +62,4 @@ blender -b --factory-startup --python dev/hero_scene.py -- --element SNOW --cam 
 - `docs/BACKLOG.md` - Backlog
 - `docs/STATUS.md` - Stand und Nachweise
 - `docs/MARKET.md` - Marktlösungen und Procedural Materials
-- `docs/v2_*.png` - Belegrenders
+- `docs/g3_*.png`, `docs/v2_*.png` - Belegrenders

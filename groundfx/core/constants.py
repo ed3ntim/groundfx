@@ -58,19 +58,15 @@ QUALITY_LEVELS = (QUALITY_LOW, QUALITY_MEDIUM, QUALITY_HIGH, QUALITY_ULTRA)
 ATTR_HEIGHT = "gfx_h"           # material height above base (the "mass")
 ATTR_BASE = "gfx_base"          # static ground height sampled from terrain
 ATTR_CARVE = "gfx_carve"        # collider penetration this frame
-ATTR_CARVE_PREV = "gfx_carve_prev"   # previous frame's carve (velocity source)
 # Coverage 0..1: how much of the cell the collider currently *stands on*. Unlike
 # gfx_carve (a per-frame delta that is only non-zero where material was cut this
 # frame) this stays 1 while a collider rests, so the masks built on it don't
 # flicker cell by cell as the collider advances a fraction of a cell per frame.
 ATTR_OCC = "gfx_occ"
-ATTR_OCC_PREV = "gfx_occ_prev"  # previous frame's coverage (velocity source)
-ATTR_PILE = "gfx_pile"          # displaced volume awaiting deposition
 ATTR_COMP = "gfx_comp"          # compaction 0..1 -> shader
 ATTR_WET = "gfx_wet"            # wetness 0..1 -> cohesion & shader
 ATTR_FLOW = "gfx_flow"          # last displacement direction (vector) -> shader
 ATTR_AGE = "gfx_age"            # frames since last disturbance
-ATTR_SURFACE = "gfx_surface"
 # Two-layer collider coupling (solver v2): a column is *covered* when a
 # collider spans it; gfx_zhi is the collider's top there and gfx_top the
 # material lying on it, which rides along with the collider.
@@ -140,10 +136,7 @@ MAT_CTRL_WIND = "GFX_Wind"
 # --- Defaults (close-up scale, decided in phase 2) -------------------------
 DEFAULT_DOMAIN_SIZE = 2.0        # metres, square domain
 DEFAULT_MATERIAL_HEIGHT = 0.08   # metres of material at rest
-DEFAULT_EMITTER_RADIUS = 0.30    # metres
 
-# --- Cache ------------------------------------------------------------------
-CACHE_DIRNAME = "groundfx_cache"
 
 # --- Operator id prefix -----------------------------------------------------
 # Blender operator ids look like "groundfx.add_ground"; keep the namespace

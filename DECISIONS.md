@@ -3,6 +3,46 @@
 Kurzer Log: was, warum. Neueste oben. Ältere Detailentscheidungen stehen in
 `docs/OPEN_QUESTIONS.md` und `docs/PLAN.md`.
 
+## 2026-11-12 Gen 3: Anzeige-Stufe getrennt vom Solver
+
+Die Lücke zwischen Simulationszelle (rund 5 mm) und Korn (0,4 mm) war der
+Hauptgrund für den künstlichen Look. Sie wird in einem eigenen Modifier nach
+dem Solver gefüllt, nicht im Solver und nicht nur im Shader:
+
+- Der Solver bleibt ein schlankes Höhenfeld auf festem Gitter (schnell,
+  bakebar, testbar).
+- Echte Geometrie statt Bump, weil Rippel und Krümel bei flacher Sonne
+  Schatten werfen müssen.
+- Im Viewport Level 0, damit die Motion flüssig bleibt.
+
+Rippel und Relief stehen als gemeinsame Funktion in `surface_fn.py`, damit
+Geometrie und Shader nie auseinanderlaufen.
+
+## 2026-11-12 Sand als erstes Gen-3-Element
+
+Sand war am weitesten (Kornebene, Mineralpalette) und lässt sich prozedural am
+glaubwürdigsten treffen. Schnee und Schlamm folgen auf derselben Stufe.
+
+## 2026-11-12 Feuchte aus der Simulation
+
+Frisch aufgewühlter Sand ist dunkler, weil er unter der trockenen Kruste
+liegt. `gfx_damp` hängt deshalb an der Tiefe unter bzw. Höhe über der
+Ruhelage, nicht an der bloßen Berührung: Ein dünner Überwurf bleibt hell, ein
+tiefer Graben wird dunkel. Das gibt weiche Verläufe statt eines Flecks.
+
+## 2026-11-12 Umgebung als Teil des Addons
+
+Eine Domain als Platte im leeren Raum wirkt nie echt. Die Umgebung (Ring plus
+Fernfeld bis zum Horizont) ist eine Option der Surface-Stufe, standardmäßig
+aus, weil sie in fremden Szenen mit eigenem Terrain stört.
+
+## 2026-11-12 Aufgeräumt
+
+Gelöscht: der tote v1-Pfad in `mat_builder.py` (rund 400 Zeilen, wurde nie
+mehr erreicht), ungenutzte Konstanten alter Solver-Bausteine, Renders der
+Shader-Generationen vor v2 und die v2-Sandrenders. Die Historie in
+`docs/STATUS.md` wurde durch den aktuellen Stand ersetzt.
+
 ## 2026-10-24 Lizenz: PolyForm Noncommercial (ed3n)
 
 ed3n hat PolyForm Noncommercial 1.0.0 festgelegt. Manifest und SPDX-Header
