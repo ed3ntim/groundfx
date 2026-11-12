@@ -27,7 +27,9 @@ ADDON_NAME = "GroundFX"
 # v22 (gen 3): gfx_dist / gfx_damp fields, Drying input; surface stage group.
 # v23: coat groups, per-element surface groups, pebbles, standing water.
 # v24: display closes the gap at collider walls.
-NODEGROUP_VERSION = 24
+# v25 (gen 4): airborne parcels as a second simulation state, Spray inputs,
+#      spray display group.
+NODEGROUP_VERSION = 25
 
 # --- UI ---------------------------------------------------------------------
 PANEL_CATEGORY = "GroundFX"     # N-panel tab label
@@ -85,6 +87,18 @@ ATTR_GEO = "gfx_geo"
 ATTR_PEBBLE = "gfx_pebble"
 # 1 at or below the standing water level, falling to 0 a centimetre above it.
 ATTR_SHORE = "gfx_shore"
+# Underside of the collider over a column (1e6 where there is none).
+ATTR_LO = "gfx_lo"
+# Gen 4, airborne material. Parcels are points in the solver's second state
+# geometry; each carries a volume and flies ballistically until it lands.
+ATTR_E_VEL = "gfx_e_v"          # velocity, m/s
+ATTR_E_VOL = "gfx_e_vol"        # volume carried, m^3 (0 once landed)
+ATTR_E_VOL0 = "gfx_e_vol0"      # volume at launch, m^3 (grain count in display)
+ATTR_E_AGE = "gfx_e_age"        # seconds since launch
+ATTR_E_DRAG = "gfx_e_drag"      # quadratic drag coefficient, 1/m
+ATTR_E_SEED = "gfx_e_seed"      # 0..1, fixed per parcel
+ATTR_E_LAND = "gfx_e_land"      # 0 in flight, then frames since landing
+ATTR_E_V0 = "gfx_e_v0"          # launch speed, m/s (grain spread in display)
 
 # --- Collider proxy modes ---------------------------------------------------
 # How a collider is presented to the raycast: the original mesh, or a cheap
@@ -116,17 +130,20 @@ NG_GROUND_SIM = "GFX_GroundSim"        # top-level solver group
 NG_COLLIDER_PROXY = "GFX_ColliderProxy"  # low-poly stand-in for a collider
 NG_COAT = "GFX_Coat"                   # material clinging to a collider
 NG_SURFACE = "GFX_Surface"             # display stage after the solver
+NG_SPRAY = "GFX_Spray"                 # airborne parcels -> grains
 
 # --- Modifier ---------------------------------------------------------------
 MODIFIER_NAME = "GroundFX"      # name of the geometry-nodes modifier on a domain
 COAT_MODIFIER_NAME = "GroundFX Coat"         # on a coat object
 SURFACE_MODIFIER_NAME = "GroundFX Surface"   # display stage, after the solver
+SPRAY_MODIFIER_NAME = "GroundFX Spray"       # airborne grains, last stage
 
 # --- Material names ---------------------------------------------------------
 MAT_SAND = "GFX_Sand"
 MAT_SNOW = "GFX_Snow"
 MAT_MUD = "GFX_Mud"
 MAT_WATER = "GFX_Water"
+MAT_SAND_SPRAY = "GFX_SandSpray"
 
 # Marks a material as GroundFX-authored, so the element switch may rebuild it
 # but a material the user assigned themselves is left untouched (E8-T10).

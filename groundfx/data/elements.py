@@ -19,11 +19,11 @@ from ..core.constants import ELEM_SAND, ELEM_SNOW, ELEM_MUD
 class ElementDefaults:
     __slots__ = ("key", "label", "repose_deg", "cohesion", "flow_rate",
                  "density", "wetness", "compaction", "recovery", "bow_wave",
-                 "stickiness", "yield_m", "compact_deg", "displace")
+                 "stickiness", "yield_m", "compact_deg", "displace", "spray")
 
     def __init__(self, key, label, repose_deg, cohesion, flow_rate, density,
                  wetness, compaction, recovery, bow_wave, stickiness=0.0,
-                 yield_m=0.0, compact_deg=12.0, displace=0.95):
+                 yield_m=0.0, compact_deg=12.0, displace=0.95, spray=0.0):
         self.key = key
         self.label = label
         self.repose_deg = repose_deg      # angle of repose, degrees
@@ -38,6 +38,10 @@ class ElementDefaults:
         self.yield_m = yield_m            # Bingham yield as a length (mud)
         self.compact_deg = compact_deg    # packed material holds this steeper
         self.displace = displace          # share pushed aside, rest compacts
+        # Share of fast-displaced volume that leaves the ground (gen 4). Only
+        # applied where the full look is asked for (UI operators); a bare
+        # scripted domain keeps everything in the bed.
+        self.spray = spray
 
     @property
     def compact_rad(self) -> float:
@@ -53,7 +57,7 @@ DEFAULTS = {
         ELEM_SAND, "Sand", repose_deg=34.0, cohesion=0.02, flow_rate=1.0,
         density=1600.0, wetness=0.0, compaction=0.05, recovery=0.1,
         bow_wave=0.7, stickiness=0.15, yield_m=0.0, compact_deg=5.0,
-        displace=0.95),
+        displace=0.95, spray=0.85),
     ELEM_SNOW: ElementDefaults(
         ELEM_SNOW, "Snow", repose_deg=40.0, cohesion=0.25, flow_rate=0.6,
         density=150.0, wetness=0.1, compaction=0.65, recovery=0.0,

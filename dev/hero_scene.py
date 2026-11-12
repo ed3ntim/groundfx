@@ -41,6 +41,11 @@ def _args():
     p.add_argument("--no-coat", action="store_true")
     p.add_argument("--sun", default="18,120", help="elevation,rotation deg")
     p.add_argument("--exposure", type=float, default=0.0)
+    p.add_argument("--action", default="plough",
+                   help="plough (slow, stops) | skid (comes in fast, brakes)")
+    p.add_argument("--mblur", type=float, default=0.0,
+                   help="motion blur shutter (0 = off)")
+    p.add_argument("--spray-detail", type=float, default=1.0)
     p.add_argument("--noderender", action="store_true",
                    help="build + simulate only, skip rendering")
     return p.parse_args(argv)
@@ -224,7 +229,8 @@ def setup_camera(scene, kind, target):
 
 
 def build(element="SAND", quality="HIGH", size=1.2, cam="close", grains=False,
-          surround=True, sun=(18.0, 120.0), exposure=0.0, coat=True):
+          surround=True, sun=(18.0, 120.0), exposure=0.0, coat=True,
+          action="plough", spray_detail=1.0):
     import groundfx
     try:
         groundfx.unregister()
@@ -243,6 +249,7 @@ def build(element="SAND", quality="HIGH", size=1.2, cam="close", grains=False,
     domain.groundfx.quality = quality
     rebuild_grid(domain)
     domain.groundfx.surround = surround
+    domain.groundfx.spray_detail = spray_detail
 
     h = domain.groundfx.material_height
     box = make_box(0.2)
@@ -257,15 +264,29 @@ def build(element="SAND", quality="HIGH", size=1.2, cam="close", grains=False,
     scene.frame_start, scene.frame_end = 1, 90
     depth = {"MUD": 0.03}.get(element, 0.022)
     zc = h + 0.1 - depth  # box bottom this far below the surface
-    keys = {1: (-0.30, 0.0, zc + 0.06), 8: (-0.30, 0.0, zc),
-            55: (0.12, 0.0, zc), 90: (0.12, 0.0, zc)}
-    for f, loc in keys.items():
-        box.location = loc
-        box.keyframe_insert("location", frame=f)
-    for fc in _fcurves(box):
-        for kp in fc.keyframe_points:
-            kp.interpolation = "BEZIER"
-            kp.easing = "AUTO"
+    if action == "skid":
+        # Comes in at about 1.6 m/s and brakes to a stop within 0.6 m: fast
+        # enough that most of what it displaces leaves the ground.
+        x0, x1, f0, f1 = -0.48, 0.12, 6, 28
+        box.location = (x0, 0.0, zc + 0.05)
+        box.keyframe_insert("location", frame=1)
+        for f in range(f0, f1 + 1):
+            s = (f - f0) / (f1 - f0)
+            box.location = (x0 + (x1 - x0) * (1.0 - (1.0 - s) ** 2), 0.0, zc)
+            box.keyframe_insert("location", frame=f)
+        for fc in _fcurves(box):
+            for kp in fc.keyframe_points:
+                kp.interpolation = "LINEAR"
+    else:
+        keys = {1: (-0.30, 0.0, zc + 0.06), 8: (-0.30, 0.0, zc),
+                55: (0.12, 0.0, zc), 90: (0.12, 0.0, zc)}
+        for f, loc in keys.items():
+            box.location = loc
+            box.keyframe_insert("location", frame=f)
+        for fc in _fcurves(box):
+            for kp in fc.keyframe_points:
+                kp.interpolation = "BEZIER"
+                kp.easing = "AUTO"
 
     setup_world(scene, sun[0], sun[1], exposure=exposure)
     setup_camera(scene, cam, (0.0, 0.0, h))
@@ -343,7 +364,8 @@ def main():
     sun = tuple(float(v) for v in a.sun.split(","))
     domain, _box = build(a.element, a.quality, a.size, a.cam, a.grains,
                          surround=not a.no_surround, sun=sun,
-                         exposure=a.exposure, coat=not a.no_coat)
+                         exposure=a.exposure, coat=not a.no_coat,
+                         action=a.action, spray_detail=a.spray_detail)
     scene = bpy.context.scene
     frames = [int(f) for f in a.frames.split(",")]
     if a.grains:
@@ -354,6 +376,11 @@ def main():
         bpy.ops.wm.save_as_mainfile(filepath=os.path.abspath(a.save))
     if not a.noderender:
         tag = f"{a.element.lower()}_{a.cam}" + ("_grains" if a.grains else "")
+        if a.action != "plough":
+            tag += f"_{a.action}"
+        if a.mblur > 0.0:
+            scene.render.use_motion_blur = True
+            scene.render.motion_blur_shutter = a.mblur
         render(scene, a.out, frames, a.samples, a.res, tag)
 
 

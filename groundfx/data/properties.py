@@ -73,6 +73,8 @@ def _push_element(self, context):
     self.look_roughness = look.roughness
     self.look_detail = look.detail
     self.stickiness = ed.stickiness
+    # The airborne phase belongs to the full look: a bare domain stays bare.
+    self.spray = ed.spray if self.surface_detail else 0.0
     _look_guard = False
     modifier_io.set_input(md, gsim.IN_STICKINESS, ed.stickiness, tag=False)
     modifier_io.set_input(md, gsim.IN_RECOVERY, ed.recovery, tag=False)
@@ -92,12 +94,25 @@ def _sync_surface(self, context):
     ripple parameters (geometry and shading use the same function)."""
     obj = self.id_data
     from ..ops.op_surface import sync_surface
+    from ..ops.op_spray import sync_spray
     sync_surface(obj)
+    sync_spray(obj)        # stays the last stage, after the surface
     _sync_coats(self, context)
     matb.update_controls(matb.domain_material(obj),
                          ripple_length=self.ripple_length,
                          ripple_height=self.ripple_height,
                          wind=self.wind_direction)
+
+
+def _sync_spray(self, context):
+    """Airborne phase: solver input and the grain display stage."""
+    if _look_guard:
+        return
+    obj = self.id_data
+    if not self.is_domain:
+        return
+    from ..ops.op_spray import sync_spray
+    sync_spray(obj)
 
 
 def _sync_coats(self, context):
@@ -356,6 +371,27 @@ class GroundFXObjectSettings(bpy.types.PropertyGroup):
         name="Drying", default=0.006, min=0.0, max=1.0, update=_push_drying,
         description="How fast freshly dug-up (darker, damp) material dries "
                     "per frame. 0 keeps every track dark")
+
+    # --- Spray (gen 4): material that leaves the ground ---------------------
+    spray: bpy.props.FloatProperty(
+        name="Spray", default=0.0, min=0.0, max=1.0, update=_sync_spray,
+        description="Share of fast-displaced material that leaves the "
+                    "ground and flies. 0 keeps everything in the bed")
+
+    spray_lift: bpy.props.FloatProperty(
+        name="Lift", default=1.0, min=0.0, max=3.0, update=_sync_spray,
+        description="How steeply thrown material leaves the ground")
+
+    spray_grain: bpy.props.FloatProperty(
+        name="Grain Size", default=0.0005, min=0.00005, max=0.02,
+        subtype="DISTANCE", update=_sync_spray,
+        description="Diameter of a typical airborne grain")
+
+    spray_detail: bpy.props.FloatProperty(
+        name="Detail", default=1.0, min=0.01, max=4.0, update=_sync_spray,
+        description="Grains drawn per real grain in renders. 1 shows about "
+                    "as many as real sand would; lower is faster, each "
+                    "grain then gets larger")
 
     stickiness: bpy.props.FloatProperty(
         name="Stickiness", default=0.05, min=0.0, max=1.0,

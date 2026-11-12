@@ -134,6 +134,7 @@ def create_domain(context, element: str,
 
     if surface:
         st.surface_detail = True   # update callback attaches the stage
+        st.spray = ed.spray        # airborne phase, where the element has one
 
     log.info("created %s domain (%d^2, %.2f m, cell %.3f m)",
              element, prof.resolution, size, size / prof.resolution)
@@ -258,7 +259,9 @@ def push_all_inputs(obj) -> bool:
     if st.collider_collection is not None:
         set(md, gsim.IN_COLLIDER_COLLECTION, st.collider_collection, tag=True)
     from .op_surface import sync_surface
+    from .op_spray import sync_spray
     sync_surface(obj)
+    sync_spray(obj)
     return True
 
 

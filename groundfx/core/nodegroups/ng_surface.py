@@ -232,8 +232,15 @@ def build(name: str = NG_SURFACE, element: str = ELEM_SAND):
     size = I(IN_DOMAIN_SIZE)
 
     # ---- domain: realise the top sheet, soften the field edges, upsample ----
+    # Airborne parcels (a point cloud beside the mesh) are not surface: they
+    # pass through untouched and are dealt with by the spray stage.
+    comps = g.node("GeometryNodeSeparateComponents",
+                   {"Geometry": I(IN_GEOMETRY)})
+    solid = b.add("GeometryNodeJoinGeometry")
+    g.feed(solid, 0, g.out(comps, "Instances"))
+    g.feed(solid, 0, g.out(comps, "Mesh"))
     geo = g.out(g.node("GeometryNodeRealizeInstances",
-                       {"Geometry": I(IN_GEOMETRY)}), 0)
+                       {"Geometry": g.out(solid, 0)}), 0)
     for name_ in (ATTR_DIST, ATTR_DAMP):
         blur = g.node("GeometryNodeBlurAttribute",
                       {"Value": g.attr(name_), "Iterations": 3},
@@ -343,6 +350,7 @@ def build(name: str = NG_SURFACE, element: str = ELEM_SAND):
                      {"Switch": I(IN_WATER), "True": sheet},
                      input_type="GEOMETRY")
         g.feed(out, 0, g.out(wsw, 0))
+    g.feed(out, 0, g.out(comps, "Point Cloud"))
     g.feed(out, 0, pebbles)
     g.feed(out, 0, crumbs)
     g.feed(out, 0, surface)

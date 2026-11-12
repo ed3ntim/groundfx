@@ -224,6 +224,16 @@ class GFX_PT_look(bpy.types.Panel):
             sub.prop(st, "pebbles")
             sub.prop(st, "surround")
 
+        from ..ops.op_spray import SPRAY_ELEMENTS
+        if st.element in SPRAY_ELEMENTS:
+            box = layout.box()
+            box.prop(st, "spray", slider=True)
+            sub = box.column()
+            sub.active = st.spray > 0.0
+            sub.prop(st, "spray_lift")
+            sub.prop(st, "spray_grain")
+            sub.prop(st, "spray_detail")
+
         if matb.domain_material(obj) is None:
             layout.label(text="Custom material in use", icon="INFO")
 

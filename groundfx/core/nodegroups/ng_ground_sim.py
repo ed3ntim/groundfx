@@ -44,8 +44,9 @@ from ..ng_zones import make_simulation_zone, make_repeat_zone
 from ..constants import (
     NG_GROUND_SIM, ATTR_HEIGHT, ATTR_BASE, ATTR_OCC, ATTR_COMP, ATTR_AGE,
     ATTR_FLOW, ATTR_CARVE, ATTR_COV, ATTR_ZHI, ATTR_TOP, ATTR_DIST, ATTR_DAMP,
-    DEFAULT_MATERIAL_HEIGHT,
+    ATTR_LO, DEFAULT_MATERIAL_HEIGHT,
 )
+from . import ng_ejecta as ejecta
 
 # Group input socket names (also used by the property/socket mapping).
 IN_GEOMETRY = "Geometry"
@@ -66,9 +67,12 @@ IN_DISPLACE_RATIO = "Displacement Ratio"
 IN_BOW_WAVE = "Bow Wave"
 IN_CONTACT_AA = "Contact AA"
 IN_DRYING = "Drying"
+IN_SPRAY = "Spray"
+IN_SPRAY_LIFT = "Spray Lift"
 OUT_GEOMETRY = "Geometry"
 
 STATE_PREV = "Colliders Prev"
+STATE_EJECTA = "Ejecta"
 MAX_SUBSTEPS = 4
 
 _RAY_DROP = 1.0       # rays start this far under the base (metres)
@@ -122,6 +126,11 @@ def _interface(b):
     b.input(IN_DRYING, "NodeSocketFloat", default=0.006, min=0.0, max=1.0,
             description="How fast freshly exposed (damp, darker) material "
                         "dries per frame")
+    b.input(IN_SPRAY, "NodeSocketFloat", default=0.0, min=0.0, max=1.0,
+            description="Share of fast-displaced material that leaves the "
+                        "ground and flies (0 = everything stays in the bed)")
+    b.input(IN_SPRAY_LIFT, "NodeSocketFloat", default=1.0, min=0.0, max=3.0,
+            description="How steeply thrown material leaves the ground")
     b.output(OUT_GEOMETRY, "NodeSocketGeometry")
 
 
@@ -372,7 +381,7 @@ def build(name: str = NG_GROUND_SIM):
         "cohesion": I(IN_COHESION), "yield": I(IN_YIELD),
         "compact": I(IN_COMPACT_ANGLE), "flow": I(IN_FLOW),
         "iters": I(IN_RELAX_ITERS), "bow": I(IN_BOW_WAVE),
-        "stick": I(IN_STICKINESS),
+        "stick": I(IN_STICKINESS), "lift": I(IN_SPRAY_LIFT),
     }
 
     # ---- initial state ------------------------------------------------------
@@ -384,15 +393,19 @@ def build(name: str = NG_GROUND_SIM):
     for a in (ATTR_OCC, ATTR_COMP, ATTR_CARVE, ATTR_COV, ATTR_ZHI, ATTR_TOP,
               ATTR_DIST, ATTR_DAMP):
         geo0 = g.store(geo0, a, 0.0)
+    geo0 = g.store(geo0, ATTR_LO, 1e6)
     geo0 = g.store(geo0, ATTR_AGE, 1000.0)
     geo0 = g.store(geo0, ATTR_FLOW, g.vec(), kind="FLOAT_VECTOR")
     geo0 = g.store(geo0, "gfx_vel", g.vec(), kind="FLOAT_VECTOR")
 
-    sim = make_simulation_zone(b, [("GEOMETRY", STATE_PREV)])
+    sim = make_simulation_zone(b, [("GEOMETRY", STATE_PREV),
+                                   ("GEOMETRY", STATE_EJECTA)])
     g.feed(sim.input, "Geometry", geo0)
     g.feed(sim.input, STATE_PREV, _colliders(g, gin))
     geo = V(g, sim.input.outputs["Geometry"])
     prev = V(g, sim.input.outputs[STATE_PREV])
+    parcels = V(g, sim.input.outputs[STATE_EJECTA])
+    dt = V(g, sim.input.outputs["Delta Time"]).max(1e-4)
     # Height at the start of the step: the change over the step marks the
     # surface as disturbed (look fields, no physics feedback).
     geo = g.store(geo, "gfx_h0", g.attr(ATTR_HEIGHT))
@@ -431,14 +444,15 @@ def build(name: str = NG_GROUND_SIM):
     surf = base + h
     occ = lo.lt(surf + _CONTACT_EPS)
     removed = (surf - lo).max(0.0).min(h)
-    geo, caps = g.capture(geo, [occ, removed, vel, covered, zhi])
-    occ, removed, vel, covered, zhi = caps
+    geo, caps = g.capture(geo, [occ, removed, vel, covered, zhi, lo])
+    occ, removed, vel, covered, zhi, lo = caps
     # Material on a collider that has left this column falls to the ground.
     top = g.attr(ATTR_TOP)
     geo = g.store(geo, ATTR_HEIGHT, g.attr(ATTR_HEIGHT) + top * (1.0 - covered))
     geo = g.store(geo, ATTR_TOP, top * covered)
     geo = g.store(geo, ATTR_COV, covered)
     geo = g.store(geo, ATTR_ZHI, zhi)
+    geo = g.store(geo, ATTR_LO, lo)
     geo = g.store(geo, ATTR_OCC, occ)
     geo = g.store(geo, ATTR_CARVE, removed)
     geo = g.store(geo, "gfx_vel", vel, kind="FLOAT_VECTOR")
@@ -447,7 +461,16 @@ def build(name: str = NG_GROUND_SIM):
     # ---- 3. displace ----------------------------------------------------------
     pushed = removed * I(IN_DISPLACE_RATIO)
     geo, arrive = _displace(g, geo, inp, pushed, vel)
-    geo = g.store(geo, ATTR_HEIGHT, g.attr(ATTR_HEIGHT) + arrive)
+
+    # ---- 3b. airborne: fast contact throws part of that volume ---------------
+    # This frame's share of the ring volume is launched, the rest joins the
+    # bed as before. Parcels already in the air fly on and land.
+    geo, born = ejecta.emit(g, geo, arrive, inp, dt, I(IN_SPRAY))
+    geo, parcels = ejecta.step(g, geo, parcels, inp, dt)
+    pj = b.add("GeometryNodeJoinGeometry")
+    g.feed(pj, 0, born)
+    g.feed(pj, 0, parcels)
+    parcels = g.out(pj, 0)
 
     # ---- 4. relax: ground avalanches, then spill onto / off colliders --------
     geo = _relax(g, b, geo, inp)
@@ -478,7 +501,9 @@ def build(name: str = NG_GROUND_SIM):
 
     g.feed(sim.output, "Geometry", geo)
     g.feed(sim.output, STATE_PREV, cur)
+    g.feed(sim.output, STATE_EJECTA, parcels)
     geo = V(g, sim.output.outputs["Geometry"])
+    parcels = V(g, sim.output.outputs[STATE_EJECTA])
 
     # ---- display: surface = base + h --------------------------------------------
     # Close the gap at collider walls. A height field cannot hold a vertical
@@ -533,6 +558,7 @@ def build(name: str = NG_GROUND_SIM):
                  {"Geometry": g.out(dele, 0), "Position": top_pos})
     inst = g.node("GeometryNodeGeometryToInstance", {0: g.out(tsp, 0)})
     join = b.add("GeometryNodeJoinGeometry")
+    g.feed(join, 0, ejecta.for_output(g, parcels))
     g.feed(join, 0, g.out(inst, 0))
     g.feed(join, 0, ground)
     g.feed(gout, OUT_GEOMETRY, g.out(join, 0))
