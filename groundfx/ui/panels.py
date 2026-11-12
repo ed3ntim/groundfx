@@ -158,6 +158,11 @@ class GFX_PT_colliders(bpy.types.Panel):
             layout.label(text="No collider collection", icon="ERROR")
 
         layout.prop(st, "collider_pick", text="Add")
+        from ..ops.op_coat import COAT_ELEMENTS
+        if st.element in COAT_ELEMENTS:
+            row = layout.row(align=True)
+            row.prop(st, "coat_colliders")
+            row.operator(f"{OP_PREFIX}.sync_coats", text="", icon="FILE_REFRESH")
         layout.operator_menu_enum(f"{OP_PREFIX}.mark_collider", "proxy",
                                   text="Mark Selected", icon="ADD")
 

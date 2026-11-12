@@ -25,7 +25,8 @@ ADDON_NAME = "GroundFX"
 # v20 (solver v2): pairwise 8-neighbour relax, exact scatter displacement,
 #      per-vertex collider velocity + swept sub-frame copies, Yield input.
 # v22 (gen 3): gfx_dist / gfx_damp fields, Drying input; surface stage group.
-NODEGROUP_VERSION = 22
+# v23: coat groups, per-element surface groups, pebbles, standing water.
+NODEGROUP_VERSION = 23
 
 # --- UI ---------------------------------------------------------------------
 PANEL_CATEGORY = "GroundFX"     # N-panel tab label
@@ -112,10 +113,12 @@ PROP_NG_VERSION = "gfx_ng_version"     # node-group version stamp on the tree
 # --- Node-group names -------------------------------------------------------
 NG_GROUND_SIM = "GFX_GroundSim"        # top-level solver group
 NG_COLLIDER_PROXY = "GFX_ColliderProxy"  # low-poly stand-in for a collider
+NG_COAT = "GFX_Coat"                   # material clinging to a collider
 NG_SURFACE = "GFX_Surface"             # display stage after the solver
 
 # --- Modifier ---------------------------------------------------------------
 MODIFIER_NAME = "GroundFX"      # name of the geometry-nodes modifier on a domain
+COAT_MODIFIER_NAME = "GroundFX Coat"         # on a coat object
 SURFACE_MODIFIER_NAME = "GroundFX Surface"   # display stage, after the solver
 
 # --- Material names ---------------------------------------------------------

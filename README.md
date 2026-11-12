@@ -19,6 +19,7 @@ Autor: ed3n
 | Sand Gen 3 | Surface-Stufe nach dem Solver: Windrippel, Relief und Krümel als echte Geometrie, feuchter Sand aus der Tiefe, optionale Umgebung bis zum Horizont. Belege: `docs/g3_sand_*.png` |
 | Schlamm Gen 3 | Unebene Schlammfläche mit echten Pfützen, die auch jede Spur füllen, gequetschte Wülste, fleckiger Wasserfilm. Belege: `docs/g3_mud_*.png` |
 | Look v2 | Schnee 0,8 mm (SSS, Kristallfacetten) |
+| Haften am Objekt | Sandkörner und Schlammspritzer bleiben als Geometrie an den Flanken der Collider: dicht, wo sie im Material steckten, ausdünnend nach oben |
 | Kornebene | instanzierte Körner nur im Kamera-Frustum (`groundfx.grain_layer`), im Viewport aus |
 | Workflow | Add-Menü, Presets, Collider-Collection, Live-Sculpt, Bake, Freeze-to-Mesh, Photo-Setup |
 

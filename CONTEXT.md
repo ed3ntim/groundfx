@@ -83,6 +83,29 @@ Relief. Der Clearcoat ist über einen Noise-Schwellwert fleckig, sonst wirkt
 nasser Schlamm wie Plastik. Feuchter Boden muss dunkel sein (linear rund
 0.08/0.05/0.03), sonst liest er sich in der Sonne als Sand.
 
+## Haften am Objekt (`core/nodegroups/ng_coat.py`, `ops/op_coat.py`)
+
+Je Collider und Domain ein eigenes Coat-Objekt (`<Collider> Coat`) mit dem
+Modifier `GroundFX Coat`. Ein eigenes Objekt, weil der Collider selbst einen
+Abhängigkeitszyklus ergäbe: Die Domain liest den Collider, der Coat liest die
+Domain.
+
+- Kandidatenpunkte werden einmal im lokalen Raum des Colliders verteilt
+  (Object Info ORIGINAL) und als Simulationszustand gehalten. Weltposition
+  pro Frame über die Transform-Matrix. Deshalb nur starre Collider, und das
+  Coat-Objekt muss im Ursprung ohne Rotation und Skalierung bleiben.
+- Pro Frame: Strahl von oben auf die Domain-Oberfläche, anderthalb Zellen
+  außerhalb der Fläche. Liegt der Boden dort auf oder über dem Punkt, ist er
+  vergraben. Bewegt sich das Objekt, werden Punkte bis `Splash Height` mal
+  Zufall hoch drei bespritzt. Getroffen bleibt getroffen, wenn die eigene
+  Zufallszahl unter `Cling` liegt.
+- Treffer werden zu kleinen Meshes auf der Fläche: Sand Körner 0,3 bis
+  0,9 mm, Schlamm flache Kleckse 0,6 bis 4,5 mm, nach unten gestreckt.
+- Schalter `Cling To Colliders` an der Domain (Standard an). `sync_coats`
+  hält Coats mit Collider-Liste, Element und Schalter in Einklang.
+- Blender 5.2: Align Rotation to Vector hat `axis` und `pivot_axis`, nicht
+  `rotation_axis`.
+
 ## Zielbild (Referenzen von ed3n, 2026-11-13)
 
 - Schlamm: aufgewühlter Acker-Schlamm, klumpig, überall kleine nasse

@@ -36,6 +36,14 @@ Eine Domain als Platte im leeren Raum wirkt nie echt. Die Umgebung (Ring plus
 Fernfeld bis zum Horizont) ist eine Option der Surface-Stufe, standardmäßig
 aus, weil sie in fremden Szenen mit eigenem Terrain stört.
 
+## 2026-11-13 Haften als Geometrie auf einem eigenen Objekt
+
+Staub und Spritzer am Objekt sind echte kleine Meshes auf einem Coat-Objekt,
+keine Maske im Material des Colliders. Gründe: Das Material des Nutzers bleibt
+unangetastet, die Auflösung hängt nicht vom Mesh des Colliders ab (ein Würfel
+hat acht Vertices), und Körner werfen Schatten. Preis: nur starre Collider,
+und ein zusätzliches Objekt pro Collider in der Szene.
+
 ## 2026-11-13 Schlamm: Pfützen als fester Wasserspiegel
 
 Pfützen sind eine einzige ebene Fläche auf Pegelhöhe, keine eigene

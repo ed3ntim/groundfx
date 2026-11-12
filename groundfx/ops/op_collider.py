@@ -140,6 +140,8 @@ class GFX_OT_mark_collider(bpy.types.Operator):
                 _ensure_proxy(context, o, self.proxy, coll)
                 added += 1
         domain.update_tag()
+        from .op_coat import sync_coats
+        sync_coats(context, domain)
         log.info("marked %d collider(s) on %s (proxy=%s)",
                  added, domain.name, self.proxy)
         if heavy:
@@ -202,6 +204,8 @@ class GFX_OT_unmark_collider(bpy.types.Operator):
         domain.groundfx.collider_active = min(
             domain.groundfx.collider_active, max(0, n - 1))
         domain.update_tag()
+        from .op_coat import sync_coats
+        sync_coats(context, domain)
         self.report({"INFO"}, f"Removed {len(targets)} collider(s)")
         return {"FINISHED"}
 

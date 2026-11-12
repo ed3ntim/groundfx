@@ -38,6 +38,7 @@ def _args():
     p.add_argument("--save", default="")
     p.add_argument("--grains", action="store_true")
     p.add_argument("--no-surround", action="store_true")
+    p.add_argument("--no-coat", action="store_true")
     p.add_argument("--sun", default="18,120", help="elevation,rotation deg")
     p.add_argument("--exposure", type=float, default=0.0)
     p.add_argument("--noderender", action="store_true",
@@ -223,7 +224,7 @@ def setup_camera(scene, kind, target):
 
 
 def build(element="SAND", quality="HIGH", size=1.2, cam="close", grains=False,
-          surround=True, sun=(18.0, 120.0), exposure=0.0):
+          surround=True, sun=(18.0, 120.0), exposure=0.0, coat=True):
     import groundfx
     try:
         groundfx.unregister()
@@ -244,11 +245,14 @@ def build(element="SAND", quality="HIGH", size=1.2, cam="close", grains=False,
     domain.groundfx.surround = surround
 
     h = domain.groundfx.material_height
-    box = make_box(0.2, mud=element == "MUD", dust=element == "SAND")
+    box = make_box(0.2)
     scene.collection.objects.link(box)
     coll = ensure_collider_collection(bpy.context, domain)
     coll.objects.link(box)
     box.groundfx.is_collider = True
+    if coat:
+        from groundfx.ops.op_coat import sync_coats
+        sync_coats(bpy.context, domain)
 
     scene.frame_start, scene.frame_end = 1, 90
     depth = {"MUD": 0.03}.get(element, 0.022)
@@ -339,7 +343,7 @@ def main():
     sun = tuple(float(v) for v in a.sun.split(","))
     domain, _box = build(a.element, a.quality, a.size, a.cam, a.grains,
                          surround=not a.no_surround, sun=sun,
-                         exposure=a.exposure)
+                         exposure=a.exposure, coat=not a.no_coat)
     scene = bpy.context.scene
     frames = [int(f) for f in a.frames.split(",")]
     if a.grains:

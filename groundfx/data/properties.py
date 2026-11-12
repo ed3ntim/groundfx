@@ -93,10 +93,20 @@ def _sync_surface(self, context):
     obj = self.id_data
     from ..ops.op_surface import sync_surface
     sync_surface(obj)
+    _sync_coats(self, context)
     matb.update_controls(matb.domain_material(obj),
                          ripple_length=self.ripple_length,
                          ripple_height=self.ripple_height,
                          wind=self.wind_direction)
+
+
+def _sync_coats(self, context):
+    """Coat objects follow the collider list, the element and the toggle."""
+    obj = self.id_data
+    if not self.is_domain:
+        return
+    from ..ops.op_coat import sync_coats
+    sync_coats(context or bpy.context, obj)
 
 
 def _push_drying(self, context):
@@ -132,6 +142,7 @@ def _pick_collider(self, context):
         picked.groundfx.is_collider = True
         picked[PROP_IS_COLLIDER] = True
         domain.update_tag()
+        _sync_coats(self, context)
     _pick_guard = True
     self.collider_pick = None
     _pick_guard = False
@@ -205,6 +216,19 @@ class GroundFXObjectSettings(bpy.types.PropertyGroup):
         items=[(m, PROXY_MODE_LABELS[m], PROXY_MODE_LABELS[m])
                for m in PROXY_MODES],
         description="How this collider is presented to the raycast")
+
+    coat_source: bpy.props.PointerProperty(
+        name="Coat Source", type=bpy.types.Object,
+        description="Set on a coat object; the collider it coats")
+
+    coat_domain: bpy.props.PointerProperty(
+        name="Coat Domain", type=bpy.types.Object,
+        description="Set on a coat object; the domain whose material it is")
+
+    coat_colliders: bpy.props.BoolProperty(
+        name="Cling To Colliders", default=True, update=_sync_coats,
+        description="Material sticks to the flanks of colliders: grains "
+                    "where they were buried, spatter while they move")
 
     proxy_source: bpy.props.PointerProperty(
         name="Proxy Source", type=bpy.types.Object,
