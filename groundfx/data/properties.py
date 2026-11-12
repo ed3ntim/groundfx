@@ -302,6 +302,11 @@ class GroundFXObjectSettings(bpy.types.PropertyGroup):
         subtype="DISTANCE", update=_sync_surface,
         description="Relief of material the simulation has disturbed")
 
+    pebbles: bpy.props.FloatProperty(
+        name="Pebbles", default=220.0, min=0.0, max=20000.0,
+        update=_sync_surface,
+        description="Small stones and shell fragments per square metre")
+
     surround: bpy.props.BoolProperty(
         name="Surround", default=False, update=_sync_surface,
         description="Embed the domain in a large static field of the same "

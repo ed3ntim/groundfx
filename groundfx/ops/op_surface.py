@@ -60,6 +60,7 @@ def push_surface_inputs(obj, *, tag=True) -> bool:
     set_(md, nsurf.IN_RIPPLE_LENGTH, st.ripple_length, tag=False)
     set_(md, nsurf.IN_WIND, st.wind_direction, tag=False)
     set_(md, nsurf.IN_CLOD_HEIGHT, st.clod_height, tag=False)
+    set_(md, nsurf.IN_PEBBLES, st.pebbles, tag=False)
     set_(md, nsurf.IN_SURROUND, st.surround, tag=False)
     from ..core.materials import mat_builder as matb
     set_(md, nsurf.IN_MATERIAL, matb.domain_material(obj), tag=False)

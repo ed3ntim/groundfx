@@ -19,15 +19,16 @@ dieser Datei, nicht mehr hier.
 | Kornebene | nur Sand, im Kamera-Frustum |
 | Workflow | Add-Menü, Presets, Collider, Live-Sculpt, Bake, Freeze, Photo-Setup |
 
-Belege Sand Gen 3: `g3_sand_wide.png`, `g3_sand_close.png`,
-`g3_sand_macro.png` (Cycles, 128 Samples, Quality High, je rund 40 s auf der
-GPU).
+Belege Sand Gen 3: `g3_sand_hero.png`, `g3_sand_wide.png`,
+`g3_sand_close.png`, `g3_sand_macro.png` (Cycles, 160 Samples, Quality High).
+Test-ZIP: `dist/groundfx-0.3.0.zip` (lokal, nicht im Repo).
 
 ## Bekannte Schwächen
 
-- Auf der Oberseite des Colliders liegen in der Hero-Szene Sandflecken, die
-  dort nicht hingehören (Zwei-Schicht-Kopplung, bestand schon vor Gen 3).
-- Haufen und Wälle haben flache Plateaus statt eines Grats.
+- Tiefes, langes Pflügen (4,5 cm über 57 cm) türmt den Haufen höher als eine
+  20-cm-Box, dann läuft Sand auf die Oberseite. Das Volumen stimmt
+  rechnerisch, die Form ist ein Plateau statt eines Grats.
+- Im Viewport ungeprüft, alle Belege sind headless gerendert.
 - Schnee und Schlamm haben noch keine Surface-Stufe.
 
 ## Performance (headless, ms/Frame, nur Solver)

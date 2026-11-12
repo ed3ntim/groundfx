@@ -113,8 +113,38 @@ def make_box(size=0.2):
     mat = bpy.data.materials.new("HeroBox_Paint")
     mat.use_nodes = True
     bsdf = mat.node_tree.nodes.get("Principled BSDF")
-    bsdf.inputs["Base Color"].default_value = (0.55, 0.08, 0.04, 1.0)
-    bsdf.inputs["Roughness"].default_value = 0.35
+    nt = mat.node_tree
+    # Worn paint with sand dust settled toward the bottom: a clean primary
+    # colour is the first thing that reads as CG.
+    tc = nt.nodes.new("ShaderNodeTexCoord")
+    n1 = nt.nodes.new("ShaderNodeTexNoise")
+    n1.inputs["Scale"].default_value = 14.0
+    n1.inputs["Detail"].default_value = 6.0
+    sep = nt.nodes.new("ShaderNodeSeparateXYZ")
+    ramp = nt.nodes.new("ShaderNodeMapRange")
+    ramp.inputs["From Min"].default_value = -0.10
+    ramp.inputs["From Max"].default_value = 0.02
+    ramp.inputs["To Min"].default_value = 0.75
+    ramp.inputs["To Max"].default_value = 0.0
+    mul = nt.nodes.new("ShaderNodeMath")
+    mul.operation = "MULTIPLY"
+    mix = nt.nodes.new("ShaderNodeMix")
+    mix.data_type = "RGBA"
+    mix.inputs[6].default_value = (0.42, 0.06, 0.035, 1.0)
+    mix.inputs[7].default_value = (0.50, 0.40, 0.27, 1.0)
+    rr = nt.nodes.new("ShaderNodeMapRange")
+    rr.inputs["To Min"].default_value = 0.28
+    rr.inputs["To Max"].default_value = 0.62
+    L = nt.links.new
+    L(tc.outputs["Object"], n1.inputs["Vector"])
+    L(tc.outputs["Object"], sep.inputs[0])
+    L(sep.outputs["Z"], ramp.inputs["Value"])
+    L(ramp.outputs[0], mul.inputs[0])
+    L(n1.outputs[0], mul.inputs[1])
+    L(mul.outputs[0], mix.inputs[0])
+    L(mix.outputs[2], bsdf.inputs["Base Color"])
+    L(n1.outputs[0], rr.inputs["Value"])
+    L(rr.outputs[0], bsdf.inputs["Roughness"])
     me.materials.append(mat)
     return obj
 
@@ -141,6 +171,12 @@ def setup_camera(scene, kind, target):
         tx, ty, tz = target
         cam.location = (tx + 0.02, ty - 0.045, tz + 0.06)
         cam_data.lens = 100
+    elif kind == "hero":
+        # low, long lens, looking along the track toward the object
+        target = (tx - 0.02, ty, tz + 0.03)
+        tx, ty, tz = target
+        cam.location = (tx - 0.95, ty - 0.62, tz + 0.2)
+        cam_data.lens = 70
     else:  # close
         cam.location = (tx + 0.25, ty - 0.55, tz + 0.22)
         cam_data.lens = 50
@@ -155,7 +191,7 @@ def setup_camera(scene, kind, target):
     con.up_axis = "UP_Y"
     cam_data.dof.use_dof = kind != "wide"
     cam_data.dof.focus_object = tgt
-    cam_data.dof.aperture_fstop = {"macro": 8.0, "micro": 11.0}.get(kind, 11.0)
+    cam_data.dof.aperture_fstop = {"macro": 8.0, "micro": 11.0, "hero": 5.6}.get(kind, 11.0)
     return cam
 
 
@@ -188,8 +224,9 @@ def build(element="SAND", quality="HIGH", size=1.2, cam="close", grains=False,
     box.groundfx.is_collider = True
 
     scene.frame_start, scene.frame_end = 1, 90
-    zc = h + 0.1 - 0.045  # box bottom 4.5 cm below the surface
-    keys = {1: (-0.45, 0.0, zc), 55: (0.12, 0.0, zc), 90: (0.12, 0.0, zc)}
+    zc = h + 0.1 - 0.022  # box bottom 2.2 cm below the surface
+    keys = {1: (-0.30, 0.0, zc + 0.06), 8: (-0.30, 0.0, zc),
+            55: (0.12, 0.0, zc), 90: (0.12, 0.0, zc)}
     for f, loc in keys.items():
         box.location = loc
         box.keyframe_insert("location", frame=f)

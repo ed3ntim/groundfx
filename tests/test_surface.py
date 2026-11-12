@@ -138,6 +138,7 @@ def test_viewport_keeps_grid_and_adds_ripples():
     _reset()
     from groundfx.ops.op_add import create_domain, expected_vertex_count
     domain = create_domain(bpy.context, ELEM_SAND, size=1.0, surface=True)
+    domain.groundfx.pebbles = 0.0   # pebbles are extra meshes after the grid
     bpy.context.scene.frame_set(1)
     co = _positions(domain)
     harness.check("viewport level 0 keeps the simulation grid",

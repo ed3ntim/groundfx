@@ -55,7 +55,9 @@ def ripple_height(g, P, wavelength, angle):
     phase = (uk + warp) * _TAU
 
     def profile(t):
-        return g.math("SINE", t + g.math("SINE", t) * 0.6)
+        p = g.math("SINE", t + g.math("SINE", t) * 0.6)
+        # narrow crests over wide, flat troughs (extremes stay at +-1)
+        return p - (1.0 - p * p) * 0.3
 
     patch = _noise(g, g.vec(uk * 0.22, vk * 0.07, 19.3), detail=1.0)
     blend = smoothstep(patch * 9.0 + 0.5)

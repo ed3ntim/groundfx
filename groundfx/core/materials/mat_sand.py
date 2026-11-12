@@ -36,7 +36,9 @@ from __future__ import annotations
 
 from ..ng_builder import NodeTreeBuilder
 from ..ng_expr import Expr
-from ..constants import ATTR_COMP, ATTR_DIST, ATTR_DAMP, ATTR_GEO, ATTR_FLOW
+from ..constants import (
+    ATTR_COMP, ATTR_DIST, ATTR_DAMP, ATTR_GEO, ATTR_FLOW, ATTR_PEBBLE,
+)
 from .. import surface_fn as sfn
 
 GRAIN_SIZE = 0.0004   # metres, medium sand
@@ -53,6 +55,15 @@ PALETTE = (
 )
 # What water does to the albedo of sand (pore water couples light in).
 DAMP_TINT = (0.52, 0.47, 0.41)
+# Stones and shell fragments scattered by the surface stage, by stone id.
+STONES = (
+    (0.00, (0.23, 0.21, 0.19)),   # grey pebble
+    (0.30, (0.09, 0.085, 0.08)),  # basalt
+    (0.45, (0.42, 0.33, 0.24)),   # sandstone
+    (0.62, (0.70, 0.66, 0.58)),   # shell / quartz
+    (0.80, (0.33, 0.16, 0.10)),   # red jasper
+    (0.90, (0.55, 0.50, 0.44)),   # light pebble
+)
 
 
 def set_ramp(cr, stops) -> None:
@@ -158,11 +169,23 @@ def build(tree, ctrl, *, grain_size=GRAIN_SIZE) -> None:
     damp_mul = g.mix(g.vec(1.0, 1.0, 1.0), g.vec(*DAMP_TINT), moist)
     color = dry * base * damp_mul
 
+    # ---- pebbles ------------------------------------------------------------
+    peb = _attr(g, ATTR_PEBBLE)
+    is_peb = peb.gt(0.01)
+    stone = g.node("ShaderNodeValToRGB", {0: peb})
+    stone.color_ramp.interpolation = "CONSTANT"
+    set_ramp(stone.color_ramp, STONES)
+    speck = g.out(g.node("ShaderNodeTexNoise",
+                         {"Vector": P, "Scale": 900.0, "Detail": 3.0}), 0)
+    stone_col = g.out(stone, "Color") * (0.75 + speck * 0.5)
+    color = g.mix(color, stone_col, is_peb)
+
     # ---- roughness -----------------------------------------------------------
     glint = g.math("MULTIPLY", grain_r2.gt(0.88), 1.0 - moist * 0.7)
     r_dry = g.mix(rough, rough * 0.28, glint)
     roughness = g.mix(r_dry, rough * 0.55, moist)
     roughness = (roughness * (1.0 - comp * 0.15)).clamp(0.02, 1.0)
+    roughness = g.mix(roughness, 0.45 + speck * 0.25, is_peb)
     film = sfn.smoothstep((wet - 0.45) / 0.5)   # standing water film
 
     # ---- normal: far ripples, loose crumbs, scrape lines, grains -----------

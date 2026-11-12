@@ -207,6 +207,7 @@ class GFX_PT_look(bpy.types.Panel):
             sub.prop(st, "ripple_length")
             sub.prop(st, "wind_direction")
             sub.prop(st, "clod_height")
+            sub.prop(st, "pebbles")
             sub.prop(st, "drying", slider=True)
             sub.prop(st, "surround")
 

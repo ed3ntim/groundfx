@@ -44,7 +44,8 @@ reine Anzeige ohne Rückwirkung auf die Simulation. Bisher nur für Sand
 3. Versatz in Z: Windrippel auf ungestörtem Boden, Klumpenrelief wo
    `gfx_dist` gesetzt ist, flach wo `gfx_comp` gesetzt ist.
 4. Krümel: 1 bis 5 mm große, verformte Icosphären als echte Meshes, nur auf
-   aufgewühltem Boden.
+   aufgewühltem Boden. Steinchen und Muschelbruch (`gfx_pebble` wählt die
+   Steinfarbe im Shader) überall, wo der Boden Geometrie ist.
 5. Umgebung (optional): feiner Ring (3x Domain) mit denselben Rippeln, dann
    Fernfeld mit Dünen (rund 100x Domain).
 
@@ -60,6 +61,14 @@ und trocknet mit `Drying` pro Frame.
 Die Stufe ist opt-in (`obj.groundfx.surface_detail`). `create_domain` liefert
 ohne `surface=True` das nackte Sim-Gitter, darauf verlassen sich Tests, Bake
 und Freeze. Die UI-Operatoren schalten sie ein.
+
+## Verdrängung (Solver, seit 2026-11-12)
+
+Der Ring, auf den verdrängtes Volumen fällt, hat eine Reichweite in Metern
+(4 cm), nicht in Zellen. Jede Quellzelle sucht erst den nächsten Ringpunkt
+(Richtung nach außen) und wirft von dort zufällig weiter. Vorher landete das
+gesamte Volumen eines eintauchenden Objekts auf der innersten Ringreihe und
+stand als Wand über dem Objekt.
 
 ## Element-Kennwerte (`data/elements.py`)
 
@@ -115,8 +124,9 @@ und Freeze. Die UI-Operatoren schalten sie ein.
   Echte Facettengeometrie (Kornebene für Schnee) wäre der nächste Schritt.
 - Kornebene gibt es bisher nur für Sand.
 - Surface-Stufe (Gen 3) gibt es bisher nur für Sand.
-- Sandflecken auf der Collider-Oberseite in der Hero-Szene, Ursache offen.
-- Haufen haben flache Plateaus statt eines Grats.
+- Haufen haben flache Plateaus statt eines Grats. Tiefes, langes Pflügen
+  türmt sie über die Box, dann liegt Sand auf deren Oberseite (Volumen
+  stimmt, Form nicht).
 
 ## Lizenz
 

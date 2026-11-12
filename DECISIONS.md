@@ -36,6 +36,13 @@ Eine Domain als Platte im leeren Raum wirkt nie echt. Die Umgebung (Ring plus
 Fernfeld bis zum Horizont) ist eine Option der Surface-Stufe, standardmäßig
 aus, weil sie in fremden Szenen mit eigenem Terrain stört.
 
+## 2026-11-12 Verdrängungsring in Metern statt Zellen
+
+Bei hoher Auflösung waren drei Zellen nur 1,4 cm. Ein eintauchendes Objekt
+lud sein ganzes Volumen dort ab, der Sand stand höher als das Objekt und lief
+auf dessen Oberseite. Jetzt 4 cm Reichweite und ein zweistufiger Wurf nach
+außen. Die Solver-Tests blieben unverändert grün.
+
 ## 2026-11-12 Aufgeräumt
 
 Gelöscht: der tote v1-Pfad in `mat_builder.py` (rund 400 Zeilen, wurde nie

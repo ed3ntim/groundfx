@@ -79,6 +79,8 @@ ATTR_TOP = "gfx_top"
 ATTR_DIST = "gfx_dist"
 ATTR_DAMP = "gfx_damp"
 ATTR_GEO = "gfx_geo"
+# 0 on sand, 0.05..1 on a scattered pebble (picks its stone colour).
+ATTR_PEBBLE = "gfx_pebble"
 
 # --- Collider proxy modes ---------------------------------------------------
 # How a collider is presented to the raycast: the original mesh, or a cheap

@@ -76,7 +76,8 @@ _RAY_LENGTH = 50.0
 _CONTACT_EPS = 0.0015  # collider within this of the surface = occupied
 _PAIR_RATE = 0.12      # explicit flux factor; 8 pairs * 0.12 < 1 -> stable
 _TOP_HIDE = 0.0004     # thinner layers on a collider stay invisible (no z-fight)
-_DIST_FULL = 0.003     # metres of height change that count as fully disturbed
+_RING_REACH = 0.04     # metres around the footprint that take displaced volume
+_DIST_FULL = 0.003    # metres of height change that count as fully disturbed
 _DAMP_DEPTH = 0.03     # metres from rest level at which material is fully damp
 _SQRT2 = math.sqrt(2.0)
 # (d_col, d_row, distance in cells) for the four directions a cell owns.
@@ -307,8 +308,12 @@ def _displace(g, geo, inp, pushed, vel):
     cell = inp["cell"]
 
     # Ring: free cells within a few cells of the footprint.
+    # The ring's reach is a length, not a cell count: on a fine grid three
+    # cells are a centimetre, and a whole frame's volume dumped there towers
+    # over the object instead of forming a bow wave.
+    reach = (_RING_REACH / cell).round().clamp(3.0, 14.0)
     blur = g.node("GeometryNodeBlurAttribute",
-                  {"Value": occ, "Iterations": 3}, data_type="FLOAT")
+                  {"Value": occ, "Iterations": reach}, data_type="FLOAT")
     near = g.out(blur, 0).gt(0.002)
     ring_sel = g.math("MULTIPLY", near, occ.lt(0.5))
     # Grid index must be stored on the MESH: an Index field evaluated after
@@ -326,9 +331,24 @@ def _displace(g, geo, inp, pushed, vel):
     v = g.attr("gfx_vh", "FLOAT_VECTOR")
     vh = g.vec(v.x, v.y, 0.0)
     speed = vh.length()
-    ahead = vh.normalize() * ((speed / cell).min(1.0) * inp["bow"] * 0.08)
-    jit = g.vec(g.random(11, -1.5, 1.5) * cell, g.random(12, -1.5, 1.5) * cell, 0.0)
-    q = g.position() + ahead + jit
+    # Each cell throws a different distance, so the volume spreads over the
+    # depth of the ring instead of piling on its inner edge.
+    throw = g.random(13, 0.15, 1.0)
+    ahead = vh.normalize() * ((speed / cell).min(1.0) * inp["bow"] * 0.08 * throw)
+    jr = (cell * 1.5).max(_RING_REACH * 0.3)
+    jit = g.vec(g.random(11, -1.0, 1.0) * jr, g.random(12, -1.0, 1.0) * jr, 0.0)
+    # Step 1: the nearest point of the ring gives the way out of the
+    # footprint. Step 2: throw a random distance further along that way, so
+    # cells deep inside (an object dropped in, or overlapping at the start)
+    # fill the whole ring rather than stacking a wall on its inner row.
+    pos = g.position()
+    edge_i = g.out(g.node("GeometryNodeSampleNearest",
+                          {"Geometry": ring, "Sample Position": pos},
+                          domain="POINT"), 0)
+    edge_p = g.sample_index(ring, g.position(), edge_i, kind="FLOAT_VECTOR")
+    out_dir = edge_p - pos
+    out_dir = g.vec(out_dir.x, out_dir.y, 0.0).normalize()
+    q = edge_p + out_dir * (g.random(14, 0.0, 0.8) * _RING_REACH) + ahead + jit
     near_i = g.out(g.node("GeometryNodeSampleNearest",
                           {"Geometry": ring, "Sample Position": q},
                           domain="POINT"), 0)

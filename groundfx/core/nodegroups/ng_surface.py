@@ -31,7 +31,7 @@ import math
 from ..ng_builder import new_geometry_group
 from ..ng_expr import make
 from ..constants import (
-    NG_SURFACE, ATTR_COMP, ATTR_DIST, ATTR_DAMP, ATTR_GEO,
+    NG_SURFACE, ATTR_COMP, ATTR_DIST, ATTR_DAMP, ATTR_GEO, ATTR_PEBBLE,
     DEFAULT_MATERIAL_HEIGHT,
 )
 from .. import surface_fn as sfn
@@ -44,14 +44,15 @@ IN_RIPPLE_LENGTH = "Ripple Length"
 IN_WIND = "Wind Direction"
 IN_CLOD_HEIGHT = "Clod Height"
 IN_CRUMBS = "Crumbs"
+IN_PEBBLES = "Pebbles"
 IN_SURROUND = "Surround"
 IN_DOMAIN_SIZE = "Domain Size"
 IN_MATERIAL_HEIGHT = "Material Height"
 IN_MATERIAL = "Material"
 OUT_GEOMETRY = "Geometry"
 
-_RING_CELL = 0.01      # target cell of the fine ring in renders (metres)
-_UNDER_SINK = 0.003    # the ring dips this far where it runs under the domain
+_RING_CELL = 0.006     # target cell of the fine ring in renders (metres)
+_UNDER_SINK = 0.0004   # the ring dips this far where it runs under the domain
 _FAR_CELLS = 33        # far field = this many cells of 3 x domain size
 _DUNE_HEIGHT = 0.9     # metres, broad far dunes
 _CRUMB_MIN = 0.001    # crumb radius range, metres
@@ -80,6 +81,9 @@ def _interface(b):
     b.input(IN_CRUMBS, "NodeSocketFloat", default=9000.0, min=0.0,
             max=100000.0,
             description="Loose lumps per square metre of disturbed ground")
+    b.input(IN_PEBBLES, "NodeSocketFloat", default=220.0, min=0.0,
+            max=20000.0,
+            description="Small stones and shell bits per square metre")
     b.input(IN_SURROUND, "NodeSocketBool", default=False,
             description="Embed the domain in a large static field")
     b.input(IN_DOMAIN_SIZE, "NodeSocketFloat", default=2.0, min=0.01,
@@ -141,33 +145,43 @@ def _surround(g, size, height, viewport):
     return g.out(join, 0)
 
 
-def _crumbs(g, surface, density, material):
-    """Small irregular lumps lying on disturbed ground, as real meshes."""
+def _lumps(g, surface, density, material, *, seed, r_min, r_max, power,
+           sink, flat, rough, pebble):
+    """Scatter small irregular meshes on ``surface`` (crumbs or pebbles).
+
+    ``density`` is a field in points per square metre. Sizes follow a power
+    law (many small, few large), each lump is squashed, sunk into the ground
+    and broken up along its normals. ``pebble`` stores a per-lump stone id
+    for the shader (crumbs stay sand: 0).
+    """
     dist_node = g.node("GeometryNodeDistributePointsOnFaces",
-                       {"Mesh": surface,
-                        "Density": density * g.attr(_ATTR_LOOSE), "Seed": 3},
+                       {"Mesh": surface, "Density": density, "Seed": seed},
                        distribute_method="RANDOM")
     pts = g.out(dist_node, "Points")
     normal = g.out(dist_node, "Normal")
     ident = g.out(g.node("GeometryNodeInputID"), 0)
     # many small, few large: cube of a uniform random value
-    t = g.random(21, 0.0, 1.0, ident)
-    radius = _CRUMB_MIN + (_CRUMB_MAX - _CRUMB_MIN) * t * t * t * t
+    t = g.random(seed + 21, 0.0, 1.0, ident)
+    radius = r_min + (r_max - r_min) * t.pow(power)
     pts = g.out(g.node("GeometryNodeSetPosition",
-                       {"Geometry": pts, "Offset": normal * (radius * -0.25)}), 0)
+                       {"Geometry": pts, "Offset": normal * (radius * -sink)}), 0)
     ico = g.node("GeometryNodeMeshIcoSphere", {"Radius": 1.0, "Subdivisions": 2})
     rot = g.out(g.node("FunctionNodeRandomValue",
                        {"Min": (0.0, 0.0, 0.0), "Max": (6.2832, 6.2832, 6.2832),
-                        "ID": ident, "Seed": 22}, data_type="FLOAT_VECTOR"),
+                        "ID": ident, "Seed": seed + 22},
+                       data_type="FLOAT_VECTOR"),
                 "Value")
     rot = g.out(g.node("FunctionNodeEulerToRotation", {0: rot}), 0)
-    squash = g.vec(radius * g.random(23, 0.8, 1.2, ident),
-                   radius * g.random(24, 0.8, 1.2, ident),
-                   radius * g.random(25, 0.4, 0.75, ident))
+    squash = g.vec(radius * g.random(seed + 23, 0.75, 1.25, ident),
+                   radius * g.random(seed + 24, 0.75, 1.25, ident),
+                   radius * g.random(seed + 25, flat * 0.6, flat, ident))
     iop = g.node("GeometryNodeInstanceOnPoints",
                  {"Points": pts, "Instance": g.out(ico, "Mesh"),
                   "Rotation": rot, "Scale": squash})
     inst = g.store(g.out(iop, 0), _ATTR_CRUMB, radius, domain="INSTANCE")
+    if pebble:
+        inst = g.store(inst, ATTR_PEBBLE, g.random(seed + 26, 0.05, 1.0, ident),
+                       domain="INSTANCE")
     mesh = g.out(g.node("GeometryNodeRealizeInstances", {"Geometry": inst}), 0)
     # break the sphere: push vertices in and out along their normal
     lump = g.out(g.node("ShaderNodeTexNoise",
@@ -176,7 +190,7 @@ def _crumbs(g, surface, density, material):
     nrm = g.out(g.b.add("GeometryNodeInputNormal"), "Normal")
     mesh = g.out(g.node("GeometryNodeSetPosition",
                         {"Geometry": mesh,
-                         "Offset": nrm * (lump * g.attr(_ATTR_CRUMB) * 1.9)}), 0)
+                         "Offset": nrm * (lump * g.attr(_ATTR_CRUMB) * rough)}), 0)
     mesh = g.out(g.node("GeometryNodeSetShadeSmooth", {0: mesh}), 0)
     mesh = g.store(mesh, ATTR_GEO, 1.0)
     return g.out(g.node("GeometryNodeSetMaterial",
@@ -247,8 +261,18 @@ def build(name: str = NG_SURFACE):
                            {"Geometry": geo, "Offset": g.vec(0.0, 0.0, dz)}), 0)
 
     # ---- crumbs ---------------------------------------------------------------------
-    crumbs = _crumbs(g, surface, I(IN_CRUMBS), I(IN_MATERIAL))
+    crumbs = _lumps(g, surface, I(IN_CRUMBS) * g.attr(_ATTR_LOOSE),
+                    I(IN_MATERIAL), seed=3, r_min=_CRUMB_MIN, r_max=_CRUMB_MAX,
+                    power=4.0, sink=0.25, flat=0.75, rough=1.9, pebble=False)
+    # Pebbles and shell bits: everywhere the ground is real geometry, fewer
+    # where it was churned (they get buried) and none on packed tracks.
+    keep = (g.attr(ATTR_GEO).gt(0.5) * (1.0 - g.attr(_ATTR_LOOSE) * 0.7)
+            * (1.0 - g.attr(ATTR_COMP).clamp(0.0, 1.0)))
+    pebbles = _lumps(g, surface, I(IN_PEBBLES) * keep, I(IN_MATERIAL),
+                     seed=40, r_min=0.0008, r_max=0.006, power=5.0,
+                     sink=0.45, flat=0.6, rough=1.2, pebble=True)
     out = b.add("GeometryNodeJoinGeometry")
+    g.feed(out, 0, pebbles)
     g.feed(out, 0, crumbs)
     g.feed(out, 0, surface)
     g.feed(gout, OUT_GEOMETRY, g.out(out, 0))
