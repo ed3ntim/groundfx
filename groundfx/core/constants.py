@@ -26,7 +26,8 @@ ADDON_NAME = "GroundFX"
 #      per-vertex collider velocity + swept sub-frame copies, Yield input.
 # v22 (gen 3): gfx_dist / gfx_damp fields, Drying input; surface stage group.
 # v23: coat groups, per-element surface groups, pebbles, standing water.
-NODEGROUP_VERSION = 23
+# v24: display closes the gap at collider walls.
+NODEGROUP_VERSION = 24
 
 # --- UI ---------------------------------------------------------------------
 PANEL_CATEGORY = "GroundFX"     # N-panel tab label

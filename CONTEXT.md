@@ -83,6 +83,17 @@ Relief. Der Clearcoat ist über einen Noise-Schwellwert fleckig, sonst wirkt
 nasser Schlamm wie Plastik. Feuchter Boden muss dunkel sein (linear rund
 0.08/0.05/0.03), sonst liest er sich in der Sonne als Sand.
 
+## Spalt an der Collider-Wand (seit 2026-11-13 geschlossen)
+
+Ein Höhenfeld kann keine senkrechte Fläche halten: Die Zelle unter dem Objekt
+ist abgetragen, die freie Zelle daneben voll, das Mesh verbindet beide mit
+einer Rampe von einer Zelle Breite. Bei 2 m Domain und Quality Medium sind das
+1,6 cm sichtbarer Spalt. Die Anzeige im Solver zeichnet deshalb die äußersten
+belegten Zellen auf der Höhe des freien Materials daneben (Blur über zwei
+Zellen, gedeckelt auf die Oberkante des Objekts). Die Rampe liegt so im
+Inneren des Objekts. `gfx_h` bleibt unverändert, nur die Position ändert sich.
+Wer Höhen misst, liest `gfx_h`, nicht die Vertex-Position.
+
 ## Haften am Objekt (`core/nodegroups/ng_coat.py`, `ops/op_coat.py`)
 
 Je Collider und Domain ein eigenes Coat-Objekt (`<Collider> Coat`) mit dem

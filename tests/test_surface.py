@@ -169,7 +169,10 @@ def test_ripples_vanish_where_disturbed():
     ev.data.attributes["gfx_h"].data.foreach_get("value", h)
     relief = co[:, 2] - h[:n_grid]   # what the stage added (flat base at 0)
     dist = _attr(domain, ATTR_DIST)[:n_grid]
-    inside = (dist > 0.999) & (np.abs(co[:, 1]) < 0.04)
+    # cells under the collider are drawn raised at its walls (gap closing)
+    occ = np.zeros(len(ev.data.vertices))
+    ev.data.attributes["gfx_occ"].data.foreach_get("value", occ)
+    inside = (dist > 0.999) & (np.abs(co[:, 1]) < 0.04) & (occ[:n_grid] < 0.5)
     outside = dist < 1e-6
     harness.check("undisturbed ground has ripple relief",
                   np.abs(relief[outside]).max() > 5e-4)

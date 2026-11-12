@@ -481,8 +481,30 @@ def build(name: str = NG_GROUND_SIM):
     geo = V(g, sim.output.outputs["Geometry"])
 
     # ---- display: surface = base + h --------------------------------------------
+    # Close the gap at collider walls. A height field cannot hold a vertical
+    # face: the cell under the object is cut down, the free cell beside it is
+    # full, and the mesh joins them with a ramp one cell wide, which shows as
+    # a gap along the wall. So the outermost cells under the object are drawn
+    # at the height of the free material next to them: the ramp now lies
+    # inside the object. Display only, the simulated height is untouched.
+    # Never above the object's own top, so thin objects are not poked through.
+    occ_d = g.attr(ATTR_OCC)
+    free = 1.0 - occ_d
+    h_d = g.attr(ATTR_HEIGHT)
+    num = g.out(g.node("GeometryNodeBlurAttribute",
+                       {"Value": h_d * free, "Iterations": 2},
+                       data_type="FLOAT"), 0)
+    den = g.out(g.node("GeometryNodeBlurAttribute",
+                       {"Value": free, "Iterations": 2},
+                       data_type="FLOAT"), 0)
+    beside = num / den.max(1e-6)
+    lid = g.switch(g.attr(ATTR_COV).gt(0.5), 1e6,
+                   g.attr(ATTR_ZHI) - g.attr(ATTR_BASE) - _TOP_HIDE)
+    filled = h_d.max(beside.min(lid))
+    edge = g.math("MULTIPLY", occ_d.gt(0.5), den.gt(0.02))
+    h_show = g.switch(edge, h_d, filled)
     p = g.position()
-    out_pos = g.vec(p.x, p.y, g.attr(ATTR_BASE) + g.attr(ATTR_HEIGHT))
+    out_pos = g.vec(p.x, p.y, g.attr(ATTR_BASE) + h_show)
     sp = g.node("GeometryNodeSetPosition", {"Geometry": geo, "Position": out_pos})
     ground = g.out(sp, 0)
 
