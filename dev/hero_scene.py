@@ -97,7 +97,7 @@ def setup_world(scene, sun_elev_deg=22.0, sun_rot_deg=120.0, strength=0.06,
     scene.view_settings.exposure = exposure
 
 
-def make_box(size=0.2):
+def make_box(size=0.2, mud=False):
     import bmesh
     me = bpy.data.meshes.new("HeroBox")
     bm = bmesh.new()
@@ -145,6 +145,20 @@ def make_box(size=0.2):
     L(mix.outputs[2], bsdf.inputs["Base Color"])
     L(n1.outputs[0], rr.inputs["Value"])
     L(rr.outputs[0], bsdf.inputs["Roughness"])
+    if mud:
+        # splatter: scene dressing only, the solver does not coat flanks yet
+        n1.inputs["Scale"].default_value = 60.0
+        n1.inputs["Roughness"].default_value = 0.75
+        ramp.inputs["From Max"].default_value = 0.10
+        ramp.inputs["To Min"].default_value = 3.6
+        ramp.inputs["To Max"].default_value = 0.0
+        mix.inputs[7].default_value = (0.065, 0.042, 0.025, 1.0)
+        pw = nt.nodes.new("ShaderNodeMath")
+        pw.operation = "POWER"
+        pw.inputs[1].default_value = 5.0
+        pw.use_clamp = True
+        L(mul.outputs[0], pw.inputs[0])
+        L(pw.outputs[0], mix.inputs[0])
     me.materials.append(mat)
     return obj
 
@@ -217,7 +231,7 @@ def build(element="SAND", quality="HIGH", size=1.2, cam="close", grains=False,
     domain.groundfx.surround = surround
 
     h = domain.groundfx.material_height
-    box = make_box(0.2)
+    box = make_box(0.2, mud=element == "MUD")
     scene.collection.objects.link(box)
     coll = ensure_collider_collection(bpy.context, domain)
     coll.objects.link(box)

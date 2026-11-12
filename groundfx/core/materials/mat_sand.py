@@ -63,6 +63,7 @@ STONES = (
     (0.62, (0.70, 0.66, 0.58)),   # shell / quartz
     (0.80, (0.33, 0.16, 0.10)),   # red jasper
     (0.90, (0.55, 0.50, 0.44)),   # light pebble
+    (0.96, (0.46, 0.36, 0.17)),   # straw / root (mud surface stage)
 )
 
 

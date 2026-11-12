@@ -92,6 +92,24 @@ def mud_pocks(g, P):
     return (_noise(g, P, scale=70.0, detail=4.0, roughness=0.6) * 4.0).clamp(-1.5, 1.5)
 
 
+def mud_clods(g, P):
+    """Churned, cloddy ground: fist-sized clumps with crumbly crests, about
+    -1..1. Billowed noise (absolute value) gives rounded clumps separated by
+    sharp creases, which is how wet soil breaks, instead of smooth hills."""
+    warp = g.vec(_noise(g, P, scale=7.0), _noise(g, P + (3.7, 1.3, 0.0), scale=7.0), 0.0)
+    Pw = P + warp * 0.05
+    big = (_noise(g, Pw, scale=13.0, detail=2.0, roughness=0.5) * 2.0).abs()
+    mid = (_noise(g, Pw, scale=38.0, detail=2.0, roughness=0.5) * 2.0).abs()
+    crumb = _noise(g, P, scale=120.0, detail=3.0, roughness=0.65)
+    return (big * 3.2 + mid * 1.0 + crumb * 0.35 - 0.3).clamp(-1.0, 1.5)
+
+
+def mud_wrinkles(g, P):
+    """Fine drag folds on squeezed mud, about -1..1."""
+    return ((_noise(g, P, scale=95.0, detail=2.0, roughness=0.5) * 2.0).abs() * 4.0
+            - 0.6).clamp(-1.0, 1.0)
+
+
 def mud_lobes(g, P):
     """Squeezed-out mud: rounded bulges with creases between them, about
     0..1. Smooth Voronoi gives the pillow shape viscous material takes when

@@ -166,7 +166,7 @@ def _surround(g, size, height, viewport):
 
 
 def _lumps(g, surface, density, material, *, seed, r_min, r_max, power,
-           sink, flat, rough, pebble):
+           sink, flat, rough, pebble, stretch=1.0, pebble_id=None):
     """Scatter small irregular meshes on ``surface`` (crumbs or pebbles).
 
     ``density`` is a field in points per square metre. Sizes follow a power
@@ -192,7 +192,7 @@ def _lumps(g, surface, density, material, *, seed, r_min, r_max, power,
                        data_type="FLOAT_VECTOR"),
                 "Value")
     rot = g.out(g.node("FunctionNodeEulerToRotation", {0: rot}), 0)
-    squash = g.vec(radius * g.random(seed + 23, 0.75, 1.25, ident),
+    squash = g.vec(radius * stretch * g.random(seed + 23, 0.75, 1.25, ident),
                    radius * g.random(seed + 24, 0.75, 1.25, ident),
                    radius * g.random(seed + 25, flat * 0.6, flat, ident))
     iop = g.node("GeometryNodeInstanceOnPoints",
@@ -200,8 +200,9 @@ def _lumps(g, surface, density, material, *, seed, r_min, r_max, power,
                   "Rotation": rot, "Scale": squash})
     inst = g.store(g.out(iop, 0), _ATTR_CRUMB, radius, domain="INSTANCE")
     if pebble:
-        inst = g.store(inst, ATTR_PEBBLE, g.random(seed + 26, 0.05, 1.0, ident),
-                       domain="INSTANCE")
+        pid = (g.random(seed + 26, 0.05, 0.94, ident) if pebble_id is None
+               else pebble_id)
+        inst = g.store(inst, ATTR_PEBBLE, pid, domain="INSTANCE")
     mesh = g.out(g.node("GeometryNodeRealizeInstances", {"Geometry": inst}), 0)
     # break the sphere: push vertices in and out along their normal
     lump = g.out(g.node("ShaderNodeTexNoise",
@@ -277,8 +278,13 @@ def build(name: str = NG_SURFACE, element: str = ELEM_SAND):
         # tracks stay smooth.
         und = sfn.mud_undulation(g, p2) * I(IN_UNDULATION)
         pock = sfn.mud_pocks(g, p2) * (0.0006 * (1.0 - comp)) * geo_w
-        lobe = (sfn.mud_lobes(g, p2) - 0.35) * w_clod * (I(IN_CLOD_HEIGHT) * 2.0)
-        dz = dz + und + pock + lobe
+        # churned ground everywhere, calmer where it was packed flat and a
+        # little calmer in the hollows, where water has slumped the clods
+        calm = (1.0 - comp * 0.9) * geo_w
+        clod = sfn.mud_clods(g, p2) * calm * (I(IN_CLOD_HEIGHT) * 1.7)
+        lobe = (sfn.mud_lobes(g, p2) - 0.35) * w_clod * (I(IN_CLOD_HEIGHT) * 3.0)
+        wrinkle = sfn.mud_wrinkles(g, p2) * w_clod * (I(IN_CLOD_HEIGHT) * 0.5)
+        dz = dz + und + pock + clod + lobe + wrinkle
     else:
         rip = sfn.ripple_height(g, p2, I(IN_RIPPLE_LENGTH), I(IN_WIND))
         w_rip = sfn.smoothstep(1.0 - dist * 1.6) * (1.0 - comp) * geo_w
@@ -298,9 +304,13 @@ def build(name: str = NG_SURFACE, element: str = ELEM_SAND):
     # ---- crumbs ---------------------------------------------------------------------
     if mud:
         # splatter: flat, half-sunk clots thrown off by the object
-        crumbs = _lumps(g, surface, I(IN_CRUMBS) * 0.12 * g.attr(_ATTR_LOOSE),
-                        I(IN_MATERIAL), seed=3, r_min=0.002, r_max=0.013,
-                        power=3.0, sink=0.55, flat=0.42, rough=0.5, pebble=False)
+        # clots everywhere (more where churned), none on packed tracks
+        clots = (I(IN_CRUMBS) * 0.1 * (0.4 + g.attr(_ATTR_LOOSE))
+                 * g.attr(ATTR_GEO).gt(0.5)
+                 * (1.0 - g.attr(ATTR_COMP).clamp(0.0, 1.0)))
+        crumbs = _lumps(g, surface, clots,
+                        I(IN_MATERIAL), seed=3, r_min=0.0015, r_max=0.012,
+                        power=3.5, sink=0.45, flat=0.55, rough=0.8, pebble=False)
     else:
         crumbs = _lumps(g, surface, I(IN_CRUMBS) * g.attr(_ATTR_LOOSE),
                         I(IN_MATERIAL), seed=3, r_min=_CRUMB_MIN,
@@ -315,6 +325,12 @@ def build(name: str = NG_SURFACE, element: str = ELEM_SAND):
                      sink=0.45, flat=0.6, rough=1.2, pebble=True)
     out = b.add("GeometryNodeJoinGeometry")
     if mud:
+        # a few stalks of straw and root: thin, long, lying flat
+        straw = _lumps(g, surface, I(IN_PEBBLES) * 0.12 * g.attr(ATTR_GEO).gt(0.5),
+                       I(IN_MATERIAL), seed=70, r_min=0.0005, r_max=0.0011,
+                       power=1.0, sink=0.1, flat=1.0, rough=0.25, pebble=True,
+                       stretch=32.0, pebble_id=0.98)
+        g.feed(out, 0, straw)
         # Standing water: one level sheet at the water table. The mud is a
         # height field, so the sheet only shows where the mud lies below it:
         # in natural hollows and in every track an object leaves.

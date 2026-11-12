@@ -318,7 +318,7 @@ class GroundFXObjectSettings(bpy.types.PropertyGroup):
         description="A water table that fills hollows and every track")
 
     water_level: bpy.props.FloatProperty(
-        name="Water Level", default=-0.005, min=-1.0, max=1.0,
+        name="Water Level", default=-0.004, min=-1.0, max=1.0,
         subtype="DISTANCE", update=_sync_surface,
         description="Water table relative to the resting surface. Higher "
                     "floods more of the ground")

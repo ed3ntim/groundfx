@@ -69,7 +69,8 @@ def build(tree, ctrl) -> None:
     lumps = _noise(g, Ps, 9.0, 6.0, 0.55, 0.4)
     folds = _noise(g, Ps, 38.0, 4.0, 0.5)
     fine = _noise(g, P, 420.0, 4.0, 0.65)
-    height = lumps * 0.55 + folds * 0.3 + fine * 0.15
+    crumb = _noise(g, P, 140.0, 4.0, 0.7)
+    height = lumps * 0.4 + folds * 0.3 + crumb * 0.2 + fine * 0.1
 
     # ---- local wetness --------------------------------------------------------
     # slider sets the level; the shore band and worked mud push it up, high
@@ -114,9 +115,9 @@ def build(tree, ctrl) -> None:
 
     # ---- film: patchy clear coat ---------------------------------------------------
     patch = _noise(g, Ps, 55.0, 3.0, 0.6)
-    film = sfn.smoothstep((local - 0.35 - (patch - 0.5) * 0.5) / 0.3)
+    film = sfn.smoothstep((local - 0.22 - (patch - 0.5) * 0.5) / 0.3)
     film = (film * (1.0 - dryness)).max(shore * shore)
-    coat_rough = (0.035 + (1.0 - soaked) * 0.16 + fine * 0.05).clamp(0.02, 0.5)
+    coat_rough = (0.03 + (1.0 - soaked) * 0.07 + fine * 0.05).clamp(0.02, 0.5)
 
     roughness = g.mix(rough * 0.95, rough * 0.6, soaked)
     roughness = g.mix(roughness, 0.95, dryness)
@@ -124,8 +125,8 @@ def build(tree, ctrl) -> None:
 
     # ---- normal -----------------------------------------------------------------------
     bump = g.node("ShaderNodeBump",
-                  {"Strength": 0.4 * (1.0 - comp * 0.5),
-                   "Distance": 0.005 * detail, "Height": height})
+                  {"Strength": 0.9 * (1.0 - comp * 0.5),
+                   "Distance": 0.006 * detail, "Height": height})
     bump_c = g.node("ShaderNodeBump",
                     {"Strength": 0.8, "Distance": 0.0012, "Height": crack * -1.0,
                      "Normal": g.out(bump, "Normal")})
@@ -133,9 +134,12 @@ def build(tree, ctrl) -> None:
                     {"Strength": 0.45, "Distance": 0.0005,
                      "Height": grit + fine * 0.35 * detail,
                      "Normal": g.out(bump_c, "Normal")})
-    # the film is water: it levels the fine relief and keeps only the swell
+    # The film follows the crumbs (it is thin), only the finest grit is
+    # levelled. Thousands of tiny wet facets: that is the sparkle of wet soil.
     coat_bump = g.node("ShaderNodeBump",
-                       {"Strength": 0.35, "Distance": 0.004, "Height": lumps})
+                       {"Strength": 0.8 * (1.0 - comp * 0.5),
+                        "Distance": 0.006 * detail,
+                        "Height": lumps * 0.45 + folds * 0.3 + crumb * 0.25})
 
     bsdf = g.node("ShaderNodeBsdfPrincipled",
                   {"Base Color": col, "Roughness": roughness, "IOR": 1.5,
@@ -167,10 +171,10 @@ def build_water(tree) -> None:
                    "Height": swell * 0.8 + shiver * 0.2})
     # suspended silt: the water is not clear, it scatters brown
     cloud = _noise(g, P2, 6.0, 3.0)
-    murk = g.vec(0.115, 0.082, 0.050) * (0.8 + cloud * 0.4)
+    murk = g.vec(0.21, 0.145, 0.082) * (0.8 + cloud * 0.4)
     bsdf = g.node("ShaderNodeBsdfPrincipled",
                   {"Base Color": murk, "Roughness": 0.015, "IOR": 1.333,
-                   "Transmission Weight": 0.55,
+                   "Transmission Weight": 0.3,
                    "Normal": g.out(bump, "Normal")})
     # shadow rays pass: the mud under shallow water is lit, not blacked out
     lp = b.add("ShaderNodeLightPath")
