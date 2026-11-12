@@ -203,12 +203,20 @@ class GFX_PT_look(bpy.types.Panel):
             box.prop(st, "surface_detail")
             sub = box.column()
             sub.active = st.surface_detail
-            sub.prop(st, "ripple_height")
-            sub.prop(st, "ripple_length")
-            sub.prop(st, "wind_direction")
-            sub.prop(st, "clod_height")
+            if st.element == "MUD":
+                sub.prop(st, "undulation")
+                sub.prop(st, "clod_height", text="Lobe Height")
+                sub.prop(st, "water")
+                row = sub.row()
+                row.active = st.water
+                row.prop(st, "water_level")
+            else:
+                sub.prop(st, "ripple_height")
+                sub.prop(st, "ripple_length")
+                sub.prop(st, "wind_direction")
+                sub.prop(st, "clod_height")
+                sub.prop(st, "drying", slider=True)
             sub.prop(st, "pebbles")
-            sub.prop(st, "drying", slider=True)
             sub.prop(st, "surround")
 
         if matb.domain_material(obj) is None:

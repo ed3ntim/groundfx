@@ -79,6 +79,32 @@ def clod_height(g, P):
     return (big * 2.4 + ridged * 2.2).clamp(-1.5, 1.5)
 
 
+def mud_undulation(g, P):
+    """The uneven lie of a mud flat: broad shallow hollows and rises, about
+    -1..1. Hollows are where water stands."""
+    broad = _noise(g, P, scale=3.2, detail=3.0, roughness=0.5)
+    mid = _noise(g, P, scale=11.0, detail=2.0, roughness=0.5)
+    return (broad * 3.6 + mid * 1.2).clamp(-1.5, 1.5)
+
+
+def mud_pocks(g, P):
+    """Fine lumpiness of a settled mud surface, about -1..1."""
+    return (_noise(g, P, scale=70.0, detail=4.0, roughness=0.6) * 4.0).clamp(-1.5, 1.5)
+
+
+def mud_lobes(g, P):
+    """Squeezed-out mud: rounded bulges with creases between them, about
+    0..1. Smooth Voronoi gives the pillow shape viscous material takes when
+    it is pushed aside and sags."""
+    v = g.node("ShaderNodeTexVoronoi",
+               {"Vector": P, "Scale": 26.0, "Smoothness": 0.35,
+                "Randomness": 1.0},
+               feature="SMOOTH_F1", voronoi_dimensions="3D")
+    d = g.out(v, "Distance")
+    warp = _noise(g, P, scale=9.0, detail=2.0)
+    return (1.0 - d * 1.5 + warp * 1.2).clamp(0.0, 1.2)
+
+
 def dune_height(g, P):
     """Very broad undulation for the far surround, about -1..1."""
     return _noise(g, P, scale=0.045, detail=2.0, roughness=0.45) * 2.0

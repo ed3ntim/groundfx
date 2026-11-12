@@ -12,14 +12,14 @@ import math
 
 from ..core import modifier_io
 from ..core.constants import (
-    ELEM_SAND, MODIFIER_NAME, SURFACE_MODIFIER_NAME, NG_SURFACE,
+    ELEM_SAND, ELEM_MUD, MODIFIER_NAME, SURFACE_MODIFIER_NAME,
 )
 from ..core.ng_library import ensure_node_group
 from ..core.nodegroups import ng_surface as nsurf
 from ..data import quality as qmod
 
 # Elements that have a surface stage.
-SURFACE_ELEMENTS = (ELEM_SAND,)
+SURFACE_ELEMENTS = (ELEM_SAND, ELEM_MUD)
 
 
 def render_level(resolution: int) -> int:
@@ -64,6 +64,11 @@ def push_surface_inputs(obj, *, tag=True) -> bool:
     set_(md, nsurf.IN_SURROUND, st.surround, tag=False)
     from ..core.materials import mat_builder as matb
     set_(md, nsurf.IN_MATERIAL, matb.domain_material(obj), tag=False)
+    set_(md, nsurf.IN_UNDULATION, st.undulation, tag=False)
+    set_(md, nsurf.IN_WATER, st.water, tag=False)
+    set_(md, nsurf.IN_WATER_LEVEL, st.water_level, tag=False)
+    set_(md, nsurf.IN_WATER_MATERIAL,
+         matb.water_material() if st.element == ELEM_MUD else None, tag=False)
     set_(md, nsurf.IN_DOMAIN_SIZE, st.domain_size, tag=False)
     set_(md, nsurf.IN_MATERIAL_HEIGHT, st.material_height, tag=tag)
     return True
@@ -79,7 +84,9 @@ def sync_surface(obj, *, tag=True) -> bool:
         if tag:
             obj.update_tag()
         return False
-    tree = ensure_node_group(NG_SURFACE, nsurf.build)
+    element = st.element
+    tree = ensure_node_group(nsurf.group_name(element),
+                             lambda name: nsurf.build(name, element))
     modifier_io.invalidate(tree.name)
     md = surface_modifier(obj)
     if md is None:

@@ -224,7 +224,8 @@ def build(element="SAND", quality="HIGH", size=1.2, cam="close", grains=False,
     box.groundfx.is_collider = True
 
     scene.frame_start, scene.frame_end = 1, 90
-    zc = h + 0.1 - 0.022  # box bottom 2.2 cm below the surface
+    depth = {"MUD": 0.03}.get(element, 0.022)
+    zc = h + 0.1 - depth  # box bottom this far below the surface
     keys = {1: (-0.30, 0.0, zc + 0.06), 8: (-0.30, 0.0, zc),
             55: (0.12, 0.0, zc), 90: (0.12, 0.0, zc)}
     for f, loc in keys.items():

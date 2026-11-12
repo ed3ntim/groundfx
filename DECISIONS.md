@@ -36,6 +36,19 @@ Eine Domain als Platte im leeren Raum wirkt nie echt. Die Umgebung (Ring plus
 Fernfeld bis zum Horizont) ist eine Option der Surface-Stufe, standardmäßig
 aus, weil sie in fremden Szenen mit eigenem Terrain stört.
 
+## 2026-11-13 Schlamm: Pfützen als fester Wasserspiegel
+
+Pfützen sind eine einzige ebene Fläche auf Pegelhöhe, keine eigene
+Simulation. Das kostet nichts, läuft im Viewport und füllt automatisch jede
+Spur. Preis: Das Wasser wird nicht verdrängt und bewegt sich nicht. Eine
+echte Flachwasser-Schicht wäre der nächste Schritt, falls das stört.
+
+## 2026-11-13 Eine Surface-Group je Element
+
+Sand und Schlamm teilen die `build`-Funktion, bekommen aber je eine eigene
+Node-Group. So trägt keine Group Nodes des anderen Elements mit, und der
+Elementwechsel tauscht nur den Group-Zeiger.
+
 ## 2026-11-12 Verdrängungsring in Metern statt Zellen
 
 Bei hoher Auflösung waren drei Zellen nur 1,4 cm. Ein eintauchendes Objekt

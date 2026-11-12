@@ -32,6 +32,7 @@ from ..ng_builder import new_geometry_group
 from ..ng_expr import make
 from ..constants import (
     NG_SURFACE, ATTR_COMP, ATTR_DIST, ATTR_DAMP, ATTR_GEO, ATTR_PEBBLE,
+    ATTR_SHORE, ELEM_SAND, ELEM_MUD,
     DEFAULT_MATERIAL_HEIGHT,
 )
 from .. import surface_fn as sfn
@@ -49,12 +50,17 @@ IN_SURROUND = "Surround"
 IN_DOMAIN_SIZE = "Domain Size"
 IN_MATERIAL_HEIGHT = "Material Height"
 IN_MATERIAL = "Material"
+IN_UNDULATION = "Undulation"
+IN_WATER = "Water"
+IN_WATER_LEVEL = "Water Level"
+IN_WATER_MATERIAL = "Water Material"
 OUT_GEOMETRY = "Geometry"
 
 _RING_CELL = 0.006     # target cell of the fine ring in renders (metres)
 _UNDER_SINK = 0.0004   # the ring dips this far where it runs under the domain
 _FAR_CELLS = 33        # far field = this many cells of 3 x domain size
-_DUNE_HEIGHT = 0.9     # metres, broad far dunes
+_DUNE_HEIGHT = {ELEM_SAND: 0.9, ELEM_MUD: 0.12}   # metres, far relief
+_SHORE_BAND = 0.012    # metres above the water over which mud stays soaked
 _CRUMB_MIN = 0.001    # crumb radius range, metres
 _CRUMB_MAX = 0.005
 _ATTR_SINK = "gfx_sink"
@@ -92,7 +98,21 @@ def _interface(b):
             default=DEFAULT_MATERIAL_HEIGHT, min=0.0, subtype="DISTANCE")
     b.input(IN_MATERIAL, "NodeSocketMaterial",
             description="Material for the surround and crumbs (the domain's)")
+    b.input(IN_UNDULATION, "NodeSocketFloat", default=0.006, min=0.0,
+            max=0.1, subtype="DISTANCE",
+            description="Broad unevenness of the resting surface (mud)")
+    b.input(IN_WATER, "NodeSocketBool", default=False,
+            description="Standing water that fills hollows and tracks (mud)")
+    b.input(IN_WATER_LEVEL, "NodeSocketFloat", default=-0.004, min=-1.0,
+            max=1.0, subtype="DISTANCE",
+            description="Water table relative to the resting surface")
+    b.input(IN_WATER_MATERIAL, "NodeSocketMaterial")
     b.output(OUT_GEOMETRY, "NodeSocketGeometry")
+
+
+def group_name(element: str) -> str:
+    """One surface group per element: only the nodes that element needs."""
+    return f"{NG_SURFACE}_{element.title()}"
 
 
 def _grid(g, size, verts, z):
@@ -197,7 +217,8 @@ def _lumps(g, surface, density, material, *, seed, r_min, r_max, power,
                         {"Geometry": mesh, "Material": material}), 0)
 
 
-def build(name: str = NG_SURFACE):
+def build(name: str = NG_SURFACE, element: str = ELEM_SAND):
+    mud = element == ELEM_MUD
     tree = new_geometry_group(name)
     b, g = make(tree)
     _interface(b)
@@ -246,24 +267,45 @@ def build(name: str = NG_SURFACE):
     comp = g.attr(ATTR_COMP).clamp(0.0, 1.0)
     geo_w = g.attr(ATTR_GEO)
 
-    rip = sfn.ripple_height(g, p2, I(IN_RIPPLE_LENGTH), I(IN_WIND))
-    w_rip = sfn.smoothstep(1.0 - dist * 1.6) * (1.0 - comp) * geo_w
-    clod = sfn.clod_height(g, p2)
     w_clod = sfn.smoothstep(dist) * (1.0 - comp * 0.85)
     r = p2.length() / size
     dune = sfn.dune_height(g, p2) * sfn.smoothstep((r - 2.2) / 8.0)
-
-    dz = (rip * w_rip * (I(IN_RIPPLE_HEIGHT) * 0.5)
-          + clod * w_clod * (I(IN_CLOD_HEIGHT) * 0.5)
-          + dune * _DUNE_HEIGHT - g.attr(_ATTR_SINK))
+    dz = dune * _DUNE_HEIGHT[element] - g.attr(_ATTR_SINK)
+    if mud:
+        # A mud flat is never level: hollows hold water. Where an object
+        # went through, the squeezed mud bulges into rounded lobes; packed
+        # tracks stay smooth.
+        und = sfn.mud_undulation(g, p2) * I(IN_UNDULATION)
+        pock = sfn.mud_pocks(g, p2) * (0.0006 * (1.0 - comp)) * geo_w
+        lobe = (sfn.mud_lobes(g, p2) - 0.35) * w_clod * (I(IN_CLOD_HEIGHT) * 2.0)
+        dz = dz + und + pock + lobe
+    else:
+        rip = sfn.ripple_height(g, p2, I(IN_RIPPLE_LENGTH), I(IN_WIND))
+        w_rip = sfn.smoothstep(1.0 - dist * 1.6) * (1.0 - comp) * geo_w
+        clod = sfn.clod_height(g, p2)
+        dz = (dz + rip * w_rip * (I(IN_RIPPLE_HEIGHT) * 0.5)
+              + clod * w_clod * (I(IN_CLOD_HEIGHT) * 0.5))
     geo = g.store(geo, _ATTR_LOOSE, w_clod)
+    if mud:
+        # soaked band just above the water table, for the shader
+        water_z = I(IN_MATERIAL_HEIGHT) + I(IN_WATER_LEVEL)
+        above = (p.z + dz - water_z) / _SHORE_BAND
+        geo = g.store(geo, ATTR_SHORE,
+                      (1.0 - sfn.smoothstep(above)) * I(IN_WATER))
     surface = g.out(g.node("GeometryNodeSetPosition",
                            {"Geometry": geo, "Offset": g.vec(0.0, 0.0, dz)}), 0)
 
     # ---- crumbs ---------------------------------------------------------------------
-    crumbs = _lumps(g, surface, I(IN_CRUMBS) * g.attr(_ATTR_LOOSE),
-                    I(IN_MATERIAL), seed=3, r_min=_CRUMB_MIN, r_max=_CRUMB_MAX,
-                    power=4.0, sink=0.25, flat=0.75, rough=1.9, pebble=False)
+    if mud:
+        # splatter: flat, half-sunk clots thrown off by the object
+        crumbs = _lumps(g, surface, I(IN_CRUMBS) * 0.12 * g.attr(_ATTR_LOOSE),
+                        I(IN_MATERIAL), seed=3, r_min=0.002, r_max=0.013,
+                        power=3.0, sink=0.55, flat=0.42, rough=0.5, pebble=False)
+    else:
+        crumbs = _lumps(g, surface, I(IN_CRUMBS) * g.attr(_ATTR_LOOSE),
+                        I(IN_MATERIAL), seed=3, r_min=_CRUMB_MIN,
+                        r_max=_CRUMB_MAX, power=4.0, sink=0.25, flat=0.75,
+                        rough=1.9, pebble=False)
     # Pebbles and shell bits: everywhere the ground is real geometry, fewer
     # where it was churned (they get buried) and none on packed tracks.
     keep = (g.attr(ATTR_GEO).gt(0.5) * (1.0 - g.attr(_ATTR_LOOSE) * 0.7)
@@ -272,6 +314,19 @@ def build(name: str = NG_SURFACE):
                      seed=40, r_min=0.0008, r_max=0.006, power=5.0,
                      sink=0.45, flat=0.6, rough=1.2, pebble=True)
     out = b.add("GeometryNodeJoinGeometry")
+    if mud:
+        # Standing water: one level sheet at the water table. The mud is a
+        # height field, so the sheet only shows where the mud lies below it:
+        # in natural hollows and in every track an object leaves.
+        extent = g.switch(I(IN_SURROUND), size, size * 3.0 * _FAR_CELLS)
+        sheet = _grid(g, extent, 2, I(IN_MATERIAL_HEIGHT) + I(IN_WATER_LEVEL))
+        sheet = g.out(g.node("GeometryNodeSetMaterial",
+                             {"Geometry": sheet,
+                              "Material": I(IN_WATER_MATERIAL)}), 0)
+        wsw = g.node("GeometryNodeSwitch",
+                     {"Switch": I(IN_WATER), "True": sheet},
+                     input_type="GEOMETRY")
+        g.feed(out, 0, g.out(wsw, 0))
     g.feed(out, 0, pebbles)
     g.feed(out, 0, crumbs)
     g.feed(out, 0, surface)

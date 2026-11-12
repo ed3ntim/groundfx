@@ -21,7 +21,7 @@ import bpy
 from ..ng_builder import NodeTreeBuilder
 from ..constants import (
     ELEM_SAND, ELEM_SNOW, ELEM_MUD,
-    MAT_SAND, MAT_SNOW, MAT_MUD, PROP_MAT_GENERATED,
+    MAT_SAND, MAT_SNOW, MAT_MUD, MAT_WATER, PROP_MAT_GENERATED,
     MAT_CTRL_BASECOLOR, MAT_CTRL_ROUGHNESS, MAT_CTRL_DETAIL, MAT_CTRL_WETNESS,
     MAT_CTRL_RIPPLE_LEN, MAT_CTRL_RIPPLE_AMT, MAT_CTRL_WIND,
 )
@@ -115,6 +115,19 @@ def build_material(element: str, look: LookDefaults | None = None,
         mat.displacement_method = "BOTH"
     except (AttributeError, TypeError):
         pass
+    return mat
+
+
+def water_material() -> bpy.types.Material:
+    """Murky standing water for the mud surface stage (built once)."""
+    mat = bpy.data.materials.get(MAT_WATER)
+    if mat is not None:
+        return mat
+    from . import mat_mud
+    mat = bpy.data.materials.new(MAT_WATER)
+    mat.use_nodes = True
+    mat.node_tree.nodes.clear()
+    mat_mud.build_water(mat.node_tree)
     return mat
 
 

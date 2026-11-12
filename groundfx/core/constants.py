@@ -81,6 +81,8 @@ ATTR_DAMP = "gfx_damp"
 ATTR_GEO = "gfx_geo"
 # 0 on sand, 0.05..1 on a scattered pebble (picks its stone colour).
 ATTR_PEBBLE = "gfx_pebble"
+# 1 at or below the standing water level, falling to 0 a centimetre above it.
+ATTR_SHORE = "gfx_shore"
 
 # --- Collider proxy modes ---------------------------------------------------
 # How a collider is presented to the raycast: the original mesh, or a cheap
@@ -120,6 +122,7 @@ SURFACE_MODIFIER_NAME = "GroundFX Surface"   # display stage, after the solver
 MAT_SAND = "GFX_Sand"
 MAT_SNOW = "GFX_Snow"
 MAT_MUD = "GFX_Mud"
+MAT_WATER = "GFX_Water"
 
 # Marks a material as GroundFX-authored, so the element switch may rebuild it
 # but a material the user assigned themselves is left untouched (E8-T10).

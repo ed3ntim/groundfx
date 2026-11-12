@@ -35,8 +35,9 @@ Kompaktionsanteil `1 - displace` verschwindet bewusst.
 ## Gen 3: Surface-Stufe (`core/nodegroups/ng_surface.py`)
 
 Zweiter Geometry-Nodes-Modifier `GroundFX Surface` direkt nach dem Solver,
-reine Anzeige ohne Rückwirkung auf die Simulation. Bisher nur für Sand
-(`ops/op_surface.SURFACE_ELEMENTS`).
+reine Anzeige ohne Rückwirkung auf die Simulation. Für Sand und Schlamm
+(`ops/op_surface.SURFACE_ELEMENTS`), je Element eine eigene Node-Group
+(`GFX_Surface_Sand`, `GFX_Surface_Mud`) aus derselben `build`-Funktion.
 
 1. Top-Schicht realisieren, `gfx_dist`/`gfx_damp` weichzeichnen.
 2. Catmull-Clark-Subdivision: Viewport Level 0, Render Level nach Quality
@@ -61,6 +62,26 @@ und trocknet mit `Drying` pro Frame.
 Die Stufe ist opt-in (`obj.groundfx.surface_detail`). `create_domain` liefert
 ohne `surface=True` das nackte Sim-Gitter, darauf verlassen sich Tests, Bake
 und Freeze. Die UI-Operatoren schalten sie ein.
+
+## Schlamm Gen 3
+
+Profil der Surface-Stufe für Schlamm:
+
+- Keine Rippel. Stattdessen breite Unebenheit (`Undulation`, Standard 12 mm)
+  überall, auch im Ring.
+- Aufgewühlt: runde Wülste aus Smooth-Voronoi (`mud_lobes`), Höhe `Clod
+  Height` mal 2. Dazu wenige flache Spritzklumpen.
+- Stehendes Wasser: ein einzelnes Quad auf Höhe Ruhelage plus `Water Level`
+  (Standard -5 mm) mit Material `GFX_Water`. Weil der Schlamm ein Höhenfeld
+  ist, zeigt sich das Wasser nur dort, wo er tiefer liegt: in Senken und in
+  jeder Spur.
+- `gfx_shore`: 1 auf oder unter dem Wasserspiegel, 0 ab 12 mm darüber. Der
+  Shader macht daraus den durchnässten Rand um jede Pfütze.
+
+Shader: lokale Nässe aus Regler, `gfx_shore`, `gfx_comp`, `gfx_dist` und
+Relief. Der Clearcoat ist über einen Noise-Schwellwert fleckig, sonst wirkt
+nasser Schlamm wie Plastik. Feuchter Boden muss dunkel sein (linear rund
+0.08/0.05/0.03), sonst liest er sich in der Sonne als Sand.
 
 ## Verdrängung (Solver, seit 2026-11-12)
 
@@ -123,7 +144,8 @@ stand als Wand über dem Objekt.
 - Schnee-Mikro: Körner lesen sich, wirken aber leicht kunststoffartig.
   Echte Facettengeometrie (Kornebene für Schnee) wäre der nächste Schritt.
 - Kornebene gibt es bisher nur für Sand.
-- Surface-Stufe (Gen 3) gibt es bisher nur für Sand.
+- Surface-Stufe (Gen 3) gibt es für Sand und Schlamm, nicht für Schnee.
+- Schlamm-Wasser ist ein fester Pegel ohne Verdrängung oder Spritzer.
 - Haufen haben flache Plateaus statt eines Grats. Tiefes, langes Pflügen
   türmt sie über die Box, dann liegt Sand auf deren Oberseite (Volumen
   stimmt, Form nicht).

@@ -307,6 +307,22 @@ class GroundFXObjectSettings(bpy.types.PropertyGroup):
         update=_sync_surface,
         description="Small stones and shell fragments per square metre")
 
+    undulation: bpy.props.FloatProperty(
+        name="Undulation", default=0.012, min=0.0, max=0.1,
+        subtype="DISTANCE", update=_sync_surface,
+        description="Broad unevenness of the resting surface. Hollows "
+                    "fill with water")
+
+    water: bpy.props.BoolProperty(
+        name="Standing Water", default=True, update=_sync_surface,
+        description="A water table that fills hollows and every track")
+
+    water_level: bpy.props.FloatProperty(
+        name="Water Level", default=-0.005, min=-1.0, max=1.0,
+        subtype="DISTANCE", update=_sync_surface,
+        description="Water table relative to the resting surface. Higher "
+                    "floods more of the ground")
+
     surround: bpy.props.BoolProperty(
         name="Surround", default=False, update=_sync_surface,
         description="Embed the domain in a large static field of the same "
