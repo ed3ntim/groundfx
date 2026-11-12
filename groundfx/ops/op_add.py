@@ -67,8 +67,14 @@ def _make_grid_mesh(name: str, size: float, resolution: int) -> bpy.types.Mesh:
 
 
 def create_domain(context, element: str,
-                  size: float = DEFAULT_DOMAIN_SIZE) -> bpy.types.Object:
-    """Create and return a fully wired GroundFX domain object."""
+                  size: float = DEFAULT_DOMAIN_SIZE,
+                  surface: bool = False) -> bpy.types.Object:
+    """Create and return a fully wired GroundFX domain object.
+
+    ``surface`` adds the display stage (ripples, relief, render subdivision)
+    where the element has one. Off by default so scripted callers get the
+    bare simulation grid; the UI operators turn it on.
+    """
     quality_key = QUALITY_MEDIUM
     prof = qmod.profile(quality_key)
 
@@ -125,6 +131,9 @@ def create_domain(context, element: str,
     # module-load cycle with op_collider.
     from .op_collider import ensure_collider_collection
     ensure_collider_collection(context, obj)
+
+    if surface:
+        st.surface_detail = True   # update callback attaches the stage
 
     log.info("created %s domain (%d^2, %.2f m, cell %.3f m)",
              element, prof.resolution, size, size / prof.resolution)
@@ -210,6 +219,8 @@ def rebuild_grid(obj) -> bool:
     modifier_io.set_input(md, gsim.IN_GRID_N, prof.resolution + 1, tag=False)
     modifier_io.set_input(md, gsim.IN_RELAX_ITERS, prof.relax_iterations, tag=False)
     modifier_io.set_input(md, gsim.IN_CARVE_SUBSTEPS, prof.substeps, tag=True)
+    from .op_surface import push_surface_inputs
+    push_surface_inputs(obj)
     log.info("rebuilt %s grid: %d^2 (%.2f m, cell %.3f m)",
              obj.name, prof.resolution, size, size / prof.resolution)
     return True
@@ -243,8 +254,11 @@ def push_all_inputs(obj) -> bool:
     set(md, gsim.IN_CONTACT_AA, 1.0 if st.hero_contact else 0.0, tag=False)
     emod.push_physics(md, ed, cohesion=coh, tag=False)
     set(md, gsim.IN_STICKINESS, st.stickiness, tag=False)
+    set(md, gsim.IN_DRYING, st.drying, tag=False)
     if st.collider_collection is not None:
         set(md, gsim.IN_COLLIDER_COLLECTION, st.collider_collection, tag=True)
+    from .op_surface import sync_surface
+    sync_surface(obj)
     return True
 
 
@@ -318,7 +332,7 @@ class GFX_OT_rebuild_grid(bpy.types.Operator):
         return {"FINISHED"}
 
 
-def create_sandbox(context, element: str = None):
+def create_sandbox(context, element: str = None, surface: bool = False):
     """A one-click demo: a domain plus a collider that drops into it (E11-S3).
 
     Gives a brand-new user something that *does* something the moment they press
@@ -329,7 +343,7 @@ def create_sandbox(context, element: str = None):
     from ..core.constants import ELEM_SAND
 
     element = element or ELEM_SAND
-    domain = create_domain(context, element)
+    domain = create_domain(context, element, surface=surface)
     domain.location = context.scene.cursor.location
 
     # A collider sphere above the domain, keyframed to drop and drag.
@@ -396,7 +410,7 @@ class GFX_OT_add_sandbox(bpy.types.Operator):
     bl_options = {"REGISTER", "UNDO"}
 
     def execute(self, context):
-        domain, ball = create_sandbox(context)
+        domain, ball = create_sandbox(context, surface=True)
         for o in context.selected_objects:
             o.select_set(False)
         domain.select_set(True)
@@ -419,7 +433,7 @@ class GFX_OT_add_ground(bpy.types.Operator):
     )
 
     def execute(self, context):
-        obj = create_domain(context, self.element)
+        obj = create_domain(context, self.element, surface=True)
         # Select and activate the new domain.
         for o in context.selected_objects:
             o.select_set(False)

@@ -84,6 +84,25 @@ def _push_element(self, context):
             self.element, base_color=look.base_color, roughness=look.roughness,
             detail=look.detail, wetness=look.base_wetness)
         matb.assign_material(obj, mat)
+    _sync_surface(self, context)
+
+
+def _sync_surface(self, context):
+    """Surface stage on/off and its inputs, plus the shader's copy of the
+    ripple parameters (geometry and shading use the same function)."""
+    obj = self.id_data
+    from ..ops.op_surface import sync_surface
+    sync_surface(obj)
+    matb.update_controls(matb.domain_material(obj),
+                         ripple_length=self.ripple_length,
+                         ripple_height=self.ripple_height,
+                         wind=self.wind_direction)
+
+
+def _push_drying(self, context):
+    md = _domain_modifier(self.id_data)
+    if md:
+        modifier_io.set_input(md, gsim.IN_DRYING, self.drying)
 
 
 # Guards the pick callback against the recursion of clearing its own pointer.
@@ -123,6 +142,8 @@ def _push_material_height(self, context):
     md = _domain_modifier(obj)
     if md:
         modifier_io.set_input(md, gsim.IN_MATERIAL_HEIGHT, self.material_height)
+        from ..ops.op_surface import push_surface_inputs
+        push_surface_inputs(obj)
 
 
 def _push_collider_collection(self, context):
@@ -252,6 +273,44 @@ class GroundFXObjectSettings(bpy.types.PropertyGroup):
         name="Wetness", default=0.0, min=0.0, max=1.0, update=_push_wetness,
         description="Moisture: darkens and glosses the look and stiffens the "
                     "material (raises cohesion) at the same time")
+
+    # --- Surface stage (gen 3): meso relief between cell and grain ----------
+    surface_detail: bpy.props.BoolProperty(
+        name="Surface Detail", default=False, update=_sync_surface,
+        description="Display stage after the solver: subdivides the grid in "
+                    "renders and adds ripples and the relief of disturbed "
+                    "material as real geometry")
+
+    ripple_height: bpy.props.FloatProperty(
+        name="Ripple Height", default=matb.RIPPLE_HEIGHT, min=0.0, max=0.05,
+        subtype="DISTANCE", update=_sync_surface,
+        description="Crest-to-trough height of the wind ripples on "
+                    "undisturbed material (0 = smooth)")
+
+    ripple_length: bpy.props.FloatProperty(
+        name="Ripple Length", default=matb.RIPPLE_LENGTH, min=0.01, max=1.0,
+        subtype="DISTANCE", update=_sync_surface,
+        description="Distance from crest to crest")
+
+    wind_direction: bpy.props.FloatProperty(
+        name="Wind Direction", default=matb.WIND_ANGLE, subtype="ANGLE",
+        update=_sync_surface,
+        description="Direction the wind blows; ripple crests run across it")
+
+    clod_height: bpy.props.FloatProperty(
+        name="Clod Height", default=0.004, min=0.0, max=0.05,
+        subtype="DISTANCE", update=_sync_surface,
+        description="Relief of material the simulation has disturbed")
+
+    surround: bpy.props.BoolProperty(
+        name="Surround", default=False, update=_sync_surface,
+        description="Embed the domain in a large static field of the same "
+                    "material, out to the horizon")
+
+    drying: bpy.props.FloatProperty(
+        name="Drying", default=0.006, min=0.0, max=1.0, update=_push_drying,
+        description="How fast freshly dug-up (darker, damp) material dries "
+                    "per frame. 0 keeps every track dark")
 
     stickiness: bpy.props.FloatProperty(
         name="Stickiness", default=0.05, min=0.0, max=1.0,

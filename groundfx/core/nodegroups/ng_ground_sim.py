@@ -43,7 +43,7 @@ from ..ng_expr import make, V
 from ..ng_zones import make_simulation_zone, make_repeat_zone
 from ..constants import (
     NG_GROUND_SIM, ATTR_HEIGHT, ATTR_BASE, ATTR_OCC, ATTR_COMP, ATTR_AGE,
-    ATTR_FLOW, ATTR_CARVE, ATTR_COV, ATTR_ZHI, ATTR_TOP,
+    ATTR_FLOW, ATTR_CARVE, ATTR_COV, ATTR_ZHI, ATTR_TOP, ATTR_DIST, ATTR_DAMP,
     DEFAULT_MATERIAL_HEIGHT,
 )
 
@@ -65,6 +65,7 @@ IN_GRID_N = "Grid N"
 IN_DISPLACE_RATIO = "Displacement Ratio"
 IN_BOW_WAVE = "Bow Wave"
 IN_CONTACT_AA = "Contact AA"
+IN_DRYING = "Drying"
 OUT_GEOMETRY = "Geometry"
 
 STATE_PREV = "Colliders Prev"
@@ -75,6 +76,8 @@ _RAY_LENGTH = 50.0
 _CONTACT_EPS = 0.0015  # collider within this of the surface = occupied
 _PAIR_RATE = 0.12      # explicit flux factor; 8 pairs * 0.12 < 1 -> stable
 _TOP_HIDE = 0.0004     # thinner layers on a collider stay invisible (no z-fight)
+_DIST_FULL = 0.003     # metres of height change that count as fully disturbed
+_DAMP_DEPTH = 0.03     # metres from rest level at which material is fully damp
 _SQRT2 = math.sqrt(2.0)
 # (d_col, d_row, distance in cells) for the four directions a cell owns.
 _DIRS = ((1, 0, 1.0), (0, 1, 1.0), (1, 1, _SQRT2), (-1, 1, _SQRT2))
@@ -115,6 +118,9 @@ def _interface(b):
             max=MAX_SUBSTEPS)
     b.input(IN_CONTACT_AA, "NodeSocketFloat", default=0.0, min=0.0, max=1.0,
             description="Reserved: sub-cell contact edge smoothing")
+    b.input(IN_DRYING, "NodeSocketFloat", default=0.006, min=0.0, max=1.0,
+            description="How fast freshly exposed (damp, darker) material "
+                        "dries per frame")
     b.output(OUT_GEOMETRY, "NodeSocketGeometry")
 
 
@@ -354,7 +360,9 @@ def build(name: str = NG_GROUND_SIM):
     geo0 = g.store(geo0, ATTR_BASE, g.position().z)
     # Optional painted start layer (gfx_init) on top of the uniform height.
     geo0 = g.store(geo0, ATTR_HEIGHT, I(IN_MATERIAL_HEIGHT) + g.attr("gfx_init"))
-    for a in (ATTR_OCC, ATTR_COMP, ATTR_CARVE, ATTR_COV, ATTR_ZHI, ATTR_TOP):
+    geo0 = g.store(geo0, "gfx_rest", I(IN_MATERIAL_HEIGHT) + g.attr("gfx_init"))
+    for a in (ATTR_OCC, ATTR_COMP, ATTR_CARVE, ATTR_COV, ATTR_ZHI, ATTR_TOP,
+              ATTR_DIST, ATTR_DAMP):
         geo0 = g.store(geo0, a, 0.0)
     geo0 = g.store(geo0, ATTR_AGE, 1000.0)
     geo0 = g.store(geo0, ATTR_FLOW, g.vec(), kind="FLOAT_VECTOR")
@@ -365,6 +373,9 @@ def build(name: str = NG_GROUND_SIM):
     g.feed(sim.input, STATE_PREV, _colliders(g, gin))
     geo = V(g, sim.input.outputs["Geometry"])
     prev = V(g, sim.input.outputs[STATE_PREV])
+    # Height at the start of the step: the change over the step marks the
+    # surface as disturbed (look fields, no physics feedback).
+    geo = g.store(geo, "gfx_h0", g.attr(ATTR_HEIGHT))
 
     # ---- 1. colliders -------------------------------------------------------
     cur = _colliders(g, gin)
@@ -432,6 +443,18 @@ def build(name: str = NG_GROUND_SIM):
     geo = g.store(geo, ATTR_FLOW, flow, kind="FLOAT_VECTOR")
     age = g.switch(g.attr(ATTR_CARVE).gt(1e-6), g.attr(ATTR_AGE) + 1.0, 0.0)
     geo = g.store(geo, ATTR_AGE, age)
+    # Disturbance: wherever the height moved this step. gfx_dist only ever
+    # grows (ripples do not come back). gfx_damp marks damp material from
+    # below the dry crust: it scales with how far the surface is from its
+    # rest level (a thin spill of surface sand stays dry, a deep cut or a
+    # thick heap is damp) and dries out again over time.
+    moved = ((g.attr(ATTR_HEIGHT) - g.attr("gfx_h0")).abs() / _DIST_FULL
+             + g.attr(ATTR_OCC)).min(1.0)
+    geo = g.store(geo, ATTR_DIST, (g.attr(ATTR_DIST) + moved).min(1.0))
+    depth = ((g.attr(ATTR_HEIGHT) - g.attr("gfx_rest")).abs() / _DAMP_DEPTH).min(1.0)
+    fresh = ((moved * 3.0).min(1.0) * depth).max(g.attr(ATTR_OCC))
+    damp = (g.attr(ATTR_DAMP) * (1.0 - I(IN_DRYING))).max(fresh)
+    geo = g.store(geo, ATTR_DAMP, damp)
 
     g.feed(sim.output, "Geometry", geo)
     g.feed(sim.output, STATE_PREV, cur)
@@ -458,6 +481,7 @@ def build(name: str = NG_GROUND_SIM):
     z_edge = g.switch(cov.gt(0.5), zw / cw.max(1e-6), g.attr(ATTR_ZHI))
     geo_t = g.store(geo, "gfx_zt", z_edge + t_vis - _TOP_HIDE)
     geo_t = g.store(geo_t, "gfx_tv", t_vis)
+    geo_t = g.store(geo_t, ATTR_DIST, 1.0)   # material on an object: no ripples
     keep = g.math("MULTIPLY", g.attr("gfx_tv").gt(0.0), cw.gt(1e-3))
     dele = g.node("GeometryNodeDeleteGeometry",
                   {"Geometry": geo_t, "Selection": keep.lt(1e-3)},

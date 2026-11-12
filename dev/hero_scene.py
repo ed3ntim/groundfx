@@ -37,6 +37,9 @@ def _args():
     p.add_argument("--size", type=float, default=1.2)
     p.add_argument("--save", default="")
     p.add_argument("--grains", action="store_true")
+    p.add_argument("--no-surround", action="store_true")
+    p.add_argument("--sun", default="22,120", help="elevation,rotation deg")
+    p.add_argument("--exposure", type=float, default=0.0)
     p.add_argument("--noderender", action="store_true",
                    help="build + simulate only, skip rendering")
     return p.parse_args(argv)
@@ -62,7 +65,10 @@ def enable_gpu():
     return "CPU"
 
 
-def setup_world(scene, sun_elev_deg=28.0, sun_rot_deg=35.0, strength=1.0):
+def setup_world(scene, sun_elev_deg=22.0, sun_rot_deg=120.0, strength=0.06,
+                exposure=0.0):
+    """Physical sky with its own sun disc: sun and sky fill stay in their
+    real ratio, so shadows get the right amount of blue without tuning."""
     world = bpy.data.worlds.new("GFX_Sky")
     scene.world = world
     world.use_nodes = True
@@ -71,7 +77,7 @@ def setup_world(scene, sun_elev_deg=28.0, sun_rot_deg=35.0, strength=1.0):
     out = nt.nodes.new("ShaderNodeOutputWorld")
     bg = nt.nodes.new("ShaderNodeBackground")
     sky = nt.nodes.new("ShaderNodeTexSky")
-    for t in ("MULTIPLE_SCATTERING", "NISHITA", "SINGLE_SCATTERING"):
+    for t in ("MULTIPLE_SCATTERING", "SINGLE_SCATTERING"):
         try:
             sky.sky_type = t
             break
@@ -79,23 +85,16 @@ def setup_world(scene, sun_elev_deg=28.0, sun_rot_deg=35.0, strength=1.0):
             continue
     for attr, val in (("sun_elevation", math.radians(sun_elev_deg)),
                       ("sun_rotation", math.radians(sun_rot_deg)),
-                      ("sun_disc", False)):
+                      ("sun_disc", True),
+                      ("sun_size", math.radians(0.545)),
+                      ("aerosol_density", 1.5),
+                      ("ozone_density", 1.0)):
         if hasattr(sky, attr):
             setattr(sky, attr, val)
-    bg.inputs["Strength"].default_value = 0.08 * strength
+    bg.inputs["Strength"].default_value = strength
     nt.links.new(sky.outputs[0], bg.inputs[0])
     nt.links.new(bg.outputs[0], out.inputs[0])
-
-    # A real sun lamp gives crisp, controllable grain shadows.
-    sun_data = bpy.data.lights.new("GFX_Sun", "SUN")
-    sun_data.energy = 3.2 * strength
-    sun_data.angle = math.radians(0.53)
-    sun_data.color = (1.0, 0.95, 0.88)
-    sun = bpy.data.objects.new("GFX_Sun", sun_data)
-    scene.collection.objects.link(sun)
-    el, rot = math.radians(sun_elev_deg), math.radians(sun_rot_deg)
-    sun.rotation_euler = (math.pi / 2 - el, 0.0, rot + math.pi / 2)
-    return sun
+    scene.view_settings.exposure = exposure
 
 
 def make_box(size=0.2):
@@ -156,11 +155,12 @@ def setup_camera(scene, kind, target):
     con.up_axis = "UP_Y"
     cam_data.dof.use_dof = kind != "wide"
     cam_data.dof.focus_object = tgt
-    cam_data.dof.aperture_fstop = {"macro": 8.0, "micro": 11.0}.get(kind, 5.6)
+    cam_data.dof.aperture_fstop = {"macro": 8.0, "micro": 11.0}.get(kind, 11.0)
     return cam
 
 
-def build(element="SAND", quality="HIGH", size=1.2, cam="close", grains=False):
+def build(element="SAND", quality="HIGH", size=1.2, cam="close", grains=False,
+          surround=True, sun=(22.0, 120.0), exposure=0.0):
     import groundfx
     try:
         groundfx.unregister()
@@ -174,10 +174,11 @@ def build(element="SAND", quality="HIGH", size=1.2, cam="close", grains=False):
     for o in list(bpy.data.objects):
         bpy.data.objects.remove(o, do_unlink=True)
 
-    domain = create_domain(bpy.context, element, size=size)
+    domain = create_domain(bpy.context, element, size=size, surface=True)
     domain.groundfx.domain_size = size
     domain.groundfx.quality = quality
     rebuild_grid(domain)
+    domain.groundfx.surround = surround
 
     h = domain.groundfx.material_height
     box = make_box(0.2)
@@ -197,7 +198,7 @@ def build(element="SAND", quality="HIGH", size=1.2, cam="close", grains=False):
             kp.interpolation = "BEZIER"
             kp.easing = "AUTO"
 
-    setup_world(scene)
+    setup_world(scene, sun[0], sun[1], exposure=exposure)
     setup_camera(scene, cam, (0.0, 0.0, h))
     if grains:
         from groundfx.ops import op_grains
@@ -270,7 +271,10 @@ def render(scene, out_dir, frames, samples, res, tag):
 def main():
     a = _args()
     apply_res(bpy.context.scene, a.res)  # grain layer reads the resolution
-    domain, _box = build(a.element, a.quality, a.size, a.cam, a.grains)
+    sun = tuple(float(v) for v in a.sun.split(","))
+    domain, _box = build(a.element, a.quality, a.size, a.cam, a.grains,
+                         surround=not a.no_surround, sun=sun,
+                         exposure=a.exposure)
     scene = bpy.context.scene
     frames = [int(f) for f in a.frames.split(",")]
     if a.grains:

@@ -197,6 +197,19 @@ class GFX_PT_look(bpy.types.Panel):
         col.prop(st, "look_detail", slider=True)
         col.prop(st, "wetness", slider=True)
 
+        from ..ops.op_surface import SURFACE_ELEMENTS
+        if st.element in SURFACE_ELEMENTS:
+            box = layout.box()
+            box.prop(st, "surface_detail")
+            sub = box.column()
+            sub.active = st.surface_detail
+            sub.prop(st, "ripple_height")
+            sub.prop(st, "ripple_length")
+            sub.prop(st, "wind_direction")
+            sub.prop(st, "clod_height")
+            sub.prop(st, "drying", slider=True)
+            sub.prop(st, "surround")
+
         if matb.domain_material(obj) is None:
             layout.label(text="Custom material in use", icon="INFO")
 

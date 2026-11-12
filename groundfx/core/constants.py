@@ -24,7 +24,8 @@ ADDON_NAME = "GroundFX"
 # v11 (E3-S4): gfx_comp recovery + gfx_age + gfx_flow fields, Recovery input.
 # v20 (solver v2): pairwise 8-neighbour relax, exact scatter displacement,
 #      per-vertex collider velocity + swept sub-frame copies, Yield input.
-NODEGROUP_VERSION = 21
+# v22 (gen 3): gfx_dist / gfx_damp fields, Drying input; surface stage group.
+NODEGROUP_VERSION = 22
 
 # --- UI ---------------------------------------------------------------------
 PANEL_CATEGORY = "GroundFX"     # N-panel tab label
@@ -75,7 +76,13 @@ ATTR_SURFACE = "gfx_surface"
 # material lying on it, which rides along with the collider.
 ATTR_COV = "gfx_cov"
 ATTR_ZHI = "gfx_zhi"
-ATTR_TOP = "gfx_top"    # base + h, cached for neighbour sampling in relax
+ATTR_TOP = "gfx_top"
+# Gen 3 look fields: gfx_dist is 1 where the surface ever moved (persistent),
+# gfx_damp is 1 on freshly exposed material and dries out over time, gfx_geo
+# is the share of meso relief already present as geometry (surface stage).
+ATTR_DIST = "gfx_dist"
+ATTR_DAMP = "gfx_damp"
+ATTR_GEO = "gfx_geo"
 
 # --- Collider proxy modes ---------------------------------------------------
 # How a collider is presented to the raycast: the original mesh, or a cheap
@@ -105,15 +112,11 @@ PROP_NG_VERSION = "gfx_ng_version"     # node-group version stamp on the tree
 # --- Node-group names -------------------------------------------------------
 NG_GROUND_SIM = "GFX_GroundSim"        # top-level solver group
 NG_COLLIDER_PROXY = "GFX_ColliderProxy"  # low-poly stand-in for a collider
-NG_DEPOSIT = "GFX_Deposit"
-NG_COLLIDE = "GFX_Collide"
-NG_DISPLACE = "GFX_Displace"
-NG_RELAX = "GFX_Relax"
-NG_SPRAY = "GFX_Spray"
-NG_DISPLAY = "GFX_Display"
+NG_SURFACE = "GFX_Surface"             # display stage after the solver
 
 # --- Modifier ---------------------------------------------------------------
 MODIFIER_NAME = "GroundFX"      # name of the geometry-nodes modifier on a domain
+SURFACE_MODIFIER_NAME = "GroundFX Surface"   # display stage, after the solver
 
 # --- Material names ---------------------------------------------------------
 MAT_SAND = "GFX_Sand"
@@ -130,6 +133,9 @@ MAT_CTRL_BASECOLOR = "GFX_BaseColor"
 MAT_CTRL_ROUGHNESS = "GFX_Roughness"
 MAT_CTRL_DETAIL = "GFX_Detail"
 MAT_CTRL_WETNESS = "GFX_Wetness"
+MAT_CTRL_RIPPLE_LEN = "GFX_RippleLength"
+MAT_CTRL_RIPPLE_AMT = "GFX_RippleAmount"
+MAT_CTRL_WIND = "GFX_Wind"
 
 # --- Defaults (close-up scale, decided in phase 2) -------------------------
 DEFAULT_DOMAIN_SIZE = 2.0        # metres, square domain
