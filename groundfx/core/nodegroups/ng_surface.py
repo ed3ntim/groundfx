@@ -321,7 +321,7 @@ def build(name: str = NG_SURFACE, element: str = ELEM_SAND):
     keep = (g.attr(ATTR_GEO).gt(0.5) * (1.0 - g.attr(_ATTR_LOOSE) * 0.7)
             * (1.0 - g.attr(ATTR_COMP).clamp(0.0, 1.0)))
     pebbles = _lumps(g, surface, I(IN_PEBBLES) * keep, I(IN_MATERIAL),
-                     seed=40, r_min=0.0008, r_max=0.006, power=5.0,
+                     seed=40, r_min=0.001, r_max=0.008, power=3.5,
                      sink=0.45, flat=0.6, rough=1.2, pebble=True)
     out = b.add("GeometryNodeJoinGeometry")
     if mud:

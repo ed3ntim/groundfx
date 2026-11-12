@@ -1,6 +1,6 @@
 # GroundFX - Projektstatus
 
-**Letzte Aktualisierung:** 2026-11-12
+**Letzte Aktualisierung:** 2026-11-13
 **Tests:** 205/205 grün (Blender 5.2.0 LTS, headless)
 
 Wiedereinstieg: diese Datei, dann `../CONTEXT.md` (Architektur, Fallstricke)
@@ -23,7 +23,11 @@ Belege Sand Gen 3: `g3_sand_hero.png`, `g3_sand_wide.png`,
 `g3_sand_close.png`, `g3_sand_macro.png` (Cycles, 160 Samples, Quality High).
 Belege Schlamm Gen 3: `g3_mud_hero.png`, `g3_mud_wide.png`,
 `g3_mud_close.png`.
-Test-ZIP: `dist/groundfx-0.4.0.zip` (lokal, nicht im Repo).
+Test-ZIP: `dist/groundfx-0.4.2.zip` (lokal, nicht im Repo).
+
+Beide Elemente wurden am 2026-11-13 nach Referenzbildern von ed3n
+nachgezogen: Schlamm klumpig und aufgewühlt mit milchigen Pfützen, Sand
+goldener, sichtbar körnig, mit flacherem Streiflicht.
 
 ## Bekannte Schwächen
 
@@ -32,6 +36,10 @@ Test-ZIP: `dist/groundfx-0.4.0.zip` (lokal, nicht im Repo).
   rechnerisch, die Form ist ein Plateau statt eines Grats.
 - Im Viewport ungeprüft, alle Belege sind headless gerendert.
 - Schnee hat noch keine Surface-Stufe.
+- Die Spur ist bei beiden Elementen rechteckig mit flachem Plateau. Die
+  Referenzen zeigen eine runde Mulde mit weichem Wall.
+- Staub und Spritzer an der Box sind Szenen-Dekoration in
+  `dev/hero_scene.py`, kein Addon-Feature. Seitliches Haften fehlt weiter.
 - Schlamm: Das Wasser ist ein fester Pegel. Es wird nicht verdrängt, schwappt
   nicht und spritzt nicht. Die Spur hat harte, rechteckige Ufer.
 

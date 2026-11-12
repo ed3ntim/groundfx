@@ -45,11 +45,11 @@ GRAIN_SIZE = 0.0004   # metres, medium sand
 
 # Mineral palette (linear RGB) with cumulative thresholds on a per-grain id.
 PALETTE = (
-    (0.00, (0.52, 0.38, 0.21)),   # frosted quartz, warm
-    (0.30, (0.64, 0.50, 0.31)),   # clear quartz over light
-    (0.52, (0.76, 0.68, 0.55)),   # white quartz
-    (0.64, (0.62, 0.38, 0.24)),   # feldspar, pinkish
-    (0.76, (0.45, 0.26, 0.11)),   # iron-stained
+    (0.00, (0.50, 0.35, 0.18)),   # frosted quartz, warm
+    (0.30, (0.62, 0.46, 0.26)),   # clear quartz over light
+    (0.52, (0.74, 0.64, 0.48)),   # white quartz
+    (0.64, (0.60, 0.35, 0.20)),   # feldspar, pinkish
+    (0.76, (0.43, 0.24, 0.09)),   # iron-stained
     (0.88, (0.33, 0.29, 0.24)),   # grey lithic
     (0.95, (0.07, 0.065, 0.06)),  # dark lithic / magnetite
 )
@@ -136,6 +136,18 @@ def build(tree, ctrl, *, grain_size=GRAIN_SIZE) -> None:
     grain_id = g.mix(g.out(v1, "Color").x, g.out(v2, "Color").x, top2)
     grain_r2 = g.mix(g.out(v1, "Color").y, g.out(v2, "Color").y, top2)
 
+    # Coarse fraction: a share of grains is several times larger. From a
+    # few metres these are what the eye reads as "grainy"; the fine grains
+    # alone average out to a flat tone.
+    vc = g.node("ShaderNodeTexVoronoi",
+                {"Vector": P + (0.91, 0.27, 0.55), "Scale": inv * 0.4,
+                 "Randomness": 1.0},
+                feature="F1", voronoi_dimensions="3D")
+    coarse_dome = dome(vc, 0.55)
+    coarse_id = g.out(vc, "Color").x
+    is_coarse = g.math("MULTIPLY", g.out(vc, "Color").z.gt(0.68),
+                       coarse_dome.gt(0.3))
+
     # Sorting: troughs hold more of the heavy dark grains. Pushing the id up
     # the palette makes more grains land in the lithic/magnetite bins.
     sort_patch = g.out(g.node("ShaderNodeTexNoise",
@@ -146,6 +158,11 @@ def build(tree, ctrl, *, grain_size=GRAIN_SIZE) -> None:
     cr.interpolation = "CONSTANT"
     set_ramp(cr, PALETTE)
     albedo = g.out(ramp, "Color")
+    ramp_c = g.node("ShaderNodeValToRGB", {0: coarse_id})
+    ramp_c.color_ramp.interpolation = "CONSTANT"
+    set_ramp(ramp_c.color_ramp, PALETTE)
+    albedo = g.mix(albedo, g.out(ramp_c, "Color") * (0.55 + coarse_dome * 0.6),
+                   is_coarse)
 
     # per-grain brightness jitter, clumps, patches, long streaks down the wind
     jitter = 0.85 + grain_r2 * 0.3
@@ -166,6 +183,9 @@ def build(tree, ctrl, *, grain_size=GRAIN_SIZE) -> None:
     # gaps between grains sit in shadow; packed sand closes the gaps
     relief = height * (1.0 - comp * 0.6)
     cavity = 0.55 + 0.45 * (relief.pow(0.5) + comp * 0.6).min(1.0)
+    # shadowed pits between the coarse grains
+    pit = (1.0 - coarse_dome * 1.6).clamp(0.0, 1.0) * g.out(vc, "Color").z.gt(0.68)
+    cavity = cavity * (1.0 - pit * 0.22 * (1.0 - comp))
     dry = albedo * (tone * cavity * (1.0 - comp * 0.06))
     damp_mul = g.mix(g.vec(1.0, 1.0, 1.0), g.vec(*DAMP_TINT), moist)
     color = dry * base * damp_mul
@@ -211,10 +231,14 @@ def build(tree, ctrl, *, grain_size=GRAIN_SIZE) -> None:
                      {"Strength": 0.6, "Distance": 0.0006,
                       "Height": scrape * comp * f_len.min(1.0) * detail,
                       "Normal": g.out(crumbs, "Normal")})
+    bump_coarse = g.node("ShaderNodeBump",
+                         {"Strength": 1.0, "Distance": grain_size * 1.1,
+                          "Height": coarse_dome * is_coarse * (1.0 - comp * 0.7) * detail,
+                          "Normal": g.out(scrapes, "Normal")})
     bump_fine = g.node("ShaderNodeBump",
                        {"Strength": 1.0, "Distance": grain_size * 0.45,
                         "Height": relief * detail,
-                        "Normal": g.out(scrapes, "Normal")})
+                        "Normal": g.out(bump_coarse, "Normal")})
 
     inputs = {"Base Color": color, "Roughness": roughness, "IOR": 1.54,
               "Specular IOR Level": 0.3,

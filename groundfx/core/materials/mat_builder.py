@@ -29,7 +29,7 @@ from ..constants import (
 _MAT_NAME = {ELEM_SAND: MAT_SAND, ELEM_SNOW: MAT_SNOW, ELEM_MUD: MAT_MUD}
 
 # Surface relief defaults shared by the surface stage and the shader.
-RIPPLE_HEIGHT = 0.004
+RIPPLE_HEIGHT = 0.005
 RIPPLE_LENGTH = 0.07
 WIND_ANGLE = math.radians(20.0)
 

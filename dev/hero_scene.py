@@ -38,7 +38,7 @@ def _args():
     p.add_argument("--save", default="")
     p.add_argument("--grains", action="store_true")
     p.add_argument("--no-surround", action="store_true")
-    p.add_argument("--sun", default="22,120", help="elevation,rotation deg")
+    p.add_argument("--sun", default="18,120", help="elevation,rotation deg")
     p.add_argument("--exposure", type=float, default=0.0)
     p.add_argument("--noderender", action="store_true",
                    help="build + simulate only, skip rendering")
@@ -97,7 +97,7 @@ def setup_world(scene, sun_elev_deg=22.0, sun_rot_deg=120.0, strength=0.06,
     scene.view_settings.exposure = exposure
 
 
-def make_box(size=0.2, mud=False):
+def make_box(size=0.2, mud=False, dust=False):
     import bmesh
     me = bpy.data.meshes.new("HeroBox")
     bm = bmesh.new()
@@ -145,6 +145,19 @@ def make_box(size=0.2, mud=False):
     L(mix.outputs[2], bsdf.inputs["Base Color"])
     L(n1.outputs[0], rr.inputs["Value"])
     L(rr.outputs[0], bsdf.inputs["Roughness"])
+    if dust:
+        # grains clinging to the lower flanks: scene dressing only
+        n1.inputs["Scale"].default_value = 260.0
+        n1.inputs["Detail"].default_value = 2.0
+        ramp.inputs["From Max"].default_value = 0.08
+        ramp.inputs["To Min"].default_value = 2.3
+        mix.inputs[7].default_value = (0.46, 0.33, 0.17, 1.0)
+        pw = nt.nodes.new("ShaderNodeMath")
+        pw.operation = "POWER"
+        pw.inputs[1].default_value = 6.0
+        pw.use_clamp = True
+        L(mul.outputs[0], pw.inputs[0])
+        L(pw.outputs[0], mix.inputs[0])
     if mud:
         # splatter: scene dressing only, the solver does not coat flanks yet
         n1.inputs["Scale"].default_value = 60.0
@@ -210,7 +223,7 @@ def setup_camera(scene, kind, target):
 
 
 def build(element="SAND", quality="HIGH", size=1.2, cam="close", grains=False,
-          surround=True, sun=(22.0, 120.0), exposure=0.0):
+          surround=True, sun=(18.0, 120.0), exposure=0.0):
     import groundfx
     try:
         groundfx.unregister()
@@ -231,7 +244,7 @@ def build(element="SAND", quality="HIGH", size=1.2, cam="close", grains=False,
     domain.groundfx.surround = surround
 
     h = domain.groundfx.material_height
-    box = make_box(0.2, mud=element == "MUD")
+    box = make_box(0.2, mud=element == "MUD", dust=element == "SAND")
     scene.collection.objects.link(box)
     coll = ensure_collider_collection(bpy.context, domain)
     coll.objects.link(box)

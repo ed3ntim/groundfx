@@ -83,6 +83,24 @@ Relief. Der Clearcoat ist über einen Noise-Schwellwert fleckig, sonst wirkt
 nasser Schlamm wie Plastik. Feuchter Boden muss dunkel sein (linear rund
 0.08/0.05/0.03), sonst liest er sich in der Sonne als Sand.
 
+## Zielbild (Referenzen von ed3n, 2026-11-13)
+
+- Schlamm: aufgewühlter Acker-Schlamm, klumpig, überall kleine nasse
+  Glanzpunkte, milchig-braune Pfützen in den Senken, dicker faltiger Wulst
+  um eine runde Spur, Spritzer am Objekt, einzelne Halme.
+- Sand: goldbraun, aus der Totale sichtbar körnig, flaches warmes Streiflicht
+  mit weichen Rippelschatten, wenige größere Steinchen, Sand haftet unten
+  am Objekt, Spur als runde Mulde mit weichem Wall.
+
+Daraus gelernt:
+
+- Körnigkeit aus der Distanz braucht eine grobe Kornfraktion (1 mm) im
+  Shader. Zu groß (2 mm) ergibt im Makro flache Farbflecken.
+- Schlamm-Klumpen: Billowed Noise mit wenig Detail. Mit viel Detail wird
+  daraus scharfkantiges Geröll.
+- Der Wasserstand ist sehr empfindlich: zwischen -7 mm (fast keine Pfützen)
+  und 0 mm (halbe Fläche unter Wasser) liegen nur 7 mm. Standard -4 mm.
+
 ## Verdrängung (Solver, seit 2026-11-12)
 
 Der Ring, auf den verdrängtes Volumen fällt, hat eine Reichweite in Metern

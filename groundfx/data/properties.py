@@ -303,7 +303,7 @@ class GroundFXObjectSettings(bpy.types.PropertyGroup):
         description="Relief of material the simulation has disturbed")
 
     pebbles: bpy.props.FloatProperty(
-        name="Pebbles", default=220.0, min=0.0, max=20000.0,
+        name="Pebbles", default=140.0, min=0.0, max=20000.0,
         update=_sync_surface,
         description="Small stones and shell fragments per square metre")
 
