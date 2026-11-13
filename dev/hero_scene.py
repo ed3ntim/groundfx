@@ -42,7 +42,8 @@ def _args():
     p.add_argument("--sun", default="18,120", help="elevation,rotation deg")
     p.add_argument("--exposure", type=float, default=0.0)
     p.add_argument("--action", default="plough",
-                   help="plough (slow, stops) | skid (comes in fast, brakes)")
+                   help="plough (slow, stops) | skid | fast (come in fast, brake) "
+                        "| impact (a ball comes down at an angle)")
     p.add_argument("--mblur", type=float, default=0.0,
                    help="motion blur shutter (0 = off)")
     p.add_argument("--spray-detail", type=float, default=1.0)
@@ -253,6 +254,14 @@ def build(element="SAND", quality="HIGH", size=1.2, cam="close", grains=False,
 
     h = domain.groundfx.material_height
     box = make_box(0.2)
+    if action == "impact":
+        # a ball instead of the box, same paint
+        from groundfx.ops.op_add import _uv_sphere_mesh
+        ball_me = _uv_sphere_mesh("HeroBall", radius=0.08, rings=24,
+                                  segments=48)
+        ball_me.materials.append(box.data.materials[0])
+        bpy.data.objects.remove(box)
+        box = bpy.data.objects.new("HeroBall", ball_me)
     scene.collection.objects.link(box)
     coll = ensure_collider_collection(bpy.context, domain)
     coll.objects.link(box)
@@ -264,10 +273,27 @@ def build(element="SAND", quality="HIGH", size=1.2, cam="close", grains=False,
     scene.frame_start, scene.frame_end = 1, 90
     depth = {"MUD": 0.03}.get(element, 0.022)
     zc = h + 0.1 - depth  # box bottom this far below the surface
-    if action == "skid":
-        # Comes in at about 1.6 m/s and brakes to a stop within 0.6 m: fast
-        # enough that most of what it displaces leaves the ground.
-        x0, x1, f0, f1 = -0.48, 0.12, 6, 28
+    if action == "impact":
+        # A ball comes down at about 40 degrees and 3.4 m/s, digs in 5 cm
+        # and skids to a stop: the crown of an impact plus a short furrow.
+        zb = h + 0.08 - 0.05
+        hit = 11
+        for f in range(1, hit + 1):
+            s = (hit - f) / 24.0 * 3.4
+            box.location = (-0.05 - s * 0.77, 0.0, zb + s * 0.64)
+            box.keyframe_insert("location", frame=f)
+        for f in range(hit + 1, hit + 10):
+            s = (f - hit) / 9.0
+            box.location = (-0.05 + 0.2 * (1.0 - (1.0 - s) ** 2), 0.0, zb)
+            box.keyframe_insert("location", frame=f)
+        for fc in _fcurves(box):
+            for kp in fc.keyframe_points:
+                kp.interpolation = "LINEAR"
+    elif action in ("skid", "fast"):
+        # Comes in fast and brakes to a stop: skid from about 1.6 m/s, fast
+        # from about 2.6 m/s. Most of what it displaces leaves the ground.
+        x0, x1, f0, f1 = ((-0.48, 0.12, 6, 28) if action == "skid"
+                          else (-0.55, 0.20, 6, 20))
         box.location = (x0, 0.0, zc + 0.05)
         box.keyframe_insert("location", frame=1)
         for f in range(f0, f1 + 1):

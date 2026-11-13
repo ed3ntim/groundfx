@@ -75,6 +75,8 @@ def _push_element(self, context):
     self.stickiness = ed.stickiness
     # The airborne phase belongs to the full look: a bare domain stays bare.
     self.spray = ed.spray if self.surface_detail else 0.0
+    from ..ops.op_spray import profile
+    self.spray_grain = profile(self.element).grain
     _look_guard = False
     modifier_io.set_input(md, gsim.IN_STICKINESS, ed.stickiness, tag=False)
     modifier_io.set_input(md, gsim.IN_RECOVERY, ed.recovery, tag=False)

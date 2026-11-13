@@ -1,29 +1,46 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
-"""Material of airborne sand grains.
+"""Materials of airborne material: sand grains, snow crumbs, mud clots.
 
-Each grain is one point, so there is no texture to speak of: a grain has one
-mineral colour (same palette as the bed, so thrown sand is the sand that was
-on the ground) and its own roughness. Quartz is translucent. Against the
-light a real sheet of sand glows at its thin edges while its dense core stays
-dark, and that contrast is most of what makes sand in the air look like
-sand. A share of translucency gives it.
+Each piece is one point, so there is no texture to speak of.
+
+* **Sand.** One mineral colour per grain, from the palette of the bed (thrown
+  sand is the sand that was on the ground). Quartz is translucent: against
+  the light a sheet of sand glows at its thin edges while the dense core
+  stays dark, and that contrast is most of what makes sand in the air look
+  like sand.
+* **Snow.** White and deeply translucent. A puff of powder is bright all the
+  way through, never grey: light scatters from crumb to crumb.
+* **Mud.** Dark, wet, glossy. A clot carries a highlight and no light
+  through it.
 """
 from __future__ import annotations
 
 import bpy
 
-from ..constants import MAT_SAND_SPRAY, PROP_MAT_GENERATED
+from ..constants import (
+    ELEM_SAND, ELEM_SNOW, ELEM_MUD, MAT_SAND_SPRAY, MAT_SNOW_SPRAY,
+    MAT_MUD_SPRAY, PROP_MAT_GENERATED,
+)
 from . import mat_sand
 
 ATTR_GRAIN_ID = "gfx_grain_id"
-_TRANSLUCENT = 0.28
+_NAMES = {ELEM_SAND: MAT_SAND_SPRAY, ELEM_SNOW: MAT_SNOW_SPRAY,
+          ELEM_MUD: MAT_MUD_SPRAY}
+# (dark, light) linear colours a piece is picked between, share of
+# translucency, roughness range, clearcoat
+_LOOK = {
+    ELEM_SNOW: ((0.80, 0.84, 0.90), (0.95, 0.96, 0.97), 0.55, (0.35, 0.7), 0.0),
+    ELEM_MUD: ((0.035, 0.022, 0.013), (0.085, 0.055, 0.032), 0.0,
+               (0.12, 0.38), 0.7),
+}
 
 
-def spray_material() -> bpy.types.Material:
-    mat = bpy.data.materials.get(MAT_SAND_SPRAY)
+def spray_material(element: str = ELEM_SAND) -> bpy.types.Material:
+    name = _NAMES.get(element, MAT_SAND_SPRAY)
+    mat = bpy.data.materials.get(name)
     if mat is not None:
         return mat
-    mat = bpy.data.materials.new(MAT_SAND_SPRAY)
+    mat = bpy.data.materials.new(name)
     mat[PROP_MAT_GENERATED] = True
     mat.use_nodes = True
     nt = mat.node_tree
@@ -32,17 +49,25 @@ def spray_material() -> bpy.types.Material:
     attr.attribute_type = "GEOMETRY"
     attr.attribute_name = ATTR_GRAIN_ID
     ramp = nt.nodes.new("ShaderNodeValToRGB")
-    ramp.color_ramp.interpolation = "CONSTANT"
-    mat_sand.set_ramp(ramp.color_ramp, mat_sand.PALETTE)
     rough = nt.nodes.new("ShaderNodeMapRange")
-    rough.inputs["To Min"].default_value = 0.35
-    rough.inputs["To Max"].default_value = 0.75
     bsdf = nt.nodes.new("ShaderNodeBsdfPrincipled")
-    bsdf.inputs["IOR"].default_value = 1.54
     trans = nt.nodes.new("ShaderNodeBsdfTranslucent")
     mix = nt.nodes.new("ShaderNodeMixShader")
-    mix.inputs[0].default_value = _TRANSLUCENT
     out = nt.nodes.new("ShaderNodeOutputMaterial")
+    if element in _LOOK:
+        dark, light, share, (r0, r1), coat = _LOOK[element]
+        mat_sand.set_ramp(ramp.color_ramp, ((0.0, dark), (1.0, light)))
+        bsdf.inputs["Coat Weight"].default_value = coat
+        bsdf.inputs["Coat Roughness"].default_value = 0.08
+        bsdf.inputs["IOR"].default_value = 1.33
+    else:
+        ramp.color_ramp.interpolation = "CONSTANT"
+        mat_sand.set_ramp(ramp.color_ramp, mat_sand.PALETTE)
+        share, r0, r1 = 0.28, 0.35, 0.75
+        bsdf.inputs["IOR"].default_value = 1.54
+    rough.inputs["To Min"].default_value = r0
+    rough.inputs["To Max"].default_value = r1
+    mix.inputs[0].default_value = share
     L = nt.links.new
     L(attr.outputs["Factor"], ramp.inputs[0])
     L(ramp.outputs["Color"], bsdf.inputs["Base Color"])

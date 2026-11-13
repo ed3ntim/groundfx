@@ -39,6 +39,7 @@ IN_DETAIL = "Detail"
 IN_VIEW_DETAIL = "Viewport Detail"
 IN_MAX = "Max Grains"
 IN_SPREAD = "Spread"
+IN_CLUMPS = "Clumps"
 IN_FRAME_TIME = "Frame Time"
 IN_MATERIAL = "Material"
 OUT_GEOMETRY = "Geometry"
@@ -61,6 +62,8 @@ def _interface(b):
     b.input(IN_SPREAD, "NodeSocketFloat", default=0.07, min=0.0, max=1.0,
             description="Velocity scatter of the grains, as a share of the "
                         "launch speed")
+    b.input(IN_CLUMPS, "NodeSocketFloat", default=2.5, min=0.0, max=20.0,
+            description="How much larger the rare big lumps are")
     b.input(IN_FRAME_TIME, "NodeSocketFloat", default=1.0 / 24.0, min=1e-4,
             description="Seconds per frame (scene frame rate)")
     b.input(IN_MATERIAL, "NodeSocketMaterial")
@@ -132,7 +135,7 @@ def build(name: str = NG_SPRAY):
     kill = g.math("MAXIMUM", t.lt(0.0), under)
     # fewer grains: each one larger, so the volume on screen stays
     fat = (1.0 / detail).pow(1.0 / 3.0).max(1.0).min(3.0)
-    radius = (grain * 0.5 * rnd(14, 0.6, 1.5) * (1.0 + rnd(15).pow(8.0) * 2.5)
+    radius = (grain * 0.5 * rnd(14, 0.6, 1.5) * (1.0 + rnd(15).pow(8.0) * I(IN_CLUMPS))
               * fat)
     pts, caps = g.capture(pts, [p, vel, kill, radius, rnd(16)])
     p, vel, kill, radius, gid = caps

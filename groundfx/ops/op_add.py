@@ -134,7 +134,9 @@ def create_domain(context, element: str,
 
     if surface:
         st.surface_detail = True   # update callback attaches the stage
-        st.spray = ed.spray        # airborne phase, where the element has one
+        st.spray = ed.spray        # airborne phase
+        from .op_spray import profile
+        st.spray_grain = profile(element).grain
 
     log.info("created %s domain (%d^2, %.2f m, cell %.3f m)",
              element, prof.resolution, size, size / prof.resolution)

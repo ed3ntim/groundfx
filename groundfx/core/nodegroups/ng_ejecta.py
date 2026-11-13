@@ -247,7 +247,7 @@ def emit(g, geo, arrive, inp, dt, spray):
     v0 = horiz + g.vec(0.0, 0.0, up)
 
     vol = g.attr("gfx_air") * (cell * cell) / n_dup
-    drag = (_DRAG * rnd(5, 0.4, 2.2)
+    drag = (_DRAG * inp["drag"] * rnd(5, 0.4, 2.2)
             * (_VOL_REF / vol.max(1e-12)).pow(1.0 / 3.0).max(0.4).min(4.0))
     # Leave at a random moment within the frame: without it every frame's
     # parcels start on the same line and the spray strobes.

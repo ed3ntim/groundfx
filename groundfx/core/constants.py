@@ -29,7 +29,8 @@ ADDON_NAME = "GroundFX"
 # v24: display closes the gap at collider walls.
 # v25 (gen 4): airborne parcels as a second simulation state, Spray inputs,
 #      spray display group.
-NODEGROUP_VERSION = 25
+# v26: Spray Drag and Clumps inputs (snow and mud in the air).
+NODEGROUP_VERSION = 26
 
 # --- UI ---------------------------------------------------------------------
 PANEL_CATEGORY = "GroundFX"     # N-panel tab label
@@ -144,6 +145,8 @@ MAT_SNOW = "GFX_Snow"
 MAT_MUD = "GFX_Mud"
 MAT_WATER = "GFX_Water"
 MAT_SAND_SPRAY = "GFX_SandSpray"
+MAT_SNOW_SPRAY = "GFX_SnowSpray"
+MAT_MUD_SPRAY = "GFX_MudSpray"
 
 # Marks a material as GroundFX-authored, so the element switch may rebuild it
 # but a material the user assigned themselves is left untouched (E8-T10).

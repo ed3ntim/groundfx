@@ -69,6 +69,7 @@ IN_CONTACT_AA = "Contact AA"
 IN_DRYING = "Drying"
 IN_SPRAY = "Spray"
 IN_SPRAY_LIFT = "Spray Lift"
+IN_SPRAY_DRAG = "Spray Drag"
 OUT_GEOMETRY = "Geometry"
 
 STATE_PREV = "Colliders Prev"
@@ -129,6 +130,9 @@ def _interface(b):
     b.input(IN_SPRAY, "NodeSocketFloat", default=0.0, min=0.0, max=1.0,
             description="Share of fast-displaced material that leaves the "
                         "ground and flies (0 = everything stays in the bed)")
+    b.input(IN_SPRAY_DRAG, "NodeSocketFloat", default=1.0, min=0.0, max=50.0,
+            description="Air drag of thrown material relative to sand: "
+                        "light powder stalls, heavy clots carry")
     b.input(IN_SPRAY_LIFT, "NodeSocketFloat", default=1.0, min=0.0, max=3.0,
             description="How steeply thrown material leaves the ground")
     b.output(OUT_GEOMETRY, "NodeSocketGeometry")
@@ -381,7 +385,7 @@ def build(name: str = NG_GROUND_SIM):
         "cohesion": I(IN_COHESION), "yield": I(IN_YIELD),
         "compact": I(IN_COMPACT_ANGLE), "flow": I(IN_FLOW),
         "iters": I(IN_RELAX_ITERS), "bow": I(IN_BOW_WAVE),
-        "stick": I(IN_STICKINESS), "lift": I(IN_SPRAY_LIFT),
+        "stick": I(IN_STICKINESS), "lift": I(IN_SPRAY_LIFT), "drag": I(IN_SPRAY_DRAG),
     }
 
     # ---- initial state ------------------------------------------------------

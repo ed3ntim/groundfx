@@ -144,10 +144,21 @@ def test_spray_stage_follows_the_property():
                   full.modifiers.get(SPRAY_MODIFIER_NAME) is None)
     full.groundfx.spray = 0.5
     full.groundfx.element = "MUD"
-    harness.check("mud has no spray stage yet",
-                  full.modifiers.get(SPRAY_MODIFIER_NAME) is None
-                  and modifier_io.get_input(full.modifiers["GroundFX"],
-                                            "Spray", 1.0) == 0.0)
+    md = full.modifiers.get(SPRAY_MODIFIER_NAME)
+    solver = full.modifiers["GroundFX"]
+    harness.check("mud flies as few heavy clots",
+                  md is not None
+                  and modifier_io.get_input(md, "Max Grains", 0) < 50
+                  and modifier_io.get_input(solver, "Spray Drag", 9.0) < 1.0
+                  and modifier_io.get_input(md, "Material").name
+                  == "GFX_MudSpray")
+    full.groundfx.element = "SNOW"
+    md = full.modifiers.get(SPRAY_MODIFIER_NAME)
+    harness.check("snow flies as powder the air stops quickly",
+                  md is not None
+                  and modifier_io.get_input(solver, "Spray Drag", 0.0) > 2.0
+                  and modifier_io.get_input(md, "Material").name
+                  == "GFX_SnowSpray")
     _cleanup(bare, full)
 
 
