@@ -19,7 +19,8 @@ from __future__ import annotations
 
 from ..ng_builder import NodeTreeBuilder
 from ..ng_expr import Expr
-from ..constants import ATTR_COMP
+from ..constants import ATTR_COMP, ATTR_DIST
+from ..surface_fn import smoothstep as sfnstep
 
 GRAIN_SIZE = 0.0008
 
@@ -36,6 +37,16 @@ def build(tree, ctrl, *, grain_size=GRAIN_SIZE) -> None:
     comp = g.out(g.node("ShaderNodeAttribute", attribute_name=ATTR_COMP,
                         attribute_type="GEOMETRY"), "Factor").clamp(0.0, 1.0)
 
+    # Broken snow (the solver's disturbance field): crumbly, matt, with
+    # blue pores between the crumbs. Wind-packed snow around it stays
+    # smooth and glittering.
+    dist = g.out(g.node("ShaderNodeAttribute", attribute_name=ATTR_DIST,
+                        attribute_type="GEOMETRY"), "Factor").clamp(0.0, 1.0)
+    broken = dist * (1.0 - comp)
+    crumb = g.out(g.node("ShaderNodeTexNoise",
+                         {"Vector": P, "Scale": 190.0, "Detail": 3.0,
+                          "Roughness": 0.65}), 0)
+
     inv = 1.0 / grain_size
     vor = g.node("ShaderNodeTexVoronoi", {"Vector": P, "Scale": inv,
                                           "Randomness": 1.0},
@@ -47,7 +58,8 @@ def build(tree, ctrl, *, grain_size=GRAIN_SIZE) -> None:
     # facet tilt: a random vector per grain, used as a bump gradient
     tilt = (cell - (0.5, 0.5, 0.5)) * 2.0
 
-    glint = g.math("MULTIPLY", cid.gt(0.9), 1.0 - comp * 0.8)
+    glint = g.math("MULTIPLY", cid.gt(0.9),
+                   (1.0 - comp * 0.8) * (1.0 - broken * 0.6))
     meso = g.out(g.node("ShaderNodeTexNoise",
                         {"Vector": P, "Scale": 14.0, "Detail": 4.0,
                          "Roughness": 0.55}), 0)
@@ -59,10 +71,14 @@ def build(tree, ctrl, *, grain_size=GRAIN_SIZE) -> None:
     col = g.mix(albedo, albedo * packed_tint, comp * 0.8)
     # pores between grains sit in (blue) shadow: the granular read up close
     cavity = 0.62 + 0.38 * (dome * (1.0 - comp * 0.6) + comp * 0.6).min(1.0)
+    # pores of broken snow: darker and bluer where the crumb noise is low
+    pore = (1.0 - sfnstep((crumb - 0.32) / 0.2)) * broken
     col = col * (0.96 + meso * 0.06) * cavity * (1.0 - wet * 0.25)
+    col = g.mix(col, col * g.vec(0.72, 0.80, 0.93), pore * 0.7)
 
     roughness = g.mix(rough * (0.85 + macro * 0.3), 0.04, glint)
     roughness = g.mix(roughness, rough * 0.6, comp * 0.5)
+    roughness = g.mix(roughness, 0.9, broken * 0.5)
     roughness = g.mix(roughness, 0.08, wet).clamp(0.02, 1.0)
 
     relief = dome * (1.0 - comp * 0.7) * detail
@@ -74,7 +90,8 @@ def build(tree, ctrl, *, grain_size=GRAIN_SIZE) -> None:
                     "Height": tilt.dot(P * inv) * 0.5,
                     "Normal": g.out(bump, "Normal")})
     soft = g.node("ShaderNodeBump",
-                  {"Strength": 0.4, "Distance": 0.004, "Height": meso,
+                  {"Strength": 0.4 + broken * 0.5, "Distance": 0.004,
+                   "Height": meso + (crumb - 0.5) * broken * 0.8,
                    "Normal": g.out(facet, "Normal")})
 
     bsdf = g.node("ShaderNodeBsdfPrincipled",
@@ -87,6 +104,10 @@ def build(tree, ctrl, *, grain_size=GRAIN_SIZE) -> None:
                    "Normal": g.out(soft, "Normal"),
                    "Coat Weight": wet * 0.8, "Coat Roughness": 0.05,
                    "Coat IOR": 1.33})
+    # Random-walk scattering loses light through the open border of the
+    # simulation grid and of the surround ring: a dark line where they meet.
+    # The surface-based method does not look behind the surface.
+    bsdf.subsurface_method = "BURLEY"
     clumps = g.out(g.node("ShaderNodeTexNoise",
                           {"Vector": P, "Scale": 40.0, "Detail": 5.0,
                            "Roughness": 0.6}), 0)

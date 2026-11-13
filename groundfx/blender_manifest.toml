@@ -2,7 +2,7 @@ schema_version = "1.0.0"
 
 # --- Identity --------------------------------------------------------------
 id = "groundfx"
-version = "0.5.1"
+version = "0.6.0"
 name = "GroundFX"
 tagline = "Deformable sand, snow and mud that reacts to your objects"
 maintainer = "ed3n"

@@ -27,7 +27,7 @@ Belege Sand Gen 3: `g3_sand_hero.png`, `g3_sand_wide.png`,
 `g3_sand_close.png`, `g3_sand_macro.png` (Cycles, 160 Samples, Quality High).
 Belege Schlamm Gen 3: `g3_mud_hero.png`, `g3_mud_wide.png`,
 `g3_mud_close.png`.
-Test-ZIP: `dist/groundfx-0.5.1.zip` (lokal, nicht im Repo).
+Test-ZIP: `dist/groundfx-0.6.0.zip` (lokal, nicht im Repo).
 
 Beide Elemente wurden am 2026-11-13 nach Referenzbildern von ed3n
 nachgezogen: Schlamm klumpig und aufgewühlt mit milchigen Pfützen, Sand
