@@ -30,6 +30,7 @@ from ..ng_builder import new_geometry_group
 from ..ng_expr import make
 from ..constants import (
     NG_SPRAY, ATTR_E_VEL, ATTR_E_VOL0, ATTR_E_AGE, ATTR_E_SEED, ATTR_E_V0,
+    ATTR_E_DRAG,
 )
 from .ng_ejecta import GRAVITY
 
@@ -122,8 +123,13 @@ def build(name: str = NG_SPRAY):
     dv = dv + v * (fine * -1.0)
     blob = tri(8) * ((g.attr(ATTR_E_VOL0) * 0.2387).pow(1.0 / 3.0) * _BLOB)
     back = v * (lag * -1.0) + g.vec(0.0, 0.0, lag * lag * (-0.5 * GRAVITY))
-    p = g.position() + back + blob + dv * t.max(0.0)
-    vel = v + g.vec(0.0, 0.0, lag * GRAVITY) + dv
+    # The air takes a piece's extra speed away at the parcel's drag rate, so
+    # the drift apart levels off. Without it powder that hangs for seconds
+    # (snow) spreads without limit, far past where it could ever get.
+    rate = g.attr(ATTR_E_DRAG) * g.attr(ATTR_E_V0)
+    slow = 1.0 / (1.0 + rate * t.max(0.0))
+    p = g.position() + back + blob + dv * (t.max(0.0) * slow)
+    vel = v + g.vec(0.0, 0.0, lag * GRAVITY) + dv * (slow * slow)
 
     ray = g.node("GeometryNodeRaycast",
                  {"Target Geometry": ground,

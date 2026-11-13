@@ -1,7 +1,7 @@
 # GroundFX - Projektstatus
 
 **Letzte Aktualisierung:** 2026-11-13
-**Tests:** 243/243 grün (Blender 5.2.0 LTS, headless)
+**Tests:** 245/245 grün (Blender 5.2.0 LTS, headless)
 
 Wiedereinstieg: diese Datei, dann `../CONTEXT.md` (Architektur, Fallstricke)
 und `../DECISIONS.md`. Die Historie vor Solver v2 steht in der Git-Historie
@@ -13,6 +13,7 @@ dieser Datei, nicht mehr hier.
 |---|---|
 | Solver v2 | fertig. Massenerhaltend, Böschungswinkel, Bugwelle, Material auf dem Objekt |
 | Look-Felder | `gfx_comp`, `gfx_flow`, `gfx_age`, neu `gfx_dist` (aufgewühlt) und `gfx_damp` (feucht, trocknet) |
+| **Gen 4 Schlamm und Schnee** | Flugphase mit eigenem Profil: Schlamm als wenige schwere Klumpen, Schnee als Pulver, das die Luft schnell bremst. Erster Stand, nicht nach Referenz abgestimmt. Belege: `g4_mud_fast_f011.png`, `g4_snow_fast_f014.png` |
 | **Sand Gen 4** | neu: fliegendes Material. Schneller Kontakt wirft Sand als Partikel, die ballistisch fliegen und massengenau wieder landen; Anzeige-Stufe `GroundFX Spray` macht daraus Körner mit Motion Blur. Belege: `g4_sand_*.png` |
 | **Sand Gen 3** | fertig als erstes Element der neuen Generation: Surface-Stufe (Rippel, Relief, Krümel, Umgebung) plus Shader v3 |
 | Schnee | Look v2, keine Surface-Stufe |

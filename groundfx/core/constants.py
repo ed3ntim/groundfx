@@ -30,7 +30,8 @@ ADDON_NAME = "GroundFX"
 # v25 (gen 4): airborne parcels as a second simulation state, Spray inputs,
 #      spray display group.
 # v26: Spray Drag and Clumps inputs (snow and mud in the air).
-NODEGROUP_VERSION = 26
+# v27: grain drift levels off with drag.
+NODEGROUP_VERSION = 27
 
 # --- UI ---------------------------------------------------------------------
 PANEL_CATEGORY = "GroundFX"     # N-panel tab label

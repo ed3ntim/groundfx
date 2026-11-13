@@ -40,11 +40,11 @@ PROFILES = {
     # Dry grains: many, small, each on its own.
     ELEM_SAND: SprayProfile(0.0005, 1.0, 0.07, 2.5, 240),
     # Powder and crumbs: a tenth of sand's density, so the air stops it
-    # within a hand's width and it hangs; crumbs of packed snow fly on.
-    ELEM_SNOW: SprayProfile(0.0012, 5.0, 0.16, 6.0, 240),
+    # within a few hand widths and it hangs; crumbs of packed snow fly on.
+    ELEM_SNOW: SprayProfile(0.001, 20.0, 0.16, 3.0, 240),
     # Wet and cohesive: leaves in few heavy clots and strings, stays
     # together, hardly feels the air.
-    ELEM_MUD: SprayProfile(0.005, 0.5, 0.05, 1.6, 14),
+    ELEM_MUD: SprayProfile(0.009, 0.5, 0.04, 1.6, 5),
 }
 
 # Elements whose airborne phase has a look.

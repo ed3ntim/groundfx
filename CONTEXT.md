@@ -100,9 +100,28 @@ Gemessen (Box 20 cm, 1,5 m/s, Quality Medium): Spitze rund 700 Partikel und
 1,7 l in der Luft. Im 6-m-Feld bleibt die Summe aus Bett und Luft nach dem
 Stopp exakt gleich. Im 2-m-Feld fehlt, was über den Rand fliegt.
 
-Nur für Sand, und nur wo der volle Look verlangt ist (`surface=True` bzw.
-UI): `create_domain` ohne das bleibt bei `spray = 0`. Der Solver-Eingang
-`Spray` hat den Standard 0.
+Für alle drei Elemente, aber nur wo der volle Look verlangt ist
+(`surface=True` bzw. UI): `create_domain` ohne das bleibt bei `spray = 0`.
+Der Solver-Eingang `Spray` hat den Standard 0.
+
+Die Elemente teilen Solver und Anzeige-Stufe und unterscheiden sich in einem
+Profil (`ops/op_spray.PROFILES`):
+
+| | Stück | Luftwiderstand | Streuung | Stücke je Partikel |
+|---|---|---|---|---|
+| Sand | 0,5 mm Korn | 1 | 0,07 | bis 240 |
+| Schnee | 1 mm Krümel | 20 | 0,16 | bis 240 |
+| Schlamm | 9 mm Klumpen | 0,5 | 0,04 | bis 5 |
+
+Gelernt beim Abstimmen (2026-11-13):
+
+- Schlamm mit vielen kleinen Stücken wird im Motion Blur zu Haaren. Wenige
+  große Klumpen.
+- Schnee hängt lange in der Luft. Die Streuung der Körner muss mit dem
+  Luftwiderstand abklingen (`slow` in `ng_spray`), sonst wächst die Wolke
+  ohne Grenze und fliegt in alle Richtungen aus dem Feld.
+- Luftwiderstand 5 reicht für Pulver nicht, erst 20 hält die Fahne bei der
+  Box.
 
 Fallstricke:
 
@@ -252,7 +271,9 @@ stand als Wand über dem Objekt.
 ## Bekannte Grenzen
 
 - Fliegendes Material: kein Staub (feine Schwebfraktion), Körner stoßen
-  nicht untereinander und prallen nicht ab, nur Sand. Staub als Volumen
+  nicht untereinander und prallen nicht ab. Schlamm-Klumpen sind Kugeln
+  (keine Fäden, kein Zerreißen), Schnee hat keine Umgebung (Platte im
+  leeren Raum, siehe Surface-Stufe). Staub als Volumen
   braucht additive Dichte aus Punkten: in 5.2 nicht vorhanden, 5.3 bringt
   laut Release Notes "Rasterize Points" (ungeprüft, 5.3 ist hier nicht
   installiert).
