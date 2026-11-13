@@ -16,7 +16,8 @@ dieser Datei, nicht mehr hier.
 | **Gen 4 Schlamm und Schnee** | Flugphase mit eigenem Profil: Schlamm als wenige schwere Klumpen, Schnee als Pulver, das die Luft schnell bremst. Erster Stand, nicht nach Referenz abgestimmt. Belege: `g4_mud_fast_f011.png`, `g4_snow_fast_f014.png` |
 | **Sand Gen 4** | neu: fliegendes Material. Schneller Kontakt wirft Sand als Partikel, die ballistisch fliegen und massengenau wieder landen; Anzeige-Stufe `GroundFX Spray` macht daraus Körner mit Motion Blur. Belege: `g4_sand_*.png` |
 | **Sand Gen 3** | fertig als erstes Element der neuen Generation: Surface-Stufe (Rippel, Relief, Krümel, Umgebung) plus Shader v3 |
-| Schnee | Look v2, keine Surface-Stufe |
+| Schnee | Look v2, Surface-Stufe (erster Stand, Nahtlinie am Feldrand offen), Flugphase und Staub |
+| **Staub** | Volumen aus Rasterize Points für Sand und Schnee, Stärke nicht kalibriert. Beleg: `g4_sand_dust_f014.png` |
 | **Schlamm Gen 3** | fertig: Surface-Stufe (unebene Fläche, Wülste, Spritzklumpen, stehendes Wasser) plus Shader v3 und Wasser-Shader |
 | **Haften am Objekt** | fertig für Sand und Schlamm: Coat-Objekt je Collider, Körner bzw. Spritzer als Geometrie an den Flanken |
 | Kornebene | nur Sand, im Kamera-Frustum |

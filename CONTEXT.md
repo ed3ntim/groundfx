@@ -145,6 +145,35 @@ Fallstricke:
 - `evaluated_geometry()` in Python: das GeometrySet in einer Variable
   halten, sonst ist `pointcloud` sofort ungültig.
 
+## Staub und Schnee-Surface (2026-11-13, Zielversion jetzt Blender 5.3)
+
+Zielversion ist seit 2026-11-13 Blender 5.3 (Vorgabe ed3n), 5.2 wird nicht
+mehr geprüft. Manifest, `compat.BLENDER_MIN` und `dev/run_tests.ps1` stehen
+auf 5.3. Die Weiche `ng_dust.supported()` ist damit immer wahr und kann raus.
+
+**Staub** (`ng_dust.py`, in der Spray-Stufe, nur Anzeige): eigene kleine
+Simulationszone. Jedes Partikel hinterlässt einen Puff beim Start und einen
+bei der Landung. Puffs verlieren ihre Geschwindigkeit in Sekundenbruchteilen,
+treiben in einem Rauschfeld, sinken leicht und leben 1,2 bis 3,4 s. Gezeichnet
+als je 6 gestreute Punkte, per **Rasterize Points** (Voxel 12 mm) zu einem
+Grid `density` summiert, Material Principled Volume. Regler `Dust`, Sand und
+Schnee 1,0, Schlamm 0.
+
+- Rasterize Points: Werte sind Items, `rasterize_items.new(name=...)` nimmt
+  nur den Namen, der Socket heißt danach wie das Item.
+- Store Named Grid erzeugt das Volume selbst, der Volume-Eingang darf leer
+  bleiben.
+- Stärke (`_GAIN`) ist nach einem einzigen Render geschätzt, nicht kalibriert.
+
+**Schnee-Surface** (`GFX_Surface_Snow`): Verwehungen (`Undulation`), schwache
+lange Rippel, im aufgewühlten Bereich gerundete Brocken als Relief und als
+Krümel, Umgebung mit flachen Wellen, keine Steinchen. Der Schnee-Shader liest
+`gfx_dist`/`gfx_damp` noch nicht.
+
+Offener Fehler: Um das Simulationsfeld läuft im Schnee eine dunkle Nahtlinie
+zum Ring (`docs/g4_snow_fast_f014.png`). Bei Sand ist sie nicht sichtbar.
+Vermutung, ungeprüft: Subsurface an der 0,4 mm überlappenden Ringreihe.
+
 ## Schlamm Gen 3
 
 Profil der Surface-Stufe für Schlamm:
@@ -285,7 +314,7 @@ stand als Wand über dem Objekt.
 - Schnee-Mikro: Körner lesen sich, wirken aber leicht kunststoffartig.
   Echte Facettengeometrie (Kornebene für Schnee) wäre der nächste Schritt.
 - Kornebene gibt es bisher nur für Sand.
-- Surface-Stufe (Gen 3) gibt es für Sand und Schlamm, nicht für Schnee.
+- Surface-Stufe gibt es für alle drei Elemente, die für Schnee ist ein erster Stand.
 - Schlamm-Wasser ist ein fester Pegel ohne Verdrängung oder Spritzer.
 - Haufen haben flache Plateaus statt eines Grats. Tiefes, langes Pflügen
   türmt sie über die Box, dann liegt Sand auf deren Oberseite (Volumen
