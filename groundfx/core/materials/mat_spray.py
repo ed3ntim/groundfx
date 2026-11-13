@@ -106,3 +106,24 @@ def dust_material(element: str = ELEM_SAND) -> bpy.types.Material:
     out = nt.nodes.new("ShaderNodeOutputMaterial")
     nt.links.new(vol.outputs[0], out.inputs["Volume"])
     return mat
+
+
+def drop_material() -> bpy.types.Material:
+    """Drops of water carrying silt: milky brown, glossy, light passes."""
+    from ..constants import MAT_MUD_DROP
+    mat = bpy.data.materials.get(MAT_MUD_DROP)
+    if mat is not None:
+        return mat
+    mat = bpy.data.materials.new(MAT_MUD_DROP)
+    mat[PROP_MAT_GENERATED] = True
+    mat.use_nodes = True
+    nt = mat.node_tree
+    nt.nodes.clear()
+    bsdf = nt.nodes.new("ShaderNodeBsdfPrincipled")
+    bsdf.inputs["Base Color"].default_value = (0.17, 0.115, 0.065, 1.0)
+    bsdf.inputs["Roughness"].default_value = 0.06
+    bsdf.inputs["IOR"].default_value = 1.33
+    bsdf.inputs["Transmission Weight"].default_value = 0.3
+    out = nt.nodes.new("ShaderNodeOutputMaterial")
+    nt.links.new(bsdf.outputs[0], out.inputs["Surface"])
+    return mat

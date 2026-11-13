@@ -170,9 +170,32 @@ lange Rippel, im aufgewühlten Bereich gerundete Brocken als Relief und als
 Krümel, Umgebung mit flachen Wellen, keine Steinchen. Der Schnee-Shader liest
 `gfx_dist`/`gfx_damp` noch nicht.
 
-Offener Fehler: Um das Simulationsfeld läuft im Schnee eine dunkle Nahtlinie
-zum Ring (`docs/g4_snow_fast_f014.png`). Bei Sand ist sie nicht sichtbar.
-Vermutung, ungeprüft: Subsurface an der 0,4 mm überlappenden Ringreihe.
+
+## Arbeitsweise: Testversion in dist (Vorgabe ed3n, 2026-11-13)
+
+ed3n testet selbst im Viewport und braucht dafür regelmäßig ein neues ZIP in
+`dist/`. Nach jedem abgeschlossenen Schritt mit sichtbarer Änderung: Version
+im Manifest hochzählen, `blender -b --factory-startup --python dev/build.py`,
+danach `dev/verify_install.py`, und den Dateinamen in der Antwort nennen.
+`dist/` ist nicht im Repo.
+
+## Schnee-Shader und Schlamm-Wurf (2026-11-13)
+
+- **Nahtlinie im Schnee behoben.** Ursache bestätigt: Random-Walk-Subsurface
+  verliert Licht am offenen Rand von Gitter und Ring. Der Schnee-Shader nutzt
+  jetzt Christensen-Burley. Gilt für jedes Material mit Subsurface auf der
+  Domain.
+- Schnee-Shader liest `gfx_dist`: gebrochener Schnee ist krümelig, matt, mit
+  blauen Poren, weniger Glints.
+- **Glitzern aus der Distanz nicht gelöst.** Versuch mit einer zweiten,
+  groben Voronoi-Ebene (3 mm, 3,5 % der Zellen spiegelnd) blieb im Render
+  unsichtbar und wurde wieder entfernt. Spiegelnde Zellen ohne zur Sonne
+  gekippte Normale reflektieren nur Himmel.
+- Bleibt ein echter Spalt, wo eine Spur den Feldrand erreicht: Die Spur liegt
+  tiefer als der Ring, dazwischen fehlt die Wand.
+- Schlamm-Wurf: 30 % der Stücke sind Tropfen aus schlammigem Wasser
+  (`Water Share`, Material `GFX_MudDrop`, halb so groß). Zu hell (0,36/0,25/
+  0,14) überdeckt es die Klumpen, 0,17/0,115/0,065 passt.
 
 ## Schlamm Gen 3
 

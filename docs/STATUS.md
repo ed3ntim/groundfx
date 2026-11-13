@@ -16,7 +16,7 @@ dieser Datei, nicht mehr hier.
 | **Gen 4 Schlamm und Schnee** | Flugphase mit eigenem Profil: Schlamm als wenige schwere Klumpen, Schnee als Pulver, das die Luft schnell bremst. Erster Stand, nicht nach Referenz abgestimmt. Belege: `g4_mud_fast_f011.png`, `g4_snow_fast_f014.png` |
 | **Sand Gen 4** | neu: fliegendes Material. Schneller Kontakt wirft Sand als Partikel, die ballistisch fliegen und massengenau wieder landen; Anzeige-Stufe `GroundFX Spray` macht daraus Körner mit Motion Blur. Belege: `g4_sand_*.png` |
 | **Sand Gen 3** | fertig als erstes Element der neuen Generation: Surface-Stufe (Rippel, Relief, Krümel, Umgebung) plus Shader v3 |
-| Schnee | Look v2, Surface-Stufe (erster Stand, Nahtlinie am Feldrand offen), Flugphase und Staub |
+| Schnee | Look v2, Surface-Stufe, Shader liest aufgewühlten Schnee, Flugphase und Staub. Belege: `g4_snow_hero_f045.png`, `g4_snow_close_f045.png` |
 | **Staub** | Volumen aus Rasterize Points für Sand und Schnee, Stärke nicht kalibriert. Beleg: `g4_sand_dust_f014.png` |
 | **Schlamm Gen 3** | fertig: Surface-Stufe (unebene Fläche, Wülste, Spritzklumpen, stehendes Wasser) plus Shader v3 und Wasser-Shader |
 | **Haften am Objekt** | fertig für Sand und Schlamm: Coat-Objekt je Collider, Körner bzw. Spritzer als Geometrie an den Flanken |
@@ -27,7 +27,7 @@ Belege Sand Gen 3: `g3_sand_hero.png`, `g3_sand_wide.png`,
 `g3_sand_close.png`, `g3_sand_macro.png` (Cycles, 160 Samples, Quality High).
 Belege Schlamm Gen 3: `g3_mud_hero.png`, `g3_mud_wide.png`,
 `g3_mud_close.png`.
-Test-ZIP: `dist/groundfx-0.6.0.zip` (lokal, nicht im Repo).
+Test-ZIP: `dist/groundfx-0.6.1.zip` (lokal, nicht im Repo).
 
 Beide Elemente wurden am 2026-11-13 nach Referenzbildern von ed3n
 nachgezogen: Schlamm klumpig und aufgewühlt mit milchigen Pfützen, Sand

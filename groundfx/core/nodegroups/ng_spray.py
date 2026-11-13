@@ -46,6 +46,8 @@ IN_FRAME_TIME = "Frame Time"
 IN_MATERIAL = "Material"
 IN_DUST = "Dust"
 IN_DUST_MATERIAL = "Dust Material"
+IN_WET = "Water Share"
+IN_WET_MATERIAL = "Water Material"
 OUT_GEOMETRY = "Geometry"
 
 ATTR_GRAIN_ID = "gfx_grain_id"
@@ -71,6 +73,10 @@ def _interface(b):
     b.input(IN_FRAME_TIME, "NodeSocketFloat", default=1.0 / 24.0, min=1e-4,
             description="Seconds per frame (scene frame rate)")
     b.input(IN_MATERIAL, "NodeSocketMaterial")
+    b.input(IN_WET, "NodeSocketFloat", default=0.0, min=0.0, max=1.0,
+            description="Share of the pieces that are drops of dirty water "
+                        "instead of solid material (mud)")
+    b.input(IN_WET_MATERIAL, "NodeSocketMaterial")
     if ng_dust.supported():
         b.input(IN_DUST, "NodeSocketFloat", default=0.0, min=0.0, max=4.0,
                 description="Fine fraction that stays in the air as haze")
@@ -150,7 +156,12 @@ def build(name: str = NG_SPRAY):
     fat = (1.0 / detail).pow(1.0 / 3.0).max(1.0).min(3.0)
     radius = (grain * 0.5 * rnd(14, 0.6, 1.5) * (1.0 + rnd(15).pow(8.0) * I(IN_CLUMPS))
               * fat)
-    pts, caps = g.capture(pts, [p, vel, kill, radius, rnd(16)])
+    # Wet ground does not only throw clots: much of what flies is water
+    # carrying silt, in drops smaller than the clots.
+    gid = rnd(16)
+    is_drop = gid.lt(I(IN_WET))
+    radius = radius * (1.0 - is_drop * 0.5)
+    pts, caps = g.capture(pts, [p, vel, kill, radius, gid])
     p, vel, kill, radius, gid = caps
 
     pts = g.out(g.node("GeometryNodeDeleteGeometry",
@@ -167,6 +178,10 @@ def build(name: str = NG_SPRAY):
     pts = g.store(pts, ATTR_GRAIN_ID, gid)
     pts = g.out(g.node("GeometryNodeSetMaterial",
                        {"Geometry": pts, "Material": I(IN_MATERIAL)}), 0)
+    pts = g.out(g.node("GeometryNodeSetMaterial",
+                       {"Geometry": pts,
+                        "Selection": g.attr(ATTR_GRAIN_ID).lt(I(IN_WET)),
+                        "Material": I(IN_WET_MATERIAL)}), 0)
 
     out = b.add("GeometryNodeJoinGeometry")
     if ng_dust.supported():

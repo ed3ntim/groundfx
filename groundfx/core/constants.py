@@ -32,7 +32,8 @@ ADDON_NAME = "GroundFX"
 # v26: Spray Drag and Clumps inputs (snow and mud in the air).
 # v27: grain drift levels off with drag.
 # v28: dust volume in the spray stage (5.3+).
-NODEGROUP_VERSION = 28
+# v29: water drops in the spray (mud).
+NODEGROUP_VERSION = 29
 
 # --- UI ---------------------------------------------------------------------
 PANEL_CATEGORY = "GroundFX"     # N-panel tab label
@@ -150,6 +151,7 @@ MAT_SAND_SPRAY = "GFX_SandSpray"
 MAT_SNOW_SPRAY = "GFX_SnowSpray"
 MAT_MUD_SPRAY = "GFX_MudSpray"
 MAT_DUST = "GFX_Dust"
+MAT_MUD_DROP = "GFX_MudDrop"
 
 # Marks a material as GroundFX-authored, so the element switch may rebuild it
 # but a material the user assigned themselves is left untouched (E8-T10).

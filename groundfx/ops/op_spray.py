@@ -26,15 +26,17 @@ from ..core.nodegroups import ng_ground_sim as gsim
 
 
 class SprayProfile:
-    __slots__ = ("grain", "drag", "spread", "clumps", "max_grains", "dust")
+    __slots__ = ("grain", "drag", "spread", "clumps", "max_grains", "dust", "wet")
 
-    def __init__(self, grain, drag, spread, clumps, max_grains, dust):
+    def __init__(self, grain, drag, spread, clumps, max_grains, dust,
+                 wet=0.0):
         self.grain = grain            # metres, diameter of a typical piece
         self.drag = drag              # air drag relative to sand
         self.spread = spread          # velocity scatter, share of launch speed
         self.clumps = clumps          # size factor of the rare big pieces
         self.max_grains = max_grains  # pieces per parcel at most
-        self.dust = dust              # haze left in the air (5.3+), 0 = none
+        self.dust = dust              # haze left in the air, 0 = none
+        self.wet = wet                # share of pieces that are water drops
 
 
 PROFILES = {
@@ -45,7 +47,7 @@ PROFILES = {
     ELEM_SNOW: SprayProfile(0.001, 20.0, 0.16, 3.0, 240, 1.0),
     # Wet and cohesive: leaves in few heavy clots and strings, stays
     # together, hardly feels the air.
-    ELEM_MUD: SprayProfile(0.009, 0.5, 0.04, 1.6, 5, 0.0),
+    ELEM_MUD: SprayProfile(0.009, 0.5, 0.05, 1.6, 9, 0.0, wet=0.3),
 }
 
 # Elements whose airborne phase has a look.
@@ -103,6 +105,9 @@ def push_spray_inputs(obj, *, tag=True) -> bool:
     set_(md, nspray.IN_SPREAD, prof.spread, tag=False)
     set_(md, nspray.IN_CLUMPS, prof.clumps, tag=False)
     set_(md, nspray.IN_MAX, prof.max_grains, tag=False)
+    set_(md, nspray.IN_WET, prof.wet, tag=False)
+    set_(md, nspray.IN_WET_MATERIAL,
+         mat_spray.drop_material() if prof.wet > 0.0 else None, tag=False)
     set_(md, nspray.IN_FRAME_TIME, 1.0 / max(1.0, fps), tag=False)
     from ..core.nodegroups import ng_dust
     if ng_dust.supported():
