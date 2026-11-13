@@ -1,6 +1,6 @@
 # GroundFX
 
-Blender-Extension (5.2 LTS) für deformierbaren **Sand, Schnee und Schlamm**:
+Blender-Extension (5.3) für deformierbaren **Sand, Schnee und Schlamm**:
 Objekte pflügen durch das Material, davor häuft es sich an, dahinter fällt es
 in sich zusammen, beim Stopp bleibt es liegen, und wo es physikalisch passt,
 bleibt es **auf dem Objekt** liegen und fährt mit. Die Animation läuft live im
@@ -26,7 +26,7 @@ Autor: ed3n
 
 ## Setup
 
-Voraussetzung: Blender 5.2 LTS.
+Voraussetzung: Blender 5.3.
 
 ```sh
 python dev/build.py                 # -> dist/groundfx-<version>.zip

@@ -137,6 +137,7 @@ def create_domain(context, element: str,
         st.spray = ed.spray        # airborne phase
         from .op_spray import profile
         st.spray_grain = profile(element).grain
+        st.dust = profile(element).dust
 
     log.info("created %s domain (%d^2, %.2f m, cell %.3f m)",
              element, prof.resolution, size, size / prof.resolution)

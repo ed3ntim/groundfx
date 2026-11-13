@@ -33,6 +33,7 @@ from ..constants import (
     ATTR_E_DRAG,
 )
 from .ng_ejecta import GRAVITY
+from . import ng_dust
 
 IN_GEOMETRY = "Geometry"
 IN_GRAIN = "Grain Size"
@@ -43,6 +44,8 @@ IN_SPREAD = "Spread"
 IN_CLUMPS = "Clumps"
 IN_FRAME_TIME = "Frame Time"
 IN_MATERIAL = "Material"
+IN_DUST = "Dust"
+IN_DUST_MATERIAL = "Dust Material"
 OUT_GEOMETRY = "Geometry"
 
 ATTR_GRAIN_ID = "gfx_grain_id"
@@ -68,6 +71,10 @@ def _interface(b):
     b.input(IN_FRAME_TIME, "NodeSocketFloat", default=1.0 / 24.0, min=1e-4,
             description="Seconds per frame (scene frame rate)")
     b.input(IN_MATERIAL, "NodeSocketMaterial")
+    if ng_dust.supported():
+        b.input(IN_DUST, "NodeSocketFloat", default=0.0, min=0.0, max=4.0,
+                description="Fine fraction that stays in the air as haze")
+        b.input(IN_DUST_MATERIAL, "NodeSocketMaterial")
     b.output(OUT_GEOMETRY, "NodeSocketGeometry")
 
 
@@ -162,6 +169,13 @@ def build(name: str = NG_SPRAY):
                        {"Geometry": pts, "Material": I(IN_MATERIAL)}), 0)
 
     out = b.add("GeometryNodeJoinGeometry")
+    if ng_dust.supported():
+        haze = ng_dust.build(g, b, parcels, I(IN_FRAME_TIME), I(IN_DUST),
+                             I(IN_DUST_MATERIAL))
+        sw = g.node("GeometryNodeSwitch",
+                    {"Switch": I(IN_DUST).gt(0.0), "True": haze},
+                    input_type="GEOMETRY")
+        g.feed(out, 0, g.out(sw, 0))
     g.feed(out, 0, pts)
     for key in ("Instances", "Volume", "Curve"):
         g.feed(out, 0, g.out(sep, key))

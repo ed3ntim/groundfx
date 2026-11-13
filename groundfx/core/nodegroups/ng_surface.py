@@ -32,7 +32,7 @@ from ..ng_builder import new_geometry_group
 from ..ng_expr import make
 from ..constants import (
     NG_SURFACE, ATTR_COMP, ATTR_DIST, ATTR_DAMP, ATTR_GEO, ATTR_PEBBLE,
-    ATTR_SHORE, ELEM_SAND, ELEM_MUD,
+    ATTR_SHORE, ELEM_SAND, ELEM_MUD, ELEM_SNOW,
     DEFAULT_MATERIAL_HEIGHT,
 )
 from .. import surface_fn as sfn
@@ -59,7 +59,7 @@ OUT_GEOMETRY = "Geometry"
 _RING_CELL = 0.006     # target cell of the fine ring in renders (metres)
 _UNDER_SINK = 0.0004   # the ring dips this far where it runs under the domain
 _FAR_CELLS = 33        # far field = this many cells of 3 x domain size
-_DUNE_HEIGHT = {ELEM_SAND: 0.9, ELEM_MUD: 0.12}   # metres, far relief
+_DUNE_HEIGHT = {ELEM_SAND: 0.9, ELEM_MUD: 0.12, ELEM_SNOW: 0.35}   # far relief, m
 _SHORE_BAND = 0.012    # metres above the water over which mud stays soaked
 _CRUMB_MIN = 0.001    # crumb radius range, metres
 _CRUMB_MAX = 0.005
@@ -220,6 +220,7 @@ def _lumps(g, surface, density, material, *, seed, r_min, r_max, power,
 
 def build(name: str = NG_SURFACE, element: str = ELEM_SAND):
     mud = element == ELEM_MUD
+    snow = element == ELEM_SNOW
     tree = new_geometry_group(name)
     b, g = make(tree)
     _interface(b)
@@ -292,6 +293,15 @@ def build(name: str = NG_SURFACE, element: str = ELEM_SAND):
         lobe = (sfn.mud_lobes(g, p2) - 0.35) * w_clod * (I(IN_CLOD_HEIGHT) * 3.0)
         wrinkle = sfn.mud_wrinkles(g, p2) * w_clod * (I(IN_CLOD_HEIGHT) * 0.5)
         dz = dz + und + pock + clod + lobe + wrinkle
+    elif snow:
+        # Wind-packed snow lies in broad, soft drifts with only a faint,
+        # long ripple on top. Where an object went through, the slab breaks
+        # into rounded lumps; packed tracks are smooth.
+        drift = sfn.mud_undulation(g, p2) * I(IN_UNDULATION)
+        rip = sfn.ripple_height(g, p2, I(IN_RIPPLE_LENGTH) * 2.5, I(IN_WIND))
+        w_rip = sfn.smoothstep(1.0 - dist * 1.6) * (1.0 - comp) * geo_w
+        lump = sfn.mud_clods(g, p2 * 0.6) * w_clod * (I(IN_CLOD_HEIGHT) * 2.2)
+        dz = (dz + drift + rip * w_rip * (I(IN_RIPPLE_HEIGHT) * 0.2) + lump)
     else:
         rip = sfn.ripple_height(g, p2, I(IN_RIPPLE_LENGTH), I(IN_WIND))
         w_rip = sfn.smoothstep(1.0 - dist * 1.6) * (1.0 - comp) * geo_w
@@ -318,6 +328,12 @@ def build(name: str = NG_SURFACE, element: str = ELEM_SAND):
         crumbs = _lumps(g, surface, clots,
                         I(IN_MATERIAL), seed=3, r_min=0.0015, r_max=0.012,
                         power=3.5, sink=0.45, flat=0.55, rough=0.8, pebble=False)
+    elif snow:
+        # broken slab: rounded lumps from a few millimetres to a walnut
+        crumbs = _lumps(g, surface, I(IN_CRUMBS) * 0.3 * g.attr(_ATTR_LOOSE),
+                        I(IN_MATERIAL), seed=3, r_min=0.002, r_max=0.016,
+                        power=3.5, sink=0.35, flat=0.85, rough=0.9,
+                        pebble=False)
     else:
         crumbs = _lumps(g, surface, I(IN_CRUMBS) * g.attr(_ATTR_LOOSE),
                         I(IN_MATERIAL), seed=3, r_min=_CRUMB_MIN,
@@ -325,8 +341,11 @@ def build(name: str = NG_SURFACE, element: str = ELEM_SAND):
                         rough=1.9, pebble=False)
     # Pebbles and shell bits: everywhere the ground is real geometry, fewer
     # where it was churned (they get buried) and none on packed tracks.
+    # Snow covers whatever lies on the ground: none there.
     keep = (g.attr(ATTR_GEO).gt(0.5) * (1.0 - g.attr(_ATTR_LOOSE) * 0.7)
             * (1.0 - g.attr(ATTR_COMP).clamp(0.0, 1.0)))
+    if snow:
+        keep = keep * 0.0
     pebbles = _lumps(g, surface, I(IN_PEBBLES) * keep, I(IN_MATERIAL),
                      seed=40, r_min=0.001, r_max=0.008, power=3.5,
                      sink=0.45, flat=0.6, rough=1.2, pebble=True)

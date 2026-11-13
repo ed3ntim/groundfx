@@ -124,14 +124,25 @@ def test_surface_is_opt_in_and_ordered():
                   plain.modifiers.get(SURFACE_MODIFIER_NAME) is None)
 
     snow = create_domain(bpy.context, ELEM_SNOW, surface=True)
-    harness.check("element without a stage gets none",
-                  snow.modifiers.get(SURFACE_MODIFIER_NAME) is None)
+    md = snow.modifiers.get(SURFACE_MODIFIER_NAME)
+    harness.check("snow has its own surface group",
+                  md is not None and md.node_group.name == "GFX_Surface_Snow",
+                  md.node_group.name if md else "none")
     snow.groundfx.element = ELEM_SAND
-    harness.check("switching to sand attaches it",
-                  snow.modifiers.get(SURFACE_MODIFIER_NAME) is not None)
+    harness.check("switching to sand swaps the group",
+                  snow.modifiers[SURFACE_MODIFIER_NAME].node_group.name
+                  == "GFX_Surface_Sand")
     snow.groundfx.element = ELEM_SNOW
-    harness.check("switching away removes it",
-                  snow.modifiers.get(SURFACE_MODIFIER_NAME) is None)
+    harness.check("switching back swaps it again",
+                  snow.modifiers[SURFACE_MODIFIER_NAME].node_group.name
+                  == "GFX_Surface_Snow")
+    # snow buries what lies on the ground: its stage scatters no pebbles
+    bpy.context.scene.frame_set(1)
+    deps = bpy.context.evaluated_depsgraph_get()
+    n = len(snow.evaluated_get(deps).data.vertices)
+    from groundfx.ops.op_add import expected_vertex_count
+    harness.check("snow stage keeps the grid and adds no pebbles at rest",
+                  n == expected_vertex_count(snow), f"{n} vertices")
 
 
 def test_viewport_keeps_grid_and_adds_ripples():

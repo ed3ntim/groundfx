@@ -77,6 +77,7 @@ def _push_element(self, context):
     self.spray = ed.spray if self.surface_detail else 0.0
     from ..ops.op_spray import profile
     self.spray_grain = profile(self.element).grain
+    self.dust = profile(self.element).dust if self.surface_detail else 0.0
     _look_guard = False
     modifier_io.set_input(md, gsim.IN_STICKINESS, ed.stickiness, tag=False)
     modifier_io.set_input(md, gsim.IN_RECOVERY, ed.recovery, tag=False)
@@ -383,6 +384,11 @@ class GroundFXObjectSettings(bpy.types.PropertyGroup):
     spray_lift: bpy.props.FloatProperty(
         name="Lift", default=1.0, min=0.0, max=3.0, update=_sync_spray,
         description="How steeply thrown material leaves the ground")
+
+    dust: bpy.props.FloatProperty(
+        name="Dust", default=0.0, min=0.0, max=4.0, update=_sync_spray,
+        description="Fine fraction that stays in the air as haze after "
+                    "the grains have landed (Blender 5.3 or newer)")
 
     spray_grain: bpy.props.FloatProperty(
         name="Grain Size", default=0.0005, min=0.00005, max=0.02,

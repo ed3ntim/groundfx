@@ -233,6 +233,10 @@ class GFX_PT_look(bpy.types.Panel):
             sub.prop(st, "spray_lift")
             sub.prop(st, "spray_grain")
             sub.prop(st, "spray_detail")
+            from ..core.nodegroups import ng_dust
+            row = sub.row()
+            row.active = ng_dust.supported()
+            row.prop(st, "dust")
 
         if matb.domain_material(obj) is None:
             layout.label(text="Custom material in use", icon="INFO")

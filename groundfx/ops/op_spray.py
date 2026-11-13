@@ -26,25 +26,26 @@ from ..core.nodegroups import ng_ground_sim as gsim
 
 
 class SprayProfile:
-    __slots__ = ("grain", "drag", "spread", "clumps", "max_grains")
+    __slots__ = ("grain", "drag", "spread", "clumps", "max_grains", "dust")
 
-    def __init__(self, grain, drag, spread, clumps, max_grains):
+    def __init__(self, grain, drag, spread, clumps, max_grains, dust):
         self.grain = grain            # metres, diameter of a typical piece
         self.drag = drag              # air drag relative to sand
         self.spread = spread          # velocity scatter, share of launch speed
         self.clumps = clumps          # size factor of the rare big pieces
         self.max_grains = max_grains  # pieces per parcel at most
+        self.dust = dust              # haze left in the air (5.3+), 0 = none
 
 
 PROFILES = {
     # Dry grains: many, small, each on its own.
-    ELEM_SAND: SprayProfile(0.0005, 1.0, 0.07, 2.5, 240),
+    ELEM_SAND: SprayProfile(0.0005, 1.0, 0.07, 2.5, 240, 1.0),
     # Powder and crumbs: a tenth of sand's density, so the air stops it
     # within a few hand widths and it hangs; crumbs of packed snow fly on.
-    ELEM_SNOW: SprayProfile(0.001, 20.0, 0.16, 3.0, 240),
+    ELEM_SNOW: SprayProfile(0.001, 20.0, 0.16, 3.0, 240, 1.0),
     # Wet and cohesive: leaves in few heavy clots and strings, stays
     # together, hardly feels the air.
-    ELEM_MUD: SprayProfile(0.009, 0.5, 0.04, 1.6, 5),
+    ELEM_MUD: SprayProfile(0.009, 0.5, 0.04, 1.6, 5, 0.0),
 }
 
 # Elements whose airborne phase has a look.
@@ -103,6 +104,11 @@ def push_spray_inputs(obj, *, tag=True) -> bool:
     set_(md, nspray.IN_CLUMPS, prof.clumps, tag=False)
     set_(md, nspray.IN_MAX, prof.max_grains, tag=False)
     set_(md, nspray.IN_FRAME_TIME, 1.0 / max(1.0, fps), tag=False)
+    from ..core.nodegroups import ng_dust
+    if ng_dust.supported():
+        set_(md, nspray.IN_DUST, st.dust, tag=False)
+        set_(md, nspray.IN_DUST_MATERIAL,
+             mat_spray.dust_material(st.element), tag=False)
     set_(md, nspray.IN_MATERIAL, mat_spray.spray_material(st.element),
          tag=tag)
     return True

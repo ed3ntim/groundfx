@@ -12,14 +12,14 @@ import math
 
 from ..core import modifier_io
 from ..core.constants import (
-    ELEM_SAND, ELEM_MUD, MODIFIER_NAME, SURFACE_MODIFIER_NAME,
+    ELEM_SAND, ELEM_MUD, ELEM_SNOW, MODIFIER_NAME, SURFACE_MODIFIER_NAME,
 )
 from ..core.ng_library import ensure_node_group
 from ..core.nodegroups import ng_surface as nsurf
 from ..data import quality as qmod
 
 # Elements that have a surface stage.
-SURFACE_ELEMENTS = (ELEM_SAND, ELEM_MUD)
+SURFACE_ELEMENTS = (ELEM_SAND, ELEM_MUD, ELEM_SNOW)
 
 
 def render_level(resolution: int) -> int:

@@ -78,3 +78,31 @@ def spray_material(element: str = ELEM_SAND) -> bpy.types.Material:
     L(trans.outputs[0], mix.inputs[2])
     L(mix.outputs[0], out.inputs["Surface"])
     return mat
+
+
+_DUST_COLOR = {ELEM_SAND: (0.62, 0.50, 0.36), ELEM_SNOW: (0.93, 0.95, 0.98),
+               ELEM_MUD: (0.30, 0.24, 0.18)}
+
+
+def dust_material(element: str = ELEM_SAND) -> bpy.types.Material:
+    """Volume material of the haze: reads the ``density`` grid the dust
+    stage writes. Slightly forward scattering, so it lights up against the
+    sun like real dust."""
+    from ..constants import MAT_DUST
+    name = f"{MAT_DUST}_{element.title()}"
+    mat = bpy.data.materials.get(name)
+    if mat is not None:
+        return mat
+    mat = bpy.data.materials.new(name)
+    mat[PROP_MAT_GENERATED] = True
+    mat.use_nodes = True
+    nt = mat.node_tree
+    nt.nodes.clear()
+    vol = nt.nodes.new("ShaderNodeVolumePrincipled")
+    vol.inputs["Color"].default_value = (*_DUST_COLOR.get(
+        element, _DUST_COLOR[ELEM_SAND]), 1.0)
+    vol.inputs["Density"].default_value = 1.0
+    vol.inputs["Anisotropy"].default_value = 0.35
+    out = nt.nodes.new("ShaderNodeOutputMaterial")
+    nt.links.new(vol.outputs[0], out.inputs["Volume"])
+    return mat

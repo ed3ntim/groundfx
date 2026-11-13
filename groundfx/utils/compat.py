@@ -12,7 +12,7 @@ import bpy
 
 # Minimum version GroundFX supports. Kept as data so the __init__ guard and
 # the manifest stay in agreement.
-BLENDER_MIN = (5, 2, 0)
+BLENDER_MIN = (5, 3, 0)
 
 
 def is_supported() -> bool:

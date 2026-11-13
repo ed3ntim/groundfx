@@ -5,7 +5,7 @@
 #
 # Override the Blender path with -Blender "C:\path\to\blender.exe".
 param(
-    [string]$Blender = "C:\Program Files\Blender Foundation\Blender 5.2\blender.exe"
+    [string]$Blender = "C:\Program Files\Blender Foundation\Blender 5.3\blender.exe"
 )
 
 $ErrorActionPreference = "Stop"

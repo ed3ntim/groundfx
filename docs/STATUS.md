@@ -1,7 +1,7 @@
 # GroundFX - Projektstatus
 
 **Letzte Aktualisierung:** 2026-11-13
-**Tests:** 245/245 grün (Blender 5.2.0 LTS, headless)
+**Tests:** 246/246 grün (Blender 5.3.0, headless)
 
 Wiedereinstieg: diese Datei, dann `../CONTEXT.md` (Architektur, Fallstricke)
 und `../DECISIONS.md`. Die Historie vor Solver v2 steht in der Git-Historie
