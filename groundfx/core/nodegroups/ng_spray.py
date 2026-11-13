@@ -109,7 +109,14 @@ def build(name: str = NG_SPRAY):
     v = g.attr(ATTR_E_VEL, "FLOAT_VECTOR")
     lag = rnd(1) * dt
     t = g.attr(ATTR_E_AGE) - lag          # this grain's own time in the air
-    dv = tri(2) * (g.attr(ATTR_E_V0) * I(IN_SPREAD))
+    # Most grains stay close to the parcel (dense core), a few stray far
+    # (thin rim): the scatter has a long tail.
+    stray = 1.0 + rnd(17).pow(4.0) * 3.5
+    dv = tri(2) * (g.attr(ATTR_E_V0) * I(IN_SPREAD) * stray)
+    # Fines feel the air more than the clump they left with: they fall
+    # behind along the path and hang as a veil behind the sheet.
+    fine = rnd(18).pow(3.0) * 0.45
+    dv = dv + v * (fine * -1.0)
     blob = tri(8) * ((g.attr(ATTR_E_VOL0) * 0.2387).pow(1.0 / 3.0) * _BLOB)
     back = v * (lag * -1.0) + g.vec(0.0, 0.0, lag * lag * (-0.5 * GRAVITY))
     p = g.position() + back + blob + dv * t.max(0.0)

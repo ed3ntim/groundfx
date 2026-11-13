@@ -87,6 +87,11 @@ def test_fast_contact_throws_material_and_it_comes_back():
     harness.check("thrown material rises above the bed",
                   max(r[3] for r in rows) > obj.groundfx.material_height + 0.03,
                   f"max z {max(r[3] for r in rows):.3f} m")
+    # 1.8 m/s can lift a grain about 10 cm. Anything far above that started
+    # from the top of the bow volume the displacement dumps on the ring.
+    harness.check("nothing flies higher than its launch speed allows",
+                  max(r[3] for r in rows) < obj.groundfx.material_height + 0.2,
+                  f"max z {max(r[3] for r in rows):.3f} m")
     harness.check("everything has landed a second after the stop",
                   rows[-1][2] == 0 and rows[-1][1] < 1e-9,
                   f"{rows[-1][2]} parcels, {rows[-1][1] * 1e3:.4f} l in the air")

@@ -198,10 +198,15 @@ def emit(g, geo, arrive, inp, dt, spray):
     geo = g.store(geo, "gfx_ecp", cp, kind="FLOAT_VECTOR", selection=sel)
     air = g.attr("gfx_air")
     stay = g.attr("gfx_arr") - air
+    # Parcels leave from the surface as it was. At speed the displacement
+    # dumps a whole frame's bow volume on a few ring cells, a tower the
+    # relaxation flattens within the same frame; launching from its top
+    # would start the spray half a metre up in the air.
+    before = geo
     geo = g.store(geo, ATTR_HEIGHT, g.attr(ATTR_HEIGHT) + stay)
 
     pts = g.out(g.node("GeometryNodeMeshToPoints",
-                       {"Mesh": geo, "Selection": air.gt(0.0)}), 0)
+                       {"Mesh": before, "Selection": air.gt(0.0)}), 0)
     n_dup = (air / _PARCEL_LAYER).round().max(1.0).min(float(_MAX_DUP))
     dup = g.node("GeometryNodeDuplicateElements",
                  {"Geometry": pts, "Amount": n_dup}, domain="POINT")
@@ -227,9 +232,18 @@ def emit(g, geo, arrive, inp, dt, spray):
     # stays below the collider's speed. The few fastest grains leave low and
     # flat, the rest steeper and slower (20 to 80 degrees in experiments).
     boost = 1.0 + rnd(4).pow(6.0) * 0.9
-    horiz = (vh * rnd(1, 0.45, 1.0) + out_dir * (sp * rnd(2, 0.05, 0.50))
+    # Ahead of the moving face material is being pushed: it cannot be slower
+    # than the face, or the face runs it over again within the frame (the
+    # spray then sticks to the object as a column). It squeezes out a little
+    # faster instead. Beside the object nothing pushes: it is dragged along
+    # at a fraction and thrown outward, which opens the sheet into a fan.
+    ahead = out_dir.dot(vh.normalize()).max(0.0)
+    along = g.mix(rnd(1, 0.25, 0.85), rnd(12, 1.03, 1.45), ahead)
+    side = sp * rnd(2, 0.10, 0.65) * (1.0 - ahead * 0.6)
+    horiz = (vh * along + out_dir * side
              + swirl * (sp * rnd(7, 0.0, 0.15))) * boost
-    up = sp * (0.12 + rnd(3).pow(1.5) * 0.75) * inp["lift"]
+    # Steep throws are rare: most material leaves at 15 to 40 degrees.
+    up = sp * (0.10 + rnd(3).pow(2.2) * 0.80) * inp["lift"]
     v0 = horiz + g.vec(0.0, 0.0, up)
 
     vol = g.attr("gfx_air") * (cell * cell) / n_dup
@@ -240,7 +254,8 @@ def emit(g, geo, arrive, inp, dt, spray):
     tau = rnd(8) * dt
     start = g.vec(pos.x + rnd(9, -0.5, 0.5) * cell,
                   pos.y + rnd(10, -0.5, 0.5) * cell,
-                  g.attr(ATTR_BASE) + g.attr(ATTR_HEIGHT) + 0.0005)
+                  g.attr(ATTR_BASE) + g.attr(ATTR_HEIGHT)
+                  + rnd(13) * g.attr("gfx_air").min(0.03) + 0.0005)
     start = start + v0 * tau + g.vec(0.0, 0.0, tau * tau * (-0.5 * GRAVITY))
     v_now = v0 + g.vec(0.0, 0.0, tau * -GRAVITY)
 

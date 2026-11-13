@@ -106,6 +106,16 @@ UI): `create_domain` ohne das bleibt bei `spray = 0`. Der Solver-Eingang
 
 Fallstricke:
 
+- **Starthöhe.** Bei schneller Fahrt (Weg pro Frame größer als die
+  Ringreichweite von 4 cm) lädt die Verdrängung das Bugvolumen eines Frames
+  auf wenigen Ringzellen ab, bis 70 cm hoch. Die Relaxation zieht das im
+  selben Frame glatt, im Bild sieht man es nie. Partikel müssen deshalb von
+  der Oberfläche vor dem Abladen starten, sonst steht eine meterhohe Säule
+  an der Box. Messen mit `dev/probe_spray_shape.py`.
+- Der Probe liest das Mesh nach der Surface-Stufe: Summen über `gfx_h`
+  zählen dort Krümel mit und sind wertlos, Maxima stimmen.
+- Relative `--out`-Pfade der Hero-Szene landen neben dem Arbeitsverzeichnis
+  von Blender, nicht im Repo. Absolut angeben.
 - **Attribute Domain Size** stürzt in 5.2 auf einer Punktwolke ab, deren
   letzter Punkt gerade gelöscht wurde. Zählen über Attribute Statistic.
 - **Remove Named Attribute**: `Pattern Mode` ist ein Menü-Socket
