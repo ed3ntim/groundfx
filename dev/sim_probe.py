@@ -34,7 +34,8 @@ def main():
     argv = sys.argv[sys.argv.index("--") + 1:] if "--" in sys.argv else []
     frames = int(argv[argv.index("--frames") + 1]) if "--frames" in argv else 40
     quality = argv[argv.index("--quality") + 1] if "--quality" in argv else "HIGH"
-    domain, box = hero_scene.build("SAND", quality, 1.2, "close")
+    action = argv[argv.index("--action") + 1] if "--action" in argv else "plough"
+    domain, box = hero_scene.build("SAND", quality, 1.2, "close", action=action)
     if "--iters" in argv:
         from groundfx.core import modifier_io
         modifier_io.set_input(domain.modifiers["GroundFX"], "Relax Iterations", int(argv[argv.index("--iters") + 1]))

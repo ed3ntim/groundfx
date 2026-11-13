@@ -174,3 +174,36 @@ def test_spray_stage_draws_grains_with_velocity():
                   not any(n.startswith("gfx_e_") for n in names),
                   str(sorted(names)))
     _cleanup(box, obj)
+
+
+def test_spray_starts_at_the_surface_on_a_fine_grid():
+    """On a fine grid a fast collider travels further per frame than the
+    displacement ring reaches, and the ring briefly holds a tower of bow
+    volume. Parcels must not start from its top."""
+    _reset()
+    from groundfx.ops.op_add import create_domain, rebuild_grid
+    from groundfx.ops.op_collider import ensure_collider_collection
+    import bmesh
+    scene = bpy.context.scene
+    obj = create_domain(bpy.context, ELEM_SAND, size=1.2)
+    obj.groundfx.quality = "HIGH"
+    rebuild_grid(obj)
+    modifier_io.set_input(obj.modifiers["GroundFX"], "Spray", 0.85)
+    me = bpy.data.meshes.new("fast")
+    bm = bmesh.new()
+    bmesh.ops.create_cube(bm, size=0.2)
+    bm.to_mesh(me)
+    bm.free()
+    box = bpy.data.objects.new("fast", me)
+    scene.collection.objects.link(box)
+    ensure_collider_collection(bpy.context, obj).objects.link(box)
+    rest = obj.groundfx.material_height
+    top = 0.0
+    for f in range(1, 15):
+        box.location = (-0.45 + 1.6 / scene.render.fps * f, 0.0,
+                        rest + 0.1 - 0.022)
+        scene.frame_set(f)
+        top = max(top, _state(obj)[3])
+    harness.check("fine grid: spray stays within reach of its launch speed",
+                  rest + 0.02 < top < rest + 0.2, f"max z {top:.3f} m")
+    _cleanup(box, obj)
