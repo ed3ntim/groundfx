@@ -5,6 +5,23 @@ All notable changes to GroundFX. Versions follow
 `v<version>` and a ZIP on the
 [releases page](https://github.com/ed3ntim/groundfx/releases).
 
+## 0.7.2 - 2026-11-16
+
+### Changed
+
+- Sand: walls and the start of a track end in a soft, rounded crest instead
+  of a hard edge. Sand now creeps very slightly, about a fifth as much as
+  mud.
+
+## 0.7.1 - 2026-11-16
+
+### Changed
+
+- Mud: the banks of a track sag and round off instead of standing as hard
+  walls with a sharp edge. Mud creeps slowly below its angle of repose,
+  which rounds lips and crests while flat slopes stay, and wetness no
+  longer stiffens mud the way it stiffens damp sand.
+
 ## 0.7.0 - 2026-11-16
 
 First public release.

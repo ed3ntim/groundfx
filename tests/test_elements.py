@@ -44,12 +44,11 @@ def test_element_switch_pushes_physics():
         abs(modifier_io.get_input(md, gsim.IN_REPOSE) - mud.repose_rad) < 1e-5,
         f"{modifier_io.get_input(md, gsim.IN_REPOSE):.4f} vs {mud.repose_rad:.4f}")
     # Cohesion is the element baseline plus the wetness coupling (E8-T7): the
-    # switch resets wetness to the element's resting moisture, which stiffens
-    # the material. Mud rests wet, so its pushed cohesion sits above the raw
-    # baseline.
+    # switch resets wetness to the element's resting moisture. The gain is per
+    # element: wet mud stiffens far less than damp sand.
     from groundfx.core.materials import mat_builder as matb
     wet = matb.look_defaults(ELEM_MUD).base_wetness
-    expected_coh = min(1.0, mud.cohesion + 0.4 * wet)
+    expected_coh = mud.effective_cohesion(wet)
     harness.check(
         "mud cohesion pushed (with wetness coupling)",
         abs(modifier_io.get_input(md, gsim.IN_COHESION) - expected_coh) < 1e-5,

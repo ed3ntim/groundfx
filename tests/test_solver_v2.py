@@ -80,6 +80,57 @@ def test_relaxation_conserves_mass_and_reaches_repose():
     bpy.data.objects.remove(obj, do_unlink=True)
 
 
+def _step_profile(creep, frames=40):
+    """A 3 cm terrace edge; returns (mass before, mass after, lip kink)."""
+    obj = _domain_with_spike(height=0.0)
+    md = obj.modifiers["GroundFX"]
+    modifier_io.set_input(md, "Material Height", 0.05)
+    modifier_io.set_input(md, "Creep", creep)
+    me = obj.data
+    co = np.zeros(len(me.vertices) * 3)
+    me.vertices.foreach_get("co", co)
+    x = co.reshape(-1, 3)[:, 0]
+    me.attributes["gfx_init"].data.foreach_set("value", np.where(x < 0.0, 0.03, 0.0))
+    scene = bpy.context.scene
+    scene.frame_set(1)
+    h0, _ = _heights(obj)
+    for f in range(2, frames + 1):
+        scene.frame_set(f)
+    h1, _ = _heights(obj)
+    row = h1[h1.shape[0] // 2]
+    kink = float(np.abs(np.diff(row, 2)).max())
+    bpy.data.objects.remove(obj, do_unlink=True)
+    return h0.sum(), h1.sum(), kink
+
+
+def test_creep_rounds_the_lip_and_conserves_mass():
+    _reset()
+    _, _, sharp = _step_profile(0.0)
+    m0, m1, round_ = _step_profile(4.5e-6)
+    harness.check("creep conserves mass", abs(m1 - m0) < 1e-4 * m0,
+                  f"{m0:.6f} -> {m1:.6f}")
+    harness.check("creep rounds the lip of a terrace", round_ < 0.7 * sharp,
+                  f"max kink {sharp * 1000:.2f} mm -> {round_ * 1000:.2f} mm")
+
+    from groundfx.ops.op_add import create_domain
+    from groundfx.core.constants import ELEM_MUD
+    obj = create_domain(bpy.context, ELEM_MUD)
+    md = obj.modifiers["GroundFX"]
+    harness.check("mud domain creeps, wetness barely stiffens it",
+                  modifier_io.get_input(md, "Creep") > 0.0
+                  and modifier_io.get_input(md, "Cohesion") < 0.2,
+                  f"creep {modifier_io.get_input(md, 'Creep')}, "
+                  f"cohesion {modifier_io.get_input(md, 'Cohesion'):.2f}")
+    bpy.data.objects.remove(obj, do_unlink=True)
+
+    # Sand creeps a little too: crests and the trench start round off (#3).
+    obj = create_domain(bpy.context, ELEM_SAND)
+    sand_creep = modifier_io.get_input(obj.modifiers["GroundFX"], "Creep")
+    harness.check("sand creeps less than mud but not zero",
+                  0.0 < sand_creep < 4.5e-6, f"creep {sand_creep}")
+    bpy.data.objects.remove(obj, do_unlink=True)
+
+
 def _plough(stop_frame=30, frames=50):
     from groundfx.ops.op_add import create_domain
     from groundfx.ops.op_collider import ensure_collider_collection

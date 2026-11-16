@@ -19,11 +19,13 @@ from ..core.constants import ELEM_SAND, ELEM_SNOW, ELEM_MUD
 class ElementDefaults:
     __slots__ = ("key", "label", "repose_deg", "cohesion", "flow_rate",
                  "density", "wetness", "compaction", "recovery", "bow_wave",
-                 "stickiness", "yield_m", "compact_deg", "displace", "spray")
+                 "stickiness", "yield_m", "compact_deg", "displace", "spray",
+                 "wet_cohesion", "creep")
 
     def __init__(self, key, label, repose_deg, cohesion, flow_rate, density,
                  wetness, compaction, recovery, bow_wave, stickiness=0.0,
-                 yield_m=0.0, compact_deg=12.0, displace=0.95, spray=0.0):
+                 yield_m=0.0, compact_deg=12.0, displace=0.95, spray=0.0,
+                 wet_cohesion=0.4, creep=0.0):
         self.key = key
         self.label = label
         self.repose_deg = repose_deg      # angle of repose, degrees
@@ -42,6 +44,15 @@ class ElementDefaults:
         # applied where the full look is asked for (UI operators); a bare
         # scripted domain keeps everything in the bed.
         self.spray = spray
+        # Extra stable slope (tan) at full wetness. Damp sand and snow stand
+        # steeper; wet mud does not, it flows sooner.
+        self.wet_cohesion = wet_cohesion
+        # Diffusion rate below the repose angle (m^2/frame): rounds lips
+        # and crests, as wet mud sags.
+        self.creep = creep
+
+    def effective_cohesion(self, wetness) -> float:
+        return min(1.0, self.cohesion + self.wet_cohesion * float(wetness))
 
     @property
     def compact_rad(self) -> float:
@@ -57,7 +68,7 @@ DEFAULTS = {
         ELEM_SAND, "Sand", repose_deg=34.0, cohesion=0.02, flow_rate=1.0,
         density=1600.0, wetness=0.0, compaction=0.05, recovery=0.1,
         bow_wave=0.7, stickiness=0.15, yield_m=0.0, compact_deg=5.0,
-        displace=0.95, spray=0.85),
+        displace=0.95, spray=0.85, creep=1e-6),
     ELEM_SNOW: ElementDefaults(
         ELEM_SNOW, "Snow", repose_deg=40.0, cohesion=0.25, flow_rate=0.6,
         density=150.0, wetness=0.1, compaction=0.65, recovery=0.0,
@@ -67,7 +78,7 @@ DEFAULTS = {
         ELEM_MUD, "Mud", repose_deg=10.0, cohesion=0.0, flow_rate=0.7,
         density=1750.0, wetness=0.6, compaction=0.0, recovery=0.0,
         bow_wave=0.5, stickiness=0.8, yield_m=0.003, compact_deg=4.0,
-        displace=1.0, spray=0.6),
+        displace=1.0, spray=0.6, wet_cohesion=0.15, creep=4.5e-6),
 }
 
 
@@ -90,4 +101,5 @@ def push_physics(md, ed: ElementDefaults, *, cohesion=None, tag=True) -> None:
     set_(md, gsim.IN_FLOW, ed.flow_rate, tag=False)
     set_(md, gsim.IN_BOW_WAVE, ed.bow_wave, tag=False)
     set_(md, gsim.IN_RECOVERY, ed.recovery, tag=False)
+    set_(md, gsim.IN_CREEP, ed.creep, tag=False)
     set_(md, gsim.IN_STICKINESS, ed.stickiness, tag=tag)

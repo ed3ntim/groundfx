@@ -20,9 +20,8 @@ from ..core.materials import mat_builder as matb
 from ..data import quality as qmod
 from ..data import elements as emod
 
-# Extra cohesion at full wetness: the wetness slider stiffens the material as it
-# darkens it, so one control moves both physics and look (E8-T7).
-_WET_COHESION_GAIN = 0.4
+# The wetness slider stiffens sand and snow as it darkens them, so one control
+# moves both physics and look (E8-T7). The gain is per element (mud barely).
 
 # Guards the look/element callbacks against re-entrancy while a switch rewrites
 # several properties in a row.
@@ -30,8 +29,7 @@ _look_guard = False
 
 
 def _effective_cohesion(element, wetness):
-    ed = emod.defaults(element)
-    return min(1.0, ed.cohesion + _WET_COHESION_GAIN * float(wetness))
+    return emod.defaults(element).effective_cohesion(wetness)
 
 
 def _element_items(self, context):

@@ -38,7 +38,8 @@ ADDON_NAME = "GroundFX"
 # v32: powder cloud rises less, most of it rolls out low.
 # v33: powder cloud spreads wider.
 # v34: loose snow grains on broken snow, angular snow crumbs.
-NODEGROUP_VERSION = 34
+# v35: Creep input (mud lips and crests sag below the repose angle).
+NODEGROUP_VERSION = 35
 
 # --- UI ---------------------------------------------------------------------
 PANEL_CATEGORY = "GroundFX"     # N-panel tab label

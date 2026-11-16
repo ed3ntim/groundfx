@@ -119,7 +119,7 @@ def create_domain(context, element: str,
     st.look_detail = look.detail
     st.wetness = look.base_wetness
     modifier_io.set_input(md, gsim.IN_COHESION,
-                          min(1.0, ed.cohesion + 0.4 * look.base_wetness),
+                          ed.effective_cohesion(look.base_wetness),
                           tag=False)
     mat = matb.build_material(
         element, base_color=look.base_color, roughness=look.roughness,
@@ -247,7 +247,7 @@ def push_all_inputs(obj) -> bool:
     prof = qmod.profile(st.quality)
     size = st.domain_size
     ed = emod.defaults(st.element)
-    coh = min(1.0, ed.cohesion + 0.4 * st.wetness)  # wetness coupling (E8-T7)
+    coh = ed.effective_cohesion(st.wetness)  # wetness coupling (E8-T7)
 
     set = modifier_io.set_input
     set(md, gsim.IN_MATERIAL_HEIGHT, st.material_height, tag=False)

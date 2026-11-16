@@ -70,6 +70,7 @@ IN_DRYING = "Drying"
 IN_SPRAY = "Spray"
 IN_SPRAY_LIFT = "Spray Lift"
 IN_SPRAY_DRAG = "Spray Drag"
+IN_CREEP = "Creep"
 OUT_GEOMETRY = "Geometry"
 
 STATE_PREV = "Colliders Prev"
@@ -80,6 +81,7 @@ _RAY_DROP = 1.0       # rays start this far under the base (metres)
 _RAY_LENGTH = 50.0
 _CONTACT_EPS = 0.0015  # collider within this of the surface = occupied
 _PAIR_RATE = 0.12      # explicit flux factor; 8 pairs * 0.12 < 1 -> stable
+_CREEP_MAX = 0.05      # creep share per pair and iteration, stays stable
 _TOP_HIDE = 0.0004     # thinner layers on a collider stay invisible (no z-fight)
 _RING_REACH = 0.04     # metres around the footprint that take displaced volume
 _DIST_FULL = 0.003    # metres of height change that count as fully disturbed
@@ -135,6 +137,10 @@ def _interface(b):
                         "light powder stalls, heavy clots carry")
     b.input(IN_SPRAY_LIFT, "NodeSocketFloat", default=1.0, min=0.0, max=3.0,
             description="How steeply thrown material leaves the ground")
+    b.input(IN_CREEP, "NodeSocketFloat", default=0.0, min=0.0, max=1e-3,
+            description="Slow creep below the repose angle, as a diffusion "
+                        "rate in m^2 per frame: rounds crests and the lips "
+                        "of tracks while flat slopes stay (mud)")
     b.output(OUT_GEOMETRY, "NodeSocketGeometry")
 
 
@@ -229,6 +235,10 @@ def _relax(g, b, geo, inp):
                      (inp["repose"] + comp * inp["compact"]).min(math.radians(85)))
     slope_ok = tan_eff + inp["cohesion"]
     rate = inp["flow"] * _PAIR_RATE
+    # Creep: a plain diffusion flux per direct pair, scaled so the rate in
+    # m^2/frame does not depend on cell size or iteration count. A straight
+    # slope passes as much as it takes, only kinks (lips, crests) move.
+    creep = (inp["creep"] / (cell * cell * inp["iters"].max(1.0))).min(_CREEP_MAX)
 
     fluxes = []
     for dc, dr, dist in _DIRS:
@@ -250,7 +260,9 @@ def _relax(g, b, geo, inp):
         diff = s - s_j
         m_pair = ((m + m_j) * 0.5).max(1e-4)
         stable = (slope_ok + stick + inp["yield"] / m_pair) * (cell * dist * stride)
-        over = (diff.abs() - stable).max(0.0) * rate
+        free = g.math("MULTIPLY", stride.lt(1.5), cov.max(cov_j).lt(0.5))
+        over = ((diff.abs() - stable).max(0.0) * rate
+                + diff.abs() * creep * free)
         m_src = g.switch(diff.gt(0.0), m_j, m)
         mag = over.min(m_src * 0.125)
         fluxes.append(diff.sign() * mag * ok * path_ok)
@@ -385,7 +397,7 @@ def build(name: str = NG_GROUND_SIM):
         "cohesion": I(IN_COHESION), "yield": I(IN_YIELD),
         "compact": I(IN_COMPACT_ANGLE), "flow": I(IN_FLOW),
         "iters": I(IN_RELAX_ITERS), "bow": I(IN_BOW_WAVE),
-        "stick": I(IN_STICKINESS), "lift": I(IN_SPRAY_LIFT), "drag": I(IN_SPRAY_DRAG),
+        "stick": I(IN_STICKINESS), "creep": I(IN_CREEP), "lift": I(IN_SPRAY_LIFT), "drag": I(IN_SPRAY_DRAG),
     }
 
     # ---- initial state ------------------------------------------------------
