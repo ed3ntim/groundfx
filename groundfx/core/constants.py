@@ -39,7 +39,9 @@ ADDON_NAME = "GroundFX"
 # v33: powder cloud spreads wider.
 # v34: loose snow grains on broken snow, angular snow crumbs.
 # v35: Creep input (mud lips and crests sag below the repose angle).
-NODEGROUP_VERSION = 35
+# v36: wave layer on standing water (Water Level, Waves inputs).
+# v37: torn mud strings in the spray stage.
+NODEGROUP_VERSION = 37
 
 # --- UI ---------------------------------------------------------------------
 PANEL_CATEGORY = "GroundFX"     # N-panel tab label

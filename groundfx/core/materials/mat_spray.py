@@ -31,8 +31,9 @@ _NAMES = {ELEM_SAND: MAT_SAND_SPRAY, ELEM_SNOW: MAT_SNOW_SPRAY,
 # translucency, roughness range, clearcoat
 _LOOK = {
     ELEM_SNOW: ((0.80, 0.84, 0.90), (0.95, 0.96, 0.97), 0.55, (0.35, 0.7), 0.0),
+    # wet but not glazed: a thin water film (light coat), rough silt below
     ELEM_MUD: ((0.035, 0.022, 0.013), (0.085, 0.055, 0.032), 0.0,
-               (0.12, 0.38), 0.7),
+               (0.22, 0.55), 0.3),
 }
 
 
@@ -152,7 +153,9 @@ _WISP_SCALE = 14.0   # noise scale per metre: strands of a few centimetres
 
 
 def drop_material() -> bpy.types.Material:
-    """Drops of water carrying silt: milky brown, glossy, light passes."""
+    """Drops of water thick with silt: the colour of wet mud, glossy,
+    barely any light passes (a milky, see-through drop read as a bead
+    next to the dark mass)."""
     from ..constants import MAT_MUD_DROP
     mat = bpy.data.materials.get(MAT_MUD_DROP)
     if mat is not None:
@@ -163,10 +166,10 @@ def drop_material() -> bpy.types.Material:
     nt = mat.node_tree
     nt.nodes.clear()
     bsdf = nt.nodes.new("ShaderNodeBsdfPrincipled")
-    bsdf.inputs["Base Color"].default_value = (0.17, 0.115, 0.065, 1.0)
-    bsdf.inputs["Roughness"].default_value = 0.06
+    bsdf.inputs["Base Color"].default_value = (0.07, 0.047, 0.028, 1.0)
+    bsdf.inputs["Roughness"].default_value = 0.05
     bsdf.inputs["IOR"].default_value = 1.33
-    bsdf.inputs["Transmission Weight"].default_value = 0.3
+    bsdf.inputs["Transmission Weight"].default_value = 0.05
     out = nt.nodes.new("ShaderNodeOutputMaterial")
     nt.links.new(bsdf.outputs[0], out.inputs["Surface"])
     return mat

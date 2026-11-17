@@ -21,18 +21,24 @@ renders in Cycles.
 - **Ground solver.** A 2.5D height field over a static base. Removed
   material is pushed into a bow wave, slopes avalanche to the angle of
   repose, and mass is conserved exactly. Mud has a yield stress: thin mud
-  stays on a slope, thick mud flows.
+  stays on a slope, thick mud flows. Mud, and sand slightly, creeps below
+  its angle of repose, so banks and crests sag into soft, rounded walls.
 - **Colliders.** Any mesh or a collection of meshes. Rotation and
   deformation count, and fast objects are swept between frames, so they
   leave one continuous trench instead of a row of dents.
 - **Flying material.** Sand leaves as a sheet of grains with motion blur,
-  mud as heavy clots and drops of dirty water, snow as crumbs and powder
-  that hangs in the air. Everything that flies lands again with its mass.
+  snow as crumbs and powder that hangs in the air. Mud tears into clots,
+  sagging strings that stretch and snap, and drops of muddy water; each
+  piece points along its flight and stretches with its speed, and the
+  clots wear the ground's own mud shader. Everything that flies lands
+  again with its mass.
 - **Dust and powder.** The fine fraction hangs as a volume: a haze over
   sand, and in snow a cloud raised by the moving object itself.
 - **Surface detail.** Wind ripples, crumbs and lumps as real geometry,
   loose grains on broken snow, wet sand from below, standing water in mud
-  that fills every track, and an optional surround to the horizon.
+  that fills every track, and an optional surround to the horizon. An
+  object below the water table pushes the water into waves that run
+  through the puddles and calm down again.
 - **Materials at true grain size.** Sand with its mineral palette,
   snow with subsurface scattering and glinting crystals, mud wet and glossy.
 - **Material sticks to objects.** Sand grains and mud splashes stay on the
@@ -71,6 +77,7 @@ Useful settings on the domain panel:
 | Domain Size, Material Height | Extent and depth of the material |
 | Hero Contact | Supersamples the contact edge for a sharp imprint in close-ups. Costs more per frame |
 | Look | Base colour, roughness, detail, wetness, surface detail, spray and dust |
+| Standing Water, Water Level, Waves | Mud only: the water table that fills hollows and tracks, and how strongly objects stir it up (0 keeps it still) |
 | Cache | Bake the simulation (save the .blend first for a disk cache) |
 | Settle & Freeze | Turn a frame into a static mesh for stills |
 

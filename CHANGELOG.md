@@ -5,6 +5,56 @@ All notable changes to GroundFX. Versions follow
 `v<version>` and a ZIP on the
 [releases page](https://github.com/ed3ntim/groundfx/releases).
 
+## 0.8.4 - 2026-11-17
+
+### Changed
+
+- Mud: drops and clots take their shape from their flight. Each points
+  along its current direction, which bends with the arc, with a round head
+  in front and a tail behind, and stretches with its speed: round when
+  slow, up to about twice as long as wide when fast. Drops of muddy water
+  are smooth bodies now as well, the clots keep a ragged section and a
+  little scatter in their heading.
+
+## 0.8.3 - 2026-11-17
+
+### Changed
+
+- Mud: thrown pieces wear the ground's own mud shader, churned and soaked,
+  so they have the colour, grain and wet film of the mass they were torn
+  from. Drops of muddy water are dark and glossy like wet mud instead of
+  milky beige.
+
+## 0.8.2 - 2026-11-17
+
+### Changed
+
+- Mud: thrown pieces look like splashes instead of moulded drops. Each
+  piece has a ragged, flattened cross-section turned its own way, clots
+  point in all directions around the flight, there are many small pieces
+  and a few big lumps, fewer and shorter strings, and the surface is wet
+  but no longer glazed.
+
+## 0.8.1 - 2026-11-17
+
+### Changed
+
+- Mud: thrown mud no longer flies as balls. Clots leave as rounded
+  teardrops with a tail, and about a quarter of the pieces tear into
+  sagging strings that stretch the longer they fly and finally snap. Drops
+  of muddy water stay round. The viewport shows the strings at a lower
+  resolution.
+
+## 0.8.0 - 2026-11-16
+
+### Added
+
+- Mud: the standing water moves. An object below the water table pushes
+  the water up where it goes in and leaves a trough where it comes out;
+  the waves run through the puddles and tracks at the speed of shallow
+  water and calm down within a second or two. New setting `Waves` next to
+  the water level (0 keeps the water still).
+
 ## 0.7.2 - 2026-11-16
 
 ### Changed

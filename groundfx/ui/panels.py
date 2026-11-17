@@ -215,6 +215,9 @@ class GFX_PT_look(bpy.types.Panel):
                 row = sub.row()
                 row.active = st.water
                 row.prop(st, "water_level")
+                row = sub.row()
+                row.active = st.water
+                row.prop(st, "waves", slider=True)
             else:
                 sub.prop(st, "ripple_height")
                 sub.prop(st, "ripple_length")

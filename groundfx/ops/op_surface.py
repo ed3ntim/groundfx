@@ -47,6 +47,19 @@ def _move_after_solver(obj, md) -> None:
         obj.modifiers.move(have, want if have > want else want - 1)
 
 
+def push_waves(obj, *, tag=True) -> None:
+    """The solver's wave layer runs only where there is water to show: mud
+    with the surface stage and standing water on."""
+    from ..core.nodegroups import ng_ground_sim as gsim
+    solver = obj.modifiers.get(MODIFIER_NAME)
+    if solver is None or solver.node_group is None:
+        return
+    st = obj.groundfx
+    on = st.surface_detail and st.element == ELEM_MUD and st.water
+    modifier_io.set_input(solver, gsim.IN_WATER_LEVEL, st.water_level, tag=False)
+    modifier_io.set_input(solver, gsim.IN_WAVES, st.waves if on else 0.0, tag=tag)
+
+
 def push_surface_inputs(obj, *, tag=True) -> bool:
     md = surface_modifier(obj)
     if md is None or md.node_group is None:
@@ -79,6 +92,7 @@ def sync_surface(obj, *, tag=True) -> bool:
     domain has a surface stage afterwards."""
     st = obj.groundfx
     wanted = st.surface_detail and st.element in SURFACE_ELEMENTS
+    push_waves(obj, tag=False)
     if not wanted:
         remove_surface(obj)
         if tag:

@@ -85,11 +85,13 @@ def test_water_sheet_toggles():
     mud = _mud()
     n_grid = expected_vertex_count(mud)
     co = _positions(mud)
-    harness.check("water adds exactly one quad", len(co) == n_grid + 4,
-                  f"{len(co)} vs {n_grid} + 4")
+    # Inside the domain the sheet is a copy of the grid (it carries the
+    # waves); without surround nothing lies outside the domain.
+    harness.check("water adds one copy of the grid", len(co) == 2 * n_grid,
+                  f"{len(co)} vs 2 x {n_grid}")
     st = mud.groundfx
     level = st.material_height + st.water_level
-    harness.check("sheet lies at the water table",
+    harness.check("still sheet lies at the water table",
                   np.allclose(co[n_grid:, 2], level, atol=1e-6),
                   f"{co[n_grid:, 2]} vs {level}")
     mats = {m.name for m in _eval(mud).data.materials if m}

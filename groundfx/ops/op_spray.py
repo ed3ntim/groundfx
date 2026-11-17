@@ -27,10 +27,10 @@ from ..core.nodegroups import ng_ground_sim as gsim
 
 class SprayProfile:
     __slots__ = ("grain", "drag", "spread", "clumps", "max_grains", "dust", "wet",
-                 "powder")
+                 "powder", "strings")
 
     def __init__(self, grain, drag, spread, clumps, max_grains, dust,
-                 wet=0.0, powder=0.0):
+                 wet=0.0, powder=0.0, strings=0.0):
         self.grain = grain            # metres, diameter of a typical piece
         self.drag = drag              # air drag relative to sand
         self.spread = spread          # velocity scatter, share of launch speed
@@ -39,6 +39,7 @@ class SprayProfile:
         self.dust = dust              # haze left in the air, 0 = none
         self.wet = wet                # share of pieces that are water drops
         self.powder = powder          # cloud raised by the object itself
+        self.strings = strings        # share of pieces that tear into strings
 
 
 PROFILES = {
@@ -51,7 +52,9 @@ PROFILES = {
     ELEM_SNOW: SprayProfile(0.0007, 20.0, 0.16, 2.4, 800, 1.0, powder=1.0),
     # Wet and cohesive: leaves in few heavy clots and strings, stays
     # together, hardly feels the air.
-    ELEM_MUD: SprayProfile(0.009, 0.5, 0.05, 1.6, 9, 0.0, wet=0.3),
+    # Many small splashes and a few big lumps.
+    ELEM_MUD: SprayProfile(0.006, 0.5, 0.06, 2.6, 24, 0.0, wet=0.3,
+                           strings=0.12),
 }
 
 # Elements whose airborne phase has a look.
@@ -110,6 +113,7 @@ def push_spray_inputs(obj, *, tag=True) -> bool:
     set_(md, nspray.IN_CLUMPS, prof.clumps, tag=False)
     set_(md, nspray.IN_MAX, prof.max_grains, tag=False)
     set_(md, nspray.IN_WET, prof.wet, tag=False)
+    set_(md, nspray.IN_STRINGS, prof.strings, tag=False)
     set_(md, nspray.IN_WET_MATERIAL,
          mat_spray.drop_material() if prof.wet > 0.0 else None, tag=False)
     set_(md, nspray.IN_FRAME_TIME, 1.0 / max(1.0, fps), tag=False)
@@ -119,8 +123,13 @@ def push_spray_inputs(obj, *, tag=True) -> bool:
         set_(md, nspray.IN_POWDER, prof.powder, tag=False)
         set_(md, nspray.IN_DUST_MATERIAL,
              mat_spray.dust_material(st.element), tag=False)
-    set_(md, nspray.IN_MATERIAL, mat_spray.spray_material(st.element),
-         tag=tag)
+    # Mud pieces are torn from the ground: they wear its material, so they
+    # match the mass they came from. Sand and snow keep their grain shader.
+    from ..core.constants import ELEM_MUD
+    from ..core.materials import mat_builder as matb
+    piece_mat = (matb.domain_material(obj) if st.element == ELEM_MUD
+                 else mat_spray.spray_material(st.element))
+    set_(md, nspray.IN_MATERIAL, piece_mat, tag=tag)
     return True
 
 

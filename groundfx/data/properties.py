@@ -363,6 +363,11 @@ class GroundFXObjectSettings(bpy.types.PropertyGroup):
         description="Water table relative to the resting surface. Higher "
                     "floods more of the ground")
 
+    waves: bpy.props.FloatProperty(
+        name="Waves", default=1.0, min=0.0, max=2.0, update=_sync_surface,
+        description="How strongly an object below the water table pushes "
+                    "the water into waves. 0 keeps the water still")
+
     surround: bpy.props.BoolProperty(
         name="Surround", default=False, update=_sync_surface,
         description="Embed the domain in a large static field of the same "

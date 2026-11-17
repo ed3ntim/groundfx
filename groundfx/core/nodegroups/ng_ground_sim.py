@@ -30,6 +30,10 @@ Per frame:
    the material against its faces).
 5. **Fields** for the shaders: compaction with recovery, motion direction,
    disturbance age.
+6. **Waves** (mud with standing water). A damped shallow-water wave layer
+   ``gfx_wave`` over the water table: a collider that dips below the water
+   table and moves pushes water up where it enters and leaves a trough where
+   it leaves; the rest is the wave equation at the speed ``sqrt(g * depth)``.
 
 Grid layout contract (from ``op_add._make_grid_mesh``): vertex index =
 row * N + col, x along columns. Verified against Blender 5.2.
@@ -71,6 +75,8 @@ IN_SPRAY = "Spray"
 IN_SPRAY_LIFT = "Spray Lift"
 IN_SPRAY_DRAG = "Spray Drag"
 IN_CREEP = "Creep"
+IN_WATER_LEVEL = "Water Level"
+IN_WAVES = "Waves"
 OUT_GEOMETRY = "Geometry"
 
 STATE_PREV = "Colliders Prev"
@@ -87,6 +93,14 @@ _RING_REACH = 0.04     # metres around the footprint that take displaced volume
 _DIST_FULL = 0.003    # metres of height change that count as fully disturbed
 _DAMP_DEPTH = 0.03     # metres from rest level at which material is fully damp
 _SQRT2 = math.sqrt(2.0)
+_GRAVITY = 9.81
+_WAVE_DMIN = 0.005     # waves run at least as fast as on 5 mm of water
+_WAVE_DMAX = 0.03      # ... and at most as on 3 cm (sets the substep count)
+_WAVE_DAMP = 2.5       # 1/s: muddy shallow water calms within a second or two
+_WAVE_MAX = 0.006      # metres: wave crests and troughs are clipped here
+_WAVE_GAIN = 0.15      # share of the displaced column that becomes a wave
+_WAVE_EDGE = 0.08      # share of the domain at its border that absorbs waves
+_WAVE_SUBSTEPS = 32
 # (d_col, d_row, distance in cells) for the four directions a cell owns.
 _DIRS = ((1, 0, 1.0), (0, 1, 1.0), (1, 1, _SQRT2), (-1, 1, _SQRT2))
 
@@ -141,7 +155,71 @@ def _interface(b):
             description="Slow creep below the repose angle, as a diffusion "
                         "rate in m^2 per frame: rounds crests and the lips "
                         "of tracks while flat slopes stay (mud)")
+    b.input(IN_WATER_LEVEL, "NodeSocketFloat", default=-0.004, min=-1.0,
+            max=1.0, subtype="DISTANCE",
+            description="Water table relative to the resting surface (waves)")
+    b.input(IN_WAVES, "NodeSocketFloat", default=0.0, min=0.0, max=2.0,
+            description="How much water a collider below the water table "
+                        "pushes into waves (0 = no wave layer)")
     b.output(OUT_GEOMETRY, "NodeSocketGeometry")
+
+
+def _waves(g, b, geo, inp, dt):
+    """Source plus damped wave equation on ``gfx_wave`` / ``gfx_wvel``.
+
+    The source is the change of the submerged collider column per cell
+    (``gfx_sub``): water rises where a body goes in and sinks where it comes
+    out, so the volume stays roughly the same. The waves themselves are
+    symplectic Euler on the 5-point Laplacian, with as many substeps as the
+    fastest wave needs to stay stable, and an absorbing band at the border
+    so nothing reflects off the edge of the domain.
+    """
+    n, cell = inp["n"], inp["cell"]
+    on = inp["waves"].gt(0.0)
+    wz = inp["height"] + inp["water"]
+    sub = g.attr(ATTR_OCC) * (wz - g.attr(ATTR_LO)).clamp(0.0, _WAVE_DMAX)
+    # Fields are evaluated where they are stored: freeze the source before
+    # gfx_sub is overwritten.
+    blur = g.node("GeometryNodeBlurAttribute",
+                  {"Value": (sub - g.attr("gfx_sub")) * (inp["waves"] * _WAVE_GAIN),
+                   "Iterations": 2}, data_type="FLOAT")
+    geo, caps = g.capture(geo, [sub, g.out(blur, 0)])
+    geo = g.store(geo, "gfx_sub", caps[0])
+    geo = g.store(geo, "gfx_wave", g.attr("gfx_wave") + caps[1])
+
+    c_max = math.sqrt(_GRAVITY * _WAVE_DMAX)
+    k = ((dt * (c_max / 0.5)) / cell + 0.999).floor().clamp(1.0, _WAVE_SUBSTEPS)
+    dts = dt / k
+    rz = make_repeat_zone(b, [("GEOMETRY", "Geometry")])
+    g.feed(rz.input, "Iterations", k * on)
+    g.feed(rz.input, "Geometry", geo)
+    wg = V(g, rz.input.outputs["Geometry"])
+    i, col, row = _grid_helpers(g, n)
+    eta = g.attr("gfx_wave")
+    depth = wz - g.attr(ATTR_BASE) - g.attr(ATTR_HEIGHT)
+    c2 = depth.clamp(_WAVE_DMIN, _WAVE_DMAX) * _GRAVITY
+    nsum = None
+    for d_i, inside in ((1, col.lt(n - 1.5)), (-1, col.gt(0.5)),
+                        (n, row.lt(n - 1.5)), (-1 * n, row.gt(0.5))):
+        e = g.switch(inside, eta, g.sample_index(wg, eta, i + d_i))
+        nsum = e if nsum is None else nsum + e
+    lap = (nsum - eta * 4.0) / (cell * cell)
+    v = (g.attr("gfx_wvel") + c2 * lap * dts) * (1.0 - dts * _WAVE_DAMP)
+    wg, caps = g.capture(wg, [v])
+    v = caps[0]
+    wg = g.store(wg, "gfx_wvel", v)
+    wg = g.store(wg, "gfx_wave", g.attr("gfx_wave") + g.attr("gfx_wvel") * dts)
+    g.feed(rz.output, "Geometry", wg)
+    geo = V(g, rz.output.outputs["Geometry"])
+
+    # absorbing border and a cap on the height
+    edge = (col.min(row).min(n - 1.0 - col).min(n - 1.0 - row)
+            / ((n - 1.0) * _WAVE_EDGE)).clamp(0.0, 1.0)
+    keep = 1.0 - (1.0 - edge) * 0.3
+    geo = g.store(geo, "gfx_wave",
+                  (g.attr("gfx_wave") * keep).clamp(-_WAVE_MAX, _WAVE_MAX))
+    geo = g.store(geo, "gfx_wvel", g.attr("gfx_wvel") * keep)
+    return geo
 
 
 def _colliders(g, gin):
@@ -397,7 +475,9 @@ def build(name: str = NG_GROUND_SIM):
         "cohesion": I(IN_COHESION), "yield": I(IN_YIELD),
         "compact": I(IN_COMPACT_ANGLE), "flow": I(IN_FLOW),
         "iters": I(IN_RELAX_ITERS), "bow": I(IN_BOW_WAVE),
-        "stick": I(IN_STICKINESS), "creep": I(IN_CREEP), "lift": I(IN_SPRAY_LIFT), "drag": I(IN_SPRAY_DRAG),
+        "stick": I(IN_STICKINESS), "creep": I(IN_CREEP),
+        "height": I(IN_MATERIAL_HEIGHT), "water": I(IN_WATER_LEVEL),
+        "waves": I(IN_WAVES), "lift": I(IN_SPRAY_LIFT), "drag": I(IN_SPRAY_DRAG),
     }
 
     # ---- initial state ------------------------------------------------------
@@ -407,7 +487,7 @@ def build(name: str = NG_GROUND_SIM):
     geo0 = g.store(geo0, ATTR_HEIGHT, I(IN_MATERIAL_HEIGHT) + g.attr("gfx_init"))
     geo0 = g.store(geo0, "gfx_rest", I(IN_MATERIAL_HEIGHT) + g.attr("gfx_init"))
     for a in (ATTR_OCC, ATTR_COMP, ATTR_CARVE, ATTR_COV, ATTR_ZHI, ATTR_TOP,
-              ATTR_DIST, ATTR_DAMP):
+              ATTR_DIST, ATTR_DAMP, "gfx_wave", "gfx_wvel", "gfx_sub"):
         geo0 = g.store(geo0, a, 0.0)
     geo0 = g.store(geo0, ATTR_LO, 1e6)
     geo0 = g.store(geo0, ATTR_AGE, 1000.0)
@@ -514,6 +594,9 @@ def build(name: str = NG_GROUND_SIM):
     fresh = ((moved * 3.0).min(1.0) * depth).max(g.attr(ATTR_OCC))
     damp = (g.attr(ATTR_DAMP) * (1.0 - I(IN_DRYING))).max(fresh)
     geo = g.store(geo, ATTR_DAMP, damp)
+
+    # ---- 6. waves on the standing water ---------------------------------------
+    geo = _waves(g, b, geo, inp, dt)
 
     g.feed(sim.output, "Geometry", geo)
     g.feed(sim.output, STATE_PREV, cur)

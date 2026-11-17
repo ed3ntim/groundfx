@@ -47,13 +47,13 @@ def _state(obj):
             float(co.reshape(-1, 3)[:, 2].max()))
 
 
-def _run(speed, spray, frames=40, size=6.0):
+def _run(speed, spray, frames=40, size=6.0, element=ELEM_SAND):
     """A box ploughs at ``speed`` m/s for half a second, then rests."""
     from groundfx.ops.op_add import create_domain
     from groundfx.ops.op_collider import ensure_collider_collection
     import bmesh
     scene = bpy.context.scene
-    obj = create_domain(bpy.context, ELEM_SAND, size=size)
+    obj = create_domain(bpy.context, element, size=size)
     modifier_io.set_input(obj.modifiers["GroundFX"], "Spray", spray)
     me = bpy.data.meshes.new("thrower")
     bm = bmesh.new()
@@ -148,12 +148,13 @@ def test_spray_stage_follows_the_property():
     solver = full.modifiers["GroundFX"]
     harness.check("only snow raises a powder cloud by motion alone",
                   modifier_io.get_input(md, "Powder", 1.0) == 0.0)
-    harness.check("mud flies as few heavy clots",
+    from groundfx.core.materials import mat_builder as matb
+    harness.check("mud flies as few heavy pieces in the ground's own material",
                   md is not None
                   and modifier_io.get_input(md, "Max Grains", 0) < 50
                   and modifier_io.get_input(solver, "Spray Drag", 9.0) < 1.0
-                  and modifier_io.get_input(md, "Material").name
-                  == "GFX_MudSpray")
+                  and modifier_io.get_input(md, "Material")
+                  is matb.domain_material(full))
     full.groundfx.element = "SNOW"
     md = full.modifiers.get(SPRAY_MODIFIER_NAME)
     harness.check("snow flies as powder the air stops quickly",
@@ -221,4 +222,47 @@ def test_spray_starts_at_the_surface_on_a_fine_grid():
         top = max(top, _state(obj)[3])
     harness.check("fine grid: spray stays within reach of its launch speed",
                   rest + 0.02 < top < rest + 0.2, f"max z {top:.3f} m")
+    _cleanup(box, obj)
+
+
+def test_mud_tears_into_strings_and_clots():
+    """Solid mud leaves as tubes (strings, teardrop clots), not balls; the
+    drops of muddy water stay points."""
+    _reset()
+    from groundfx.core.constants import ELEM_MUD
+    from groundfx.ops.op_spray import sync_spray
+    obj, box, rows = _run(speed=1.8, spray=0.85, frames=8, size=2.0,
+                          element=ELEM_MUD)
+    obj.groundfx.spray = 0.85
+    sync_spray(obj)
+    md = obj.modifiers[SPRAY_MODIFIER_NAME]
+    modifier_io.set_input(md, "Viewport Detail", 1.0)
+
+    def counts():
+        bpy.context.scene.frame_set(9)
+        gs = obj.evaluated_get(bpy.context.evaluated_depsgraph_get()).evaluated_geometry()
+        pts = len(gs.pointcloud.points) if gs.pointcloud is not None else 0
+        verts = len(gs.mesh.vertices) if gs.mesh is not None else 0
+        return pts, verts
+
+    harness.check("mud spray profile tears pieces into strings",
+                  modifier_io.get_input(md, "Strings") > 0.0)
+    pts_on, verts_on = counts()
+    modifier_io.set_input(md, "Strings", 0.0)
+    bpy.context.scene.frame_set(8)
+    pts_off, verts_off = counts()
+    harness.check("solid pieces become tube meshes instead of points",
+                  pts_on < pts_off and verts_on > verts_off + 100,
+                  f"points {pts_off} -> {pts_on}, verts {verts_off} -> {verts_on}")
+    # Drops are shaped bodies too (they point along their flight) and wear
+    # the drop material, the clots the ground's.
+    from groundfx.core.materials import mat_spray
+    modifier_io.set_input(md, "Strings", 0.12)
+    bpy.context.scene.frame_set(8)
+    pts_on2, _ = counts()
+    mats = {m.name for m in obj.evaluated_get(
+        bpy.context.evaluated_depsgraph_get()).data.materials if m}
+    harness.check("every mud piece is a body, drops wear the drop material",
+                  pts_on2 == 0 and mat_spray.drop_material().name in mats,
+                  f"points {pts_on2}, materials {sorted(mats)}")
     _cleanup(box, obj)

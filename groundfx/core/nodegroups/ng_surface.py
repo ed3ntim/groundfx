@@ -60,6 +60,7 @@ OUT_GEOMETRY = "Geometry"
 _RING_CELL = 0.006     # target cell of the fine ring in renders (metres)
 _UNDER_SINK = 0.0004   # the ring dips this far where it runs under the domain
 _FAR_CELLS = 33        # far field = this many cells of 3 x domain size
+_WAVE_FADE = 0.006      # metres of water depth over which waves fade in
 _DUNE_HEIGHT = {ELEM_SAND: 0.9, ELEM_MUD: 0.12, ELEM_SNOW: 0.35}   # far relief, m
 _SHORE_BAND = 0.012    # metres above the water over which mud stays soaked
 _CRUMB_MIN = 0.001    # crumb radius range, metres
@@ -439,10 +440,28 @@ def build(name: str = NG_SURFACE, element: str = ELEM_SAND):
         # Standing water: one level sheet at the water table. The mud is a
         # height field, so the sheet only shows where the mud lies below it:
         # in natural hollows and in every track an object leaves.
+        # Inside the domain the sheet is the simulation grid lifted by the
+        # solver's wave layer (gfx_wave), outside it stays level, with a
+        # hole of exactly the domain cut out (its cells are domain-sized).
+        water_z = I(IN_MATERIAL_HEIGHT) + I(IN_WATER_LEVEL)
         extent = g.switch(I(IN_SURROUND), size, size * 3.0 * _FAR_CELLS)
-        sheet = _grid(g, extent, 2, I(IN_MATERIAL_HEIGHT) + I(IN_WATER_LEVEL))
+        outer = _grid(g, extent, (extent / size).round() + 1.0, water_z)
+        outer = _cut_hole(g, outer, size * 0.5)
+        # Waves only where the solver's ground lies under the water table:
+        # on a bank just above it a crest would poke through the mud.
+        pw = g.position()
+        wet = sfn.smoothstep((water_z - pw.z) / _WAVE_FADE)
+        inner = g.out(g.node("GeometryNodeSetPosition",
+                             {"Geometry": g.out(comps, "Mesh"),
+                              "Position": g.vec(pw.x, pw.y,
+                                                water_z + g.attr("gfx_wave") * wet)}),
+                      0)
+        inner = g.out(g.node("GeometryNodeSetShadeSmooth", {0: inner}), 0)
+        wj = b.add("GeometryNodeJoinGeometry")
+        g.feed(wj, 0, outer)
+        g.feed(wj, 0, inner)
         sheet = g.out(g.node("GeometryNodeSetMaterial",
-                             {"Geometry": sheet,
+                             {"Geometry": g.out(wj, 0),
                               "Material": I(IN_WATER_MATERIAL)}), 0)
         wsw = g.node("GeometryNodeSwitch",
                      {"Switch": I(IN_WATER), "True": sheet},
