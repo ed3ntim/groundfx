@@ -41,7 +41,7 @@ ADDON_NAME = "GroundFX"
 # v35: Creep input (mud lips and crests sag below the repose angle).
 # v36: wave layer on standing water (Water Level, Waves inputs).
 # v37: torn mud strings in the spray stage.
-NODEGROUP_VERSION = 37
+NODEGROUP_VERSION = 49
 
 # --- UI ---------------------------------------------------------------------
 PANEL_CATEGORY = "GroundFX"     # N-panel tab label

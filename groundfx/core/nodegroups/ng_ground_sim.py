@@ -285,17 +285,21 @@ def _relax(g, b, geo, inp):
     Each cell owns its E, N, NE, NW pairs and computes their flux once; the
     partner reads it back, so mass is conserved exactly whatever the
     threshold. Multi-scale: the first iterations of a frame trade between
-    cells 4 and then 2 apart (threshold scaled by distance) so a tall heap
-    spreads in a few iterations; a long pair only trades if the cell halfway
-    is not covered and not higher than both ends (no tunnelling through a
-    berm or a thin collider).
+    cells 16, 8, 4 and then 2 apart (threshold scaled by distance) so a tall
+    heap spreads in a few iterations; a long pair only trades if the cell
+    halfway is not higher than both ends and either none or all three of
+    the cells are covered (no tunnelling through a berm or a thin collider).
     """
     rz = make_repeat_zone(b, [("GEOMETRY", "Geometry")])
     g.feed(rz.input, "Iterations", inp["iters"])
     g.feed(rz.input, "Geometry", geo)
     geo = V(g, rz.input.outputs["Geometry"])
     it = V(g, rz.input.outputs["Iteration"])
-    stride = 1.0 + it.lt(3.5) + it.lt(1.5) * 2.0   # 4, 4, 2, 2, 1, 1, ...
+    # 16, 8, 4, 4, 2, 2, 1, 1, ...: on a fine grid a frame's bow wave
+    # lands as tall single-cell cones that 2- and 4-cell trades cannot
+    # spread in one frame.
+    stride = (1.0 + it.lt(5.5) + it.lt(3.5) * 2.0 + it.lt(1.5) * 4.0
+              + it.lt(0.5) * 8.0)
     half = (stride * 0.5).floor()
 
     n, cell = inp["n"], inp["cell"]
@@ -330,8 +334,13 @@ def _relax(g, b, geo, inp):
         s_j, m_j, cov_j = nb.x, nb.y, nb.z
         # Long pairs stay on open ground: no collider at either end or
         # halfway, and no ridge in between. Direct neighbours always trade.
+        # Material lying on a collider spreads the same way across its top
+        # (both ends and the middle on the object), else a frame's spill
+        # stays a single-cell spike on a thin object.
+        on_top = g.math("MINIMUM", mid.z, cov.min(cov_j)).gt(0.5)
         long_ok = g.math("MULTIPLY", mid.x.lt(s.max(s_j) + 1e-6),
-                         (mid.z + cov.max(cov_j)).lt(0.5))
+                         g.math("MAXIMUM", (mid.z + cov.max(cov_j)).lt(0.5),
+                                on_top))
         path_ok = g.math("MAXIMUM", stride.lt(1.5), long_ok)
         # sticky material clings to an object's surface
         stick = inp["stick"] * 1.5 * cov.max(cov_j)
@@ -418,7 +427,11 @@ def _displace(g, geo, inp, pushed, vel):
     blur = g.node("GeometryNodeBlurAttribute",
                   {"Value": occ, "Iterations": reach}, data_type="FLOAT")
     near = g.out(blur, 0).gt(0.002)
-    ring_sel = g.math("MULTIPLY", near, occ.lt(0.5))
+    # Not under the collider either: material there is never relaxed, so a
+    # footprint's volume would pile into towers in the gaps under an object
+    # (under a weapon's stock or barrel).
+    ring_sel = g.math("MULTIPLY", near,
+                      g.math("MULTIPLY", occ.lt(0.5), g.attr(ATTR_COV).lt(0.5)))
     # Grid index must be stored on the MESH: an Index field evaluated after
     # Mesh to Points would count ring points, not grid vertices.
     geo = g.store(geo, "gfx_src_i", i)

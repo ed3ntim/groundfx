@@ -5,6 +5,36 @@ All notable changes to GroundFX. Versions follow
 `v<version>` and a ZIP on the
 [releases page](https://github.com/ed3ntim/groundfx/releases).
 
+## 0.8.7 - 2026-11-20
+
+### Changed
+
+- Mud splats on an object are no longer round dots: each splat is a core
+  with a few smaller lobes smeared out in one direction, and its rim is
+  frayed by noise.
+
+## 0.8.6 - 2026-11-20
+
+### Changed
+
+- Mud lying on an object is drawn as flat, wet splats with soft round
+  edges instead of the grid cells of its layer, which showed as square,
+  angular flakes. A splat lies at most about a millimetre thick and runs
+  out wide; very thin traces are left out.
+
+## 0.8.5 - 2026-11-20
+
+### Fixed
+
+- Thin towers of material under objects that do not touch the ground
+  everywhere (a rifle lying in mud: under its stock and barrel). The volume
+  an object pushes aside no longer lands in the cells under it, where it
+  was never spread out again.
+- Sharp cones along the flank of an object on fine grids (Ultra): the
+  ground now also trades material between cells 8 and 16 apart, so a
+  frame's bow wave becomes a rounded bank within the frame. Material lying
+  on an object spreads across its top the same way.
+
 ## 0.8.4 - 2026-11-17
 
 ### Changed

@@ -61,6 +61,10 @@ _RING_CELL = 0.006     # target cell of the fine ring in renders (metres)
 _UNDER_SINK = 0.0004   # the ring dips this far where it runs under the domain
 _FAR_CELLS = 33        # far field = this many cells of 3 x domain size
 _WAVE_FADE = 0.006      # metres of water depth over which waves fade in
+_SPLAT_MIN = 0.0005     # thinner mud on an object is not drawn (reads as grit)
+_SPLAT_H = 0.0012       # thickest a splat of mud on an object lies
+_SPLAT_LOBES = 4         # balls per splat: one core and smeared lobes
+_SPLAT_WARP = 1.2        # sideways noise on a splat's rim, in cells
 _DUNE_HEIGHT = {ELEM_SAND: 0.9, ELEM_MUD: 0.12, ELEM_SNOW: 0.35}   # far relief, m
 _SHORE_BAND = 0.012    # metres above the water over which mud stays soaked
 _CRUMB_MIN = 0.001    # crumb radius range, metres
@@ -283,7 +287,110 @@ def build(name: str = NG_SURFACE, element: str = ELEM_SAND):
     comps = g.node("GeometryNodeSeparateComponents",
                    {"Geometry": I(IN_GEOMETRY)})
     solid = b.add("GeometryNodeJoinGeometry")
-    g.feed(solid, 0, g.out(comps, "Instances"))
+    blobs = None
+    if mud:
+        # Mud lying on an object is not a sheet of grid cells (small patches
+        # of one or two cells read as square flakes): it is soft splats. A
+        # ball per cell of the layer, on the object's top, merged through a
+        # volume into one smooth skin, cut off flat at the layer's top (the
+        # blur rounds the edges).
+        sheet = g.out(g.node("GeometryNodeRealizeInstances",
+                             {"Geometry": g.out(comps, "Instances")}), 0)
+        tv = g.attr("gfx_tv")
+        n_pts = g.out(g.node("GeometryNodeAttributeDomainSize",
+                             {"Geometry": g.out(comps, "Mesh")},
+                             component="MESH"), "Point Count")
+        cell = size / (n_pts.sqrt() - 1.0).max(1.0)
+        pts = g.out(g.node("GeometryNodeMeshToPoints",
+                           {"Mesh": sheet, "Selection": tv.gt(_SPLAT_MIN)}), 0)
+        ident = g.index()
+        # down to the object's top: the sheet sits at top + layer
+        pts = g.out(g.node("GeometryNodeSetPosition",
+                           {"Geometry": pts,
+                            "Offset": g.vec(0.0, 0.0, tv * -1.0)}), 0)
+        # A blob of mud on a surface runs out flat: at most _SPLAT_H thick,
+        # the rest of its volume goes into its width.
+        thick = tv.min(_SPLAT_H)
+        rad = ((cell * (tv / thick).sqrt() * 1.1).max(cell * 1.6)
+               * g.random(61, 0.7, 1.3, ident))
+        pts = g.store(pts, "gfx_b_t", thick)
+        pts = g.store(pts, "gfx_b_z", g.position().z)
+        # One ball makes a round disc. A splash is a few lobes thrown out
+        # along one direction: _SPLAT_LOBES balls per splat, a big one in
+        # the middle and smaller ones smeared out along a random heading.
+        pts = g.store(pts, "gfx_b_r", rad)
+        pts = g.store(pts, "gfx_b_id", ident)
+        dup = g.node("GeometryNodeDuplicateElements",
+                     {"Geometry": pts, "Amount": _SPLAT_LOBES}, domain="POINT")
+        pts = g.out(dup, "Geometry")
+        k = g.out(dup, "Duplicate Index")
+        sid = g.attr("gfx_b_id")
+        lid = sid * float(_SPLAT_LOBES) + k
+        r0 = g.attr("gfx_b_r")
+        head = g.random(62, 0.0, 2.0 * math.pi, sid)
+        along = g.random(63, -1.0, 1.0, lid) * r0 * 1.1 * k.gt(0.5)
+        across = g.random(64, -1.0, 1.0, lid) * r0 * 0.35 * k.gt(0.5)
+        ca, sa = g.math("COSINE", head), g.math("SINE", head)
+        pts = g.out(g.node("GeometryNodeSetPosition",
+                           {"Geometry": pts,
+                            "Offset": g.vec(along * ca - across * sa,
+                                            along * sa + across * ca, 0.0)}), 0)
+        lobe = g.switch(k.gt(0.5), r0 * 0.8, r0 * g.random(65, 0.35, 0.7, lid))
+        pts = g.store(pts, "gfx_b_r", lobe)
+        vol = g.out(g.node("GeometryNodePointsToVolume",
+                           {"Points": pts, "Density": 1.0,
+                            "Resolution Mode": "Size",
+                            "Voxel Size": cell * 0.4,
+                            "Radius": g.attr("gfx_b_r")}), 0)
+        blobs = g.out(g.node("GeometryNodeVolumeToMesh",
+                             {"Volume": vol, "Threshold": 0.3}), 0)
+        # a union of balls is lumpy like gravel: relax it into soft mud
+        smooth = g.out(g.node("GeometryNodeBlurAttribute",
+                              {"Value": g.position(), "Iterations": 6},
+                              data_type="FLOAT_VECTOR"), 0)
+        blobs = g.out(g.node("GeometryNodeSetPosition",
+                             {"Geometry": blobs, "Position": smooth}), 0)
+        # ragged rim: warp the outline sideways with noise about a cell
+        # across, so no splat keeps a circular edge
+        warp = g.out(g.node("ShaderNodeTexNoise",
+                            {"Vector": g.position(), "Scale": 1.0 / (cell * 2.5),
+                             "Detail": 2.0, "Roughness": 0.5},
+                            noise_dimensions="3D"), "Color")
+        wamp = cell * _SPLAT_WARP
+        blobs = g.out(g.node("GeometryNodeSetPosition",
+                             {"Geometry": blobs,
+                              "Offset": g.vec((warp.x - 0.5) * 2.0 * wamp,
+                                              (warp.y - 0.5) * 2.0 * wamp,
+                                              0.0)}), 0)
+        near = g.out(g.node("GeometryNodeSampleNearest",
+                            {"Geometry": pts, "Sample Position": g.position()},
+                            domain="POINT"), 0)
+        zb = g.sample_index(pts, g.attr("gfx_b_z"), near)
+        tb = g.sample_index(pts, g.attr("gfx_b_t"), near)
+        bp = g.position()
+        blobs = g.out(g.node("GeometryNodeSetPosition",
+                             {"Geometry": blobs,
+                              "Position": g.vec(bp.x, bp.y,
+                                                zb + (bp.z - zb).max(-0.002)
+                                                .min(tb * 1.2 + 0.0003))}), 0)
+        # nearest-ball values jump between balls: even the seams out
+        smooth = g.out(g.node("GeometryNodeBlurAttribute",
+                              {"Value": g.position(), "Iterations": 3},
+                              data_type="FLOAT_VECTOR"), 0)
+        blobs = g.out(g.node("GeometryNodeSetPosition",
+                             {"Geometry": blobs, "Position": smooth}), 0)
+        blobs = g.out(g.node("GeometryNodeSetShadeSmooth", {0: blobs}), 0)
+        blobs = g.store(blobs, ATTR_DIST, 1.0)
+        # smeared and wet, like worked mud: the open-ground clod bump would
+        # break a few-millimetre blob into grit
+        blobs = g.store(blobs, ATTR_COMP, 1.0)
+        blobs = g.store(blobs, ATTR_DAMP, 1.0)
+        blobs = g.store(blobs, ATTR_SHORE, 0.7)
+        blobs = g.out(g.node("GeometryNodeSetMaterial",
+                             {"Geometry": blobs,
+                              "Material": I(IN_MATERIAL)}), 0)
+    else:
+        g.feed(solid, 0, g.out(comps, "Instances"))
     g.feed(solid, 0, g.out(comps, "Mesh"))
     geo = g.out(g.node("GeometryNodeRealizeInstances",
                        {"Geometry": g.out(solid, 0)}), 0)
@@ -478,6 +585,8 @@ def build(name: str = NG_SURFACE, element: str = ELEM_SAND):
         g.feed(out, 0, _grains(g, surface, loose, I(IN_MATERIAL), seed=90,
                                r_min=0.0003, r_max=0.0018))
     g.feed(out, 0, g.out(comps, "Point Cloud"))
+    if blobs is not None:
+        g.feed(out, 0, blobs)
     g.feed(out, 0, pebbles)
     g.feed(out, 0, crumbs)
     g.feed(out, 0, surface)
